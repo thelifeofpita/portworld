@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import Loader from '@/components/ui/Loader'
 import ContentPanel from '@/components/ui/ContentPanel'
@@ -13,6 +13,48 @@ import type { Zone } from '@/types'
 import styles from './page.module.css'
 
 const Scene = dynamic(() => import('@/components/canvas/Scene'), { ssr: false })
+
+function CursorHint({ visible }: { visible: boolean }) {
+  const ref        = useRef<HTMLDivElement>(null)
+  const isDragging = useRef(false)
+  const visibleRef = useRef(visible)
+
+  // Sync visible prop → ref and update opacity
+  useEffect(() => {
+    visibleRef.current = visible
+    if (ref.current)
+      ref.current.style.opacity = (visible && !isDragging.current) ? '1' : '0'
+  }, [visible])
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const sync = () => {
+      el.style.opacity = (visibleRef.current && !isDragging.current) ? '1' : '0'
+    }
+    const onMove = (e: MouseEvent) => {
+      el.style.left = e.clientX + 'px'
+      el.style.top  = e.clientY + 'px'
+    }
+    const onDown = () => { isDragging.current = true;  sync() }
+    const onUp   = () => { isDragging.current = false; sync() }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mousedown', onDown)
+    window.addEventListener('mouseup',   onUp)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mousedown', onDown)
+      window.removeEventListener('mouseup',   onUp)
+    }
+  }, [])
+
+  return (
+    <div ref={ref} className={styles.cursorHint}>
+      <span>drag</span>
+      <span>click</span>
+    </div>
+  )
+}
 
 export default function Home() {
   const isMobile = useIsMobile()
@@ -55,6 +97,7 @@ export default function Home() {
           <a href={aboutContent.instagram} className={styles.contactLink} target="_blank" rel="noopener noreferrer">Instagram</a>
         )}
       </div>
+      <CursorHint visible={loaded && activeZone === null} />
       <Loader visible={!loaded} />
     </main>
   )

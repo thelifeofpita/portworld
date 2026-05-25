@@ -3,7 +3,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'thelifeofpita',
-  description: 'Portfolio of Pita — design, art, and creative work.',
+  description: 'Creatively misdirected.',
 }
 
 export default function RootLayout({

@@ -227,11 +227,14 @@ export default function Model({ onZoneChange, onZoneReset, onAsciiToggle, yOffse
   useEffect(() => {
     const el = gl.domElement
     el.style.cursor = 'grab'
+    const onDragStart = (e: DragEvent) => e.preventDefault()
     el.addEventListener('pointerdown', onPointerDown)
+    el.addEventListener('dragstart',   onDragStart)
     window.addEventListener('pointermove', onPointerMove)
     window.addEventListener('pointerup', onPointerUp)
     return () => {
       el.removeEventListener('pointerdown', onPointerDown)
+      el.removeEventListener('dragstart',   onDragStart)
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
     }

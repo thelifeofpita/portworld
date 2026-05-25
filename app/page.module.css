@@ -5,6 +5,12 @@
   background-color: var(--bg-color);
 }
 
+.main img,
+.main canvas {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
 .byline {
   position: fixed;
   top: 4rem;
@@ -45,4 +51,23 @@
 
 .contactLink:hover {
   color: red;
+}
+
+.cursorHint {
+  position: fixed;
+  top: 0;
+  left: 0;
+  pointer-events: none;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 4rem;
+  transform: translate(-50%, -50%);
+  transition: opacity 0.4s ease;
+  font-size: 1rem;
+  font-weight: normal;
+  letter-spacing: -0.01em;
+  color: var(--fg-muted, #999);
+  user-select: none;
+  white-space: nowrap;
 }
