@@ -1,0 +1,503 @@
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-bottom: 3rem;
+}
+
+/* ─── Bottom content (About / Misc) ──────────────────────────────── */
+
+.content {
+  pointer-events: auto;
+  width: 100%;
+  max-width: 860px;
+  margin: 0 auto;
+  padding: 0 2rem;
+}
+
+/* ─── Projects pane — full viewport, cards flanking center ───────── */
+
+.projectsPane {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.projectsList {
+  position: absolute;
+  top: 50%;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2.75rem;
+}
+
+/* Left column — centred 20% from left edge */
+.projectsList:first-child {
+  left: 20%;
+  transform: translate(-50%, -50%);
+}
+
+/* Right column — centred 20% from right edge (mirror of left) */
+.projectsList:last-child {
+  left: 80%;
+  transform: translate(-50%, -50%);
+}
+
+.projectCard {
+  width: 20vw;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+}
+
+.projectCardInner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.projectCardRow {
+  position: relative;
+}
+
+.projectThumb {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  background-color: #f0ece8;
+  border-radius: 0;
+  border: 2px solid var(--fg-color);
+  overflow: hidden;
+  transition: border-color 0.2s ease;
+}
+
+.projectCard:hover .projectThumb {
+  border-color: var(--accent-color);
+}
+
+.projectIconLeft,
+.projectIconRight {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2rem;
+  height: 2rem;
+  object-fit: contain;
+  pointer-events: none;
+}
+
+
+.projectIconLeft  { right: calc(100% + 0.75rem); }
+.projectIconRight { left:  calc(100% + 0.75rem); }
+
+/* MAS icon inverts smoothly with the background */
+.projectIconLeft[src$="MAS.png"],
+.projectIconRight[src$="MAS.png"],
+.detailIcon[src$="MAS.png"] {
+  filter: invert(var(--icon-invert, 0));
+}
+
+
+/* ─── About — full-viewport side panels ──────────────────────────── */
+
+.aboutPane {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  display: flex;
+  justify-content: space-between;
+}
+
+.aboutPanelLeft,
+.aboutPanelRight {
+  width: 33%;
+  height: 100%;
+  pointer-events: auto;
+  overflow: visible;
+  display: flex;
+  align-items: center;
+}
+
+.aboutPanelInner {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  padding: 3.5rem 2.75rem;
+}
+
+/* Photo */
+.aboutPhoto {
+  width: 55%;
+  aspect-ratio: 1 / 1;
+  background-color: #e8e4e0;
+  border-radius: 0;
+  border: 2px solid var(--fg-color);
+  touch-action: none;
+  user-select: none;
+  cursor: grab;
+  transition: border-color 0.2s ease;
+}
+
+.aboutPhoto:hover {
+  border-color: var(--accent-color);
+}
+
+/* Bio */
+.bio {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--fg-color);
+}
+
+/* Contact */
+.contactLinks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.link {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  transition: color 0.2s ease-out;
+  pointer-events: auto;
+}
+
+.link:hover {
+  color: var(--fg-color);
+}
+
+/* CV sections */
+.cvSection {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.cvHeading {
+  font-size: 0.7rem;
+  font-weight: normal;
+  letter-spacing: -0.01em;
+  color: var(--fg-muted);
+  margin-bottom: 0.1rem;
+}
+
+.cvItem {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+}
+
+.cvTitle {
+  font-size: 0.875rem;
+  letter-spacing: -0.01em;
+  color: var(--fg-color);
+  line-height: 1.2;
+}
+
+.cvMeta {
+  font-size: 0.75rem;
+  letter-spacing: -0.01em;
+  color: var(--fg-muted);
+  line-height: 1.2;
+}
+
+.cvDownload {
+  font-size: 0.875rem;
+  letter-spacing: -0.01em;
+  color: var(--fg-color);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  margin-top: 0.5rem;
+  transition: color 0.2s ease-out;
+}
+
+.cvDownload:hover {
+  color: red;
+}
+
+
+/* ─── Playground — scattered cards, left and right of center ─────── */
+
+.playgroundPane {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Fixed anchor point — card is centered on it via translate(-50%, -50%) */
+.playgroundCardAnchor {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+/* Width driven by inline style (per-card random size) */
+.playgroundCard {
+  position: relative;
+  pointer-events: auto;
+  touch-action: none;
+  user-select: none;
+}
+
+.playgroundCardInner {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.playgroundThumb {
+  width: 100%;
+  /* aspect-ratio, padding (fake border), background-color set via inline style.
+     overflow: hidden here clips the rounded corners of the padding "frame". */
+  border-radius: 0;
+  overflow: hidden;
+}
+
+.playgroundThumbInner {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background-color: #f0ece8;
+  overflow: hidden;
+}
+
+.playgroundPoster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  pointer-events: none;
+  transition: opacity 0.15s ease;
+}
+
+.playgroundVideo {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.playgroundCardTitle {
+  font-size: 0.65rem;
+  letter-spacing: 0.05em;
+  color: var(--fg-muted);
+}
+
+/* ─── Project card thumbnail image ──────────────────────────────── */
+
+.projectThumbImg {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* ─── Project detail overlay ─────────────────────────────────────── */
+
+.detailBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.35);
+  z-index: 50;
+  pointer-events: auto;
+}
+
+.detailPanel {
+  /* top / left / width / height driven by Framer Motion (card rect → final bounds) */
+  position: fixed;
+  background: var(--bg-color);
+  border: 2px solid var(--fg-color);
+  z-index: 51;
+  pointer-events: auto;
+  overflow: hidden;
+}
+
+.detailClose {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.75rem;
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--fg-muted);
+  cursor: pointer;
+  z-index: 1;
+  transition: color 0.15s ease;
+}
+
+.detailClose:hover {
+  color: var(--fg-color);
+}
+
+.detailInner {
+  display: flex;
+  flex: 1;
+  gap: 3rem;
+  padding: 3rem;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* Text column fills all horizontal space left after the media column */
+.detailLeft {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.detailTitle {
+  font-size: clamp(1.5rem, 2.8vw, 3rem);
+  line-height: 1.08;
+  color: var(--fg-color);
+  word-break: break-word;
+  overflow-wrap: break-word;
+}
+
+.detailIconGroup {
+  position: absolute;
+  bottom: 3rem;
+  left: 3rem;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1rem;
+  pointer-events: none;
+}
+
+.detailIcon {
+  height: calc(clamp(1.5rem, 2.8vw, 3rem) * 1);
+  width: auto;
+  object-fit: contain;
+}
+
+
+.detailIconLabel {
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--fg-color);
+}
+
+/* Absolutely centered in the full panel height, constrained to the left column's
+   horizontal span: left padding (3rem) to right edge of left column
+   (panel - right-padding(3rem) - gap(3rem) - right-col-width). */
+.detailDesc {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  left: 3rem;
+  right: calc((90vh - 6rem) * 32 / 27 + 6rem + 1rem);
+  font-size: 0.875rem;
+  line-height: 1.4;
+  color: var(--fg-color);
+  overflow-wrap: break-word;
+}
+
+/* ─── Media column ────────────────────────────────────────────────────────────
+   Width derived from panel height so video + two side-by-side images fill
+   exactly the available vertical space with no gap and no overflow.
+
+   Derivation (H = 90vh − 6rem available height, no gaps):
+     video_h = W × 9/16
+     image_h = (W/2) × 9/16   (each image is half the width, same 16:9)
+     total   = W × 9/16 + W × 9/32 = W × 27/32 = H
+     → W = H × 32/27 = (90vh − 6rem) × 32/27
+─────────────────────────────────────────────────────────────────────────────*/
+.detailRight {
+  flex-shrink: 0;
+  width: calc((90vh - 6rem) * 32 / 27);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  overflow: hidden;
+}
+
+/* All three media slots in one grid — featured spans both columns (row 1),
+   the other two sit side by side (row 2). Framer Motion layout-animates
+   each item between these positions when featured changes. */
+.detailMediaGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+}
+
+.detailMediaItem {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #f0ece8;
+}
+
+.detailMediaOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  cursor: pointer;
+  box-shadow: inset 0 0 0 0px var(--accent-color);
+  transition: box-shadow 0.2s ease;
+}
+
+.detailMediaOverlay:hover {
+  box-shadow: inset 0 0 0 2px var(--accent-color);
+}
+
+.detailVideoPlaceholder {
+  background: #e8e4e0;
+  width: 100%;
+  height: 100%;
+}
+
+/* ─── About photo fade-in ───────────────────────────────────────── */
+
+@keyframes photoFadeIn {
+  from { opacity: 0; }
+}
+
+.aboutPhotoImg {
+  animation: photoFadeIn 33ms linear;
+}
+
+/* ─── Zone shared ────────────────────────────────────────────────── */
+
+.zone {
+  width: 100%;
+}
+
+/* ─── Mobile ─────────────────────────────────────────────────────── */
+
+@media (max-width: 640px) {
+  .content {
+    padding: 0 1.25rem;
+  }
+
+  .projectCard {
+    width: 36vw;
+  }
+
+  .projectsList {
+    gap: 1.75rem;
+  }
+
+  .aboutPanelLeft,
+  .aboutPanelRight {
+    width: 50%;
+  }
+
+  .aboutPanelInner {
+    padding: 2rem 1.25rem;
+    gap: 1.25rem;
+  }
+
+  .overlay {
+    padding-bottom: 2rem;
+  }
+}

@@ -1,0 +1,41 @@
+.loader {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background-color: var(--bg-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Wrapper establishes the coordinate space for the absolute fill layer */
+.textWrap {
+  position: relative;
+  display: inline-block;
+}
+
+.textBase,
+.textFill {
+  font-size: 1rem;
+  white-space: nowrap;
+  display: block;
+}
+
+.textBase {
+  color: #000;
+}
+
+/* Fill layer — red, clips from left to right */
+.textFill {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  color: #F20C1F;
+  width: 0%;
+  animation: fill 2.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fill {
+  from { width: 0% }
+  to   { width: 100% }
+}

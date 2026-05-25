@@ -1,0 +1,49 @@
+/* Full-viewport SVG — sits behind the boxes */
+.svg {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 11;
+}
+
+/* Full-viewport container — boxes are individually translated by JS.
+   mix-blend-mode on the container blends the entire nav layer against the
+   WebGL canvas + page at compositor level, which is what actually works.
+   mix-blend-mode on a child span only composites within this layer (vs
+   transparent background = no effect). */
+.nav {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 12;
+  mix-blend-mode: difference;
+}
+
+/* Boxes start at top-left (0,0) and are moved via transform each frame.
+   color: white + difference blend = letters invert against whatever is below. */
+.box {
+  position: absolute;
+  left: 0;
+  top: 0;
+  background: transparent;
+  color: white;
+  font-size: 1rem;
+  letter-spacing: normal;
+  text-transform: none;
+  padding: 0.4rem 0.9rem 0.35rem;
+  pointer-events: auto;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+/* Expand the hit area without changing the visual.
+   Absolutely-positioned so it doesn't affect offsetWidth/offsetHeight
+   (which drives the SVG underline rect). Transparent = invisible through
+   the difference blend. */
+.box::before {
+  content: '';
+  position: absolute;
+  inset: -1rem -1.5rem;
+}
