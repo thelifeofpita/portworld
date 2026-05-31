@@ -182,7 +182,7 @@ function ProjectCard({ n, floatDelay, direction, onExpand, thumb, icon, isOpen, 
           <div className={styles.projectCardRow}>
             {icon && direction === 'left'  && <img src={icon} alt="" className={styles.projectIconLeft} />}
             <div ref={thumbRef} className={styles.projectThumb}>
-              {thumb && <Image src={thumb} alt="" fill style={{ objectFit: 'cover' }} sizes="30vw" />}
+              {thumb && <Image src={thumb} alt="" fill priority style={{ objectFit: 'cover' }} sizes="30vw" />}
             </div>
             {icon && direction === 'right' && <img src={icon} alt="" className={styles.projectIconRight} />}
           </div>
@@ -1049,6 +1049,13 @@ interface ContentPanelProps {
 }
 
 export default function ContentPanel({ activeZone }: ContentPanelProps) {
+  // Warm the browser cache for project thumbnails immediately on mount so they're
+  // ready before the user rotates to zone 0 (belt-and-suspenders with the <link
+  // rel="preload"> in layout.tsx which fires even earlier via the HTML parser).
+  useEffect(() => {
+    projectsContent.forEach(p => { if (p.thumb) new window.Image().src = p.thumb })
+  }, [])
+
   // Configs computed once after all aspect ratios are known — prevents overlap
   // that would occur if layout ran before the real card shapes were resolved.
   const [playgroundConfigs, setMiscConfigs] = useState<PlaygroundCardConfig[]>([])

@@ -55,46 +55,45 @@ const MOBILE_NDC_OFFSET = (0.5 - MOBILE_CANVAS_VH / 2) * 2 // 0.55 — NDC above
 // Returns vertical FOV calibrated so 16:9 → 28° vFOV.
 // Portrait (mobile, full-page canvas): capped at ~35.6° so the top-45% zone
 // shows the same content density as the original 45vh canvas at 16°.
-function getBaseFov(width: number, height: number): number {
+function getBaseFov(width: number, height: number, isMobile: boolean): number {
   const hFov = 2 * Math.atan(Math.tan(14 * Math.PI / 180) * (16 / 9))
   const vFov = 2 * Math.atan(Math.tan(hFov / 2) / (width / height)) * 180 / Math.PI
-  return width < height * 1.2 ? Math.min(vFov, MOBILE_FOV_CAP) : vFov
+  return isMobile ? Math.min(vFov, MOBILE_FOV_CAP) : vFov
 }
 
 // Portrait: how far (world units) to shift the model group UP so it appears
 // centered in the top 45% zone. Camera stays at [0,0,5]—moving camera.y is
 // cancelled by R3F's automatic lookAt(0,0,0), so we move the model instead.
-function getMobileModelYOffset(width: number, height: number): number {
-  if (width >= height * 1.2) return 0
+function getMobileModelYOffset(isMobile: boolean): number {
+  if (!isMobile) return 0
   const halfH = Math.tan((MOBILE_FOV_CAP / 2) * Math.PI / 180) * 5
   return MOBILE_NDC_OFFSET * halfH  // +0.881 — model moves up → appears above center
 }
 
-function CameraFov() {
+function CameraFov({ isMobile }: { isMobile: boolean }) {
   const { camera, size } = useThree()
   const scrollDelta = useRef(0)
-  const targetFov   = useRef(getBaseFov(size.width, size.height))
+  const targetFov   = useRef(getBaseFov(size.width, size.height, isMobile))
 
   // Recompute base on viewport resize; preserve accumulated scroll delta
   useEffect(() => {
     targetFov.current = Math.max(12, Math.min(65,
-      getBaseFov(size.width, size.height) + scrollDelta.current
+      getBaseFov(size.width, size.height, isMobile) + scrollDelta.current
     ))
-  }, [size])
+  }, [size, isMobile])
 
   useEffect(() => {
-    const isMobile = window.innerWidth < window.innerHeight * 1.2
     if (isMobile) return
     const onWheel = (e: WheelEvent) => {
       e.preventDefault()
       scrollDelta.current = Math.max(-8, Math.min(37, scrollDelta.current + e.deltaY * 0.08))
       targetFov.current = Math.max(12, Math.min(65,
-        getBaseFov(window.innerWidth, window.innerHeight) + scrollDelta.current
+        getBaseFov(window.innerWidth, window.innerHeight, isMobile) + scrollDelta.current
       ))
     }
     window.addEventListener('wheel', onWheel, { passive: false })
     return () => window.removeEventListener('wheel', onWheel)
-  }, [])
+  }, [isMobile])
 
   useFrame((_, delta) => {
     const cam = camera as THREE.PerspectiveCamera
@@ -166,11 +165,10 @@ function BackgroundSync({ color }: { color: 'white' | 'black' }) {
 // Moves the model group upward in world space to match page scroll, so the model
 // scrolls with page content. Also publishes the extra offset to modelScrollStore
 // so Model.tsx posStore computations stay accurate.
-function ScrollingGroup({ baseY, children }: { baseY: number; children: React.ReactNode }) {
+function ScrollingGroup({ baseY, isMobile, children }: { baseY: number; isMobile: boolean; children: React.ReactNode }) {
   const ref      = useRef<THREE.Group>(null)
   const scrollPx = useRef(0)
-  const { camera, size } = useThree()
-  const isMobile = size.width < size.height * 1.2
+  const { camera } = useThree()
 
   useEffect(() => {
     if (!isMobile) return
@@ -198,14 +196,15 @@ interface SceneProps {
   onZoneChange: (zone: Zone) => void
   onZoneReset: () => void
   onLoad: () => void
+  isMobile?: boolean
   canvasStyle?: React.CSSProperties
 }
 
-export default function Scene({ onZoneChange, onZoneReset, onLoad, canvasStyle }: SceneProps) {
+export default function Scene({ onZoneChange, onZoneReset, onLoad, isMobile = false, canvasStyle }: SceneProps) {
   const [bg, setBg]           = useState<'white' | 'black'>('white')
   const [shaderMode, setShaderMode] = useState<0|1|2>(0)
-  const [initialFov]   = useState(() => getBaseFov(window.innerWidth, window.innerHeight))
-  const [modelYOffset] = useState(() => getMobileModelYOffset(window.innerWidth, window.innerHeight))
+  const [initialFov]   = useState(() => getBaseFov(window.innerWidth, window.innerHeight, isMobile))
+  const [modelYOffset] = useState(() => getMobileModelYOffset(isMobile))
 
   const onPointerMissed  = useCallback(() => setBg(p => p === 'white' ? 'black' : 'white'), [])
   const onAsciiToggle    = useCallback(() => {
@@ -234,8 +233,8 @@ export default function Scene({ onZoneChange, onZoneReset, onLoad, canvasStyle }
       <Suspense fallback={null}>
         <Environment preset="studio" />
         <EnvironmentTracker />
-        <CameraFov />
-        <ScrollingGroup baseY={modelYOffset}>
+        <CameraFov isMobile={isMobile} />
+        <ScrollingGroup baseY={modelYOffset} isMobile={isMobile}>
           <Model onZoneChange={onZoneChange} onZoneReset={onZoneReset} onAsciiToggle={onAsciiToggle} yOffset={modelYOffset} />
         </ScrollingGroup>
         <OnLoad onLoad={onLoad} />

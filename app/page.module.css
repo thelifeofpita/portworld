@@ -22,11 +22,24 @@
   pointer-events: auto;
   cursor: pointer;
   z-index: 12;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  line-height: 1.25;
+}
+
+.bylineName {
   white-space: nowrap;
+  display: block;
+}
+
+.bylineLast {
+  display: block;
+  font-size: 2.75rem;
   transition: color 0.2s ease-out;
 }
 
-.byline:hover {
+.byline:hover .bylineLast {
   color: red;
 }
 

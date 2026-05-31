@@ -21,9 +21,9 @@ export default function Loader({ visible }: LoaderProps) {
         >
           <div className={styles.textWrap}>
             {/* Base layer — unfilled colour */}
-            <span className={styles.textBase}>Play.</span>
+            <span className={styles.textBase}>Behold.</span>
             {/* Fill layer — clips from left to right */}
-            <span className={styles.textFill} aria-hidden="true">Play.</span>
+            <span className={styles.textFill} aria-hidden="true">Behold.</span>
           </div>
         </motion.div>
       )}

@@ -373,6 +373,30 @@ function MobileProjects() {
 function MobileAbout() {
   const [photoIndex, setPhotoIndex] = useState(0)
   const [prevIndex, setPrevIndex]   = useState<number | null>(null)
+  const [pitaSize, setPitaSize]     = useState('')
+
+  const SHARED_STYLE = 'position:absolute;top:-9999px;visibility:hidden;white-space:nowrap;font-size:1rem;letter-spacing:-0.02em;font-family:inherit;pointer-events:none'
+  const nameRef = useCallback((node: HTMLSpanElement | null) => {
+    if (!node) return
+    const measure = () => {
+      const parent = node.parentElement!
+      const tName = document.createElement('span')
+      tName.style.cssText = SHARED_STYLE
+      tName.textContent = 'Jose David'
+      const tPita = document.createElement('span')
+      tPita.style.cssText = SHARED_STYLE
+      tPita.textContent = 'Pita'
+      parent.appendChild(tName)
+      parent.appendChild(tPita)
+      const nameW = tName.getBoundingClientRect().width
+      const pitaW = tPita.getBoundingClientRect().width
+      tName.remove()
+      tPita.remove()
+      if (nameW > 0 && pitaW > 0) setPitaSize(`${(nameW / pitaW).toFixed(4)}rem`)
+    }
+    measure()
+    document.fonts.ready.then(measure)
+  }, [])
 
   useEffect(() => {
     aboutContent.photos.forEach(src => { new window.Image().src = src })
@@ -394,16 +418,22 @@ function MobileAbout() {
 
   return (
     <div className={styles.mobileAbout}>
-      <div className={styles.mobilePhotoContainer}>
-        <div className={styles.mobilePhotoWrapper}>
-          {prevPhoto && (
-            <img src={prevPhoto} alt=""
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-          )}
-          {photo && (
-            <img key={photoIndex} src={photo} alt="" className={styles.mobilePhotoImg}
-              style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-          )}
+      <div className={styles.mobileAboutHeader}>
+        <div className={styles.mobilePhotoContainer}>
+          <div className={styles.mobilePhotoWrapper}>
+            {prevPhoto && (
+              <img src={prevPhoto} alt=""
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            )}
+            {photo && (
+              <img key={photoIndex} src={photo} alt="" className={styles.mobilePhotoImg}
+                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+            )}
+          </div>
+        </div>
+        <div className={styles.mobileAboutName}>
+          <span ref={nameRef} className={styles.mobileAboutBylineName}>Jose David</span>
+          <span className={styles.mobileAboutBylineLast} style={{ fontSize: pitaSize || undefined }}>Pita</span>
         </div>
       </div>
 
@@ -477,6 +507,7 @@ export default function MobilePage({ activeZone, onZoneChange, onZoneReset, onLo
         onZoneChange={onZoneChange}
         onZoneReset={onZoneReset}
         onLoad={onLoad}
+        isMobile={true}
       />
 
       <main className={styles.mobileMain}>
