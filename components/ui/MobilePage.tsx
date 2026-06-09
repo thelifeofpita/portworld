@@ -279,7 +279,7 @@ function MobileProjectCard({
               className={styles.mobileProjectThumbWrap}
             >
               {item.thumb && (
-                <Image src={item.thumb} alt={item.title} fill quality={90} style={{ objectFit: 'cover' }} sizes="100vw" />
+                <Image src={item.thumb} alt={item.title} fill quality={90} style={{ objectFit: 'cover', transform: item.thumbScale && item.thumbScale !== 1 ? `scale(${item.thumbScale})` : undefined }} sizes="100vw" />
               )}
               {item.icon && (
                 <img src={item.icon} alt="" className={styles.mobileProjectIconOverlay} />

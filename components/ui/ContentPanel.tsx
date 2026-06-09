@@ -279,7 +279,7 @@ function ProjectDetail({ item, cardRect, onClose }: { item: ProjectItem; cardRec
           }}
         >
           {item.thumb && (
-            <Image src={item.thumb} alt="" fill quality={90} style={{ objectFit: 'cover' }} sizes="90vw" />
+            <Image src={item.thumb} alt="" fill quality={90} style={{ objectFit: 'cover', transform: item.thumbScale && item.thumbScale !== 1 ? `scale(${item.thumbScale})` : undefined }} sizes="90vw" />
           )}
         </motion.div>
 
