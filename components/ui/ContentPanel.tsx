@@ -83,9 +83,11 @@ interface CardProps {
   icon?: string
   isOpen: boolean      // portal is fully open — card hides so they don't overlap
   isExpanded: boolean  // portal is open OR closing — float stays frozen
+  xShift?: number      // extra horizontal offset in vw — positive = right
+  thumbScale?: number  // CSS scale applied to the thumbnail image
 }
 
-function ProjectCard({ n, floatDelay, direction, onExpand, thumb, icon, isOpen, isExpanded }: CardProps) {
+function ProjectCard({ n, floatDelay, direction, onExpand, thumb, icon, isOpen, isExpanded, xShift = 0, thumbScale = 1 }: CardProps) {
   const controls        = useAnimation()
   const timerRef        = useRef<ReturnType<typeof setTimeout> | null>(null)
   const liveRef         = useRef(false)
@@ -161,7 +163,7 @@ function ProjectCard({ n, floatDelay, direction, onExpand, thumb, icon, isOpen, 
         const r = thumbRef.current?.getBoundingClientRect()
         if (r) onExpand({ top: r.top, left: r.left, width: r.width, height: r.height })
       }}
-      style={{ cursor: 'grab' }}
+      style={{ cursor: 'grab', marginLeft: xShift ? `${xShift}vw` : undefined }}
     >
       {/* Hidden only while the portal is fully open (isOpen). During the closing
           animation the card is already visible underneath — the portal sits on top
@@ -182,7 +184,7 @@ function ProjectCard({ n, floatDelay, direction, onExpand, thumb, icon, isOpen, 
           <div className={styles.projectCardRow}>
             {icon && direction === 'left'  && <img src={icon} alt="" className={styles.projectIconLeft} />}
             <div ref={thumbRef} className={styles.projectThumb}>
-              {thumb && <Image src={thumb} alt="" fill priority style={{ objectFit: 'cover' }} sizes="30vw" />}
+              {thumb && <Image src={thumb} alt="" fill priority quality={90} style={{ objectFit: 'cover', transform: thumbScale !== 1 ? `scale(${thumbScale})` : undefined }} sizes="30vw" />}
             </div>
             {icon && direction === 'right' && <img src={icon} alt="" className={styles.projectIconRight} />}
           </div>
@@ -197,7 +199,7 @@ function ProjectCard({ n, floatDelay, direction, onExpand, thumb, icon, isOpen, 
 type MediaSlot = 'video' | 'img0' | 'img1'
 const ALL_SLOTS: MediaSlot[] = ['video', 'img0', 'img1']
 
-function MediaContent({ slot, item }: { slot: MediaSlot; item: ProjectItem }) {
+function MediaContent({ slot, item, isFeatured }: { slot: MediaSlot; item: ProjectItem; isFeatured: boolean }) {
   if (slot === 'video') {
     return item.youtubeId ? (
       <iframe
@@ -210,15 +212,21 @@ function MediaContent({ slot, item }: { slot: MediaSlot; item: ProjectItem }) {
     ) : <div className={styles.detailVideoPlaceholder} />
   }
   const src = item.images[slot === 'img0' ? 0 : 1]
+  // Featured slot spans the full right column (~65vw at typical desktop heights).
+  // Non-featured slots are half that (~32vw). Using accurate sizes prevents
+  // Next.js from serving an undersized image that gets upscaled and looks blurry.
+  const sizes = isFeatured
+    ? '100vw'
+    : '(max-width: 768px) 100vw, 32vw'
   return src
-    ? <Image src={src} alt="" fill style={{ objectFit: 'cover' }} sizes="(max-width: 768px) 100vw, 45vw" />
+    ? <Image src={src} alt="" fill quality={90} style={{ objectFit: 'cover' }} sizes={sizes} />
     : <div style={{ width: '100%', height: '100%', background: '#f0ece8' }} />
 }
 
 const MEDIA_SWAP = { duration: 0.42, ease: [0.22, 1, 0.36, 1] as const }
 
 function ProjectDetail({ item, cardRect, onClose }: { item: ProjectItem; cardRect: CardRect; onClose: () => void }) {
-  const [featured, setFeatured] = useState<MediaSlot>('video')
+  const [featured, setFeatured] = useState<MediaSlot>(item.defaultFeatured ?? 'video')
   const bottomSlots = ALL_SLOTS.filter(s => s !== featured)
 
   useEffect(() => {
@@ -271,7 +279,7 @@ function ProjectDetail({ item, cardRect, onClose }: { item: ProjectItem; cardRec
           }}
         >
           {item.thumb && (
-            <Image src={item.thumb} alt="" fill style={{ objectFit: 'cover' }} sizes="90vw" />
+            <Image src={item.thumb} alt="" fill quality={90} style={{ objectFit: 'cover' }} sizes="90vw" />
           )}
         </motion.div>
 
@@ -313,7 +321,7 @@ function ProjectDetail({ item, cardRect, onClose }: { item: ProjectItem; cardRec
                       className={styles.detailMediaItem}
                       style={{ ...gridStyle, position: 'relative', cursor: isFeatured ? 'default' : 'pointer' }}
                     >
-                      <MediaContent slot={slot} item={item} />
+                      <MediaContent slot={slot} item={item} isFeatured={isFeatured} />
                       {/* Overlay on bottom slots — intercepts iframe clicks and shows
                           the accent outline on hover. */}
                       {!isFeatured && (
@@ -386,12 +394,14 @@ function ProjectsPane() {
         exit="exit"
       >
         <ul className={styles.projectsList}>
-          <ProjectCard n={1} floatDelay={0}    direction="left"  onExpand={(r) => handleExpand(0, r)} thumb={projectsContent[0].thumb} icon={projectsContent[0].icon} isOpen={isOpen(0)} isExpanded={isHidden(0)} />
-          <ProjectCard n={2} floatDelay={0.55} direction="left"  onExpand={(r) => handleExpand(1, r)} thumb={projectsContent[1].thumb} icon={projectsContent[1].icon} isOpen={isOpen(1)} isExpanded={isHidden(1)} />
+          <ProjectCard n={1} floatDelay={0}    direction="left"  xShift={ 0.8} onExpand={(r) => handleExpand(0, r)} thumb={projectsContent[0].thumb} icon={projectsContent[0].icon} isOpen={isOpen(0)} isExpanded={isHidden(0)} />
+          <ProjectCard n={2} floatDelay={0.55} direction="left"  xShift={-2}   onExpand={(r) => handleExpand(1, r)} thumb={projectsContent[1].thumb} icon={projectsContent[1].icon} isOpen={isOpen(1)} isExpanded={isHidden(1)} />
+          <ProjectCard n={3} floatDelay={1.00} direction="left"  xShift={ 0.8} onExpand={(r) => handleExpand(2, r)} thumb={projectsContent[2].thumb} icon={projectsContent[2].icon} isOpen={isOpen(2)} isExpanded={isHidden(2)} />
         </ul>
         <ul className={styles.projectsList}>
-          <ProjectCard n={3} floatDelay={0.28} direction="right" onExpand={(r) => handleExpand(2, r)} thumb={projectsContent[2].thumb} icon={projectsContent[2].icon} isOpen={isOpen(2)} isExpanded={isHidden(2)} />
-          <ProjectCard n={4} floatDelay={0.85} direction="right" onExpand={(r) => handleExpand(3, r)} thumb={projectsContent[3].thumb} icon={projectsContent[3].icon} isOpen={isOpen(3)} isExpanded={isHidden(3)} />
+          <ProjectCard n={4} floatDelay={0.28} direction="right" xShift={-0.8} onExpand={(r) => handleExpand(3, r)} thumb={projectsContent[3].thumb} icon={projectsContent[3].icon} isOpen={isOpen(3)} isExpanded={isHidden(3)} />
+          <ProjectCard n={5} floatDelay={0.85} direction="right" xShift={ 2}   onExpand={(r) => handleExpand(4, r)} thumb={projectsContent[4].thumb} icon={projectsContent[4].icon} isOpen={isOpen(4)} isExpanded={isHidden(4)} thumbScale={projectsContent[4].thumbScale} />
+          <ProjectCard n={6} floatDelay={1.30} direction="right" xShift={-0.8} onExpand={(r) => handleExpand(5, r)} thumb={projectsContent[5].thumb} icon={projectsContent[5].icon} isOpen={isOpen(5)} isExpanded={isHidden(5)} />
         </ul>
       </motion.div>
 

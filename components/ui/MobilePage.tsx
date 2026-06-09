@@ -279,7 +279,7 @@ function MobileProjectCard({
               className={styles.mobileProjectThumbWrap}
             >
               {item.thumb && (
-                <Image src={item.thumb} alt={item.title} fill style={{ objectFit: 'cover' }} sizes="100vw" />
+                <Image src={item.thumb} alt={item.title} fill quality={90} style={{ objectFit: 'cover' }} sizes="100vw" />
               )}
               {item.icon && (
                 <img src={item.icon} alt="" className={styles.mobileProjectIconOverlay} />
@@ -321,12 +321,12 @@ function MobileProjectCard({
 
             {item.images[0] && (
               <div className={styles.mobileProjectImageWrap}>
-                <Image src={item.images[0]} alt="" fill style={{ objectFit: 'cover' }} sizes="100vw" />
+                <Image src={item.images[0]} alt="" fill quality={90} style={{ objectFit: 'cover' }} sizes="100vw" />
               </div>
             )}
             {item.images[1] && (
               <div className={styles.mobileProjectImageWrap}>
-                <Image src={item.images[1]} alt="" fill style={{ objectFit: 'cover' }} sizes="100vw" />
+                <Image src={item.images[1]} alt="" fill quality={90} style={{ objectFit: 'cover' }} sizes="100vw" />
               </div>
             )}
 

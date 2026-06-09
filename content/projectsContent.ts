@@ -21,13 +21,15 @@
 //      and images: ['/projects/proj1/01.jpg', '/projects/proj1/02.jpg']
 
 export interface ProjectItem {
-  title:       string
-  description: string
-  youtubeId:   string
-  images:      [string, string]
-  thumb?:      string
-  icon?:       string  // path to icon in /public/icons/
-  iconLabel?:  string
+  title:          string
+  description:    string
+  youtubeId:      string
+  images:         [string, string]
+  thumb?:         string
+  icon?:          string  // path to icon in /public/icons/
+  iconLabel?:     string
+  defaultFeatured?: 'video' | 'img0' | 'img1'
+  thumbScale?:      number  // CSS scale applied to the thumbnail image, e.g. 1.2 for 20% zoom
 }
 
 export const projectsContent: ProjectItem[] = [
@@ -64,5 +66,21 @@ export const projectsContent: ProjectItem[] = [
     thumb:       '/projects/proj4/thumb.webp',
     youtubeId:   'VykD83mmSTo',
     images:      ['/projects/proj4/image1.webp', '/projects/proj4/image2.webp'],
+  },
+  {
+    title:       'Canesten: Cottage Coocheese',
+    description: 'Taboos stop society from talking about intimate health issues. Canesten used supermarkets, where bypassers look around everyday, as a platform to communicate. Through cottage cheese, known for looking like one of the most common symptoms of vaginal yeast infection.',
+    youtubeId:   'gXgjxnCaRxM',
+    thumb:       '/projects/proj6/thumb.webp',
+    images:      ['/projects/proj6/image1.webp', '/projects/proj6/image2.webp'],
+    thumbScale:  1.2,
+  },
+  {
+    title:          'PlatanoMelón: Back in Smoothly',
+    description:    'Backing in smoothly is relevant for cars, but also, for PlatanoMelón, who took over situations that go back-first to promote their relaxant lubricant.',
+    youtubeId:      'ZOVg5GCUxqs',
+    thumb:          '/projects/proj5/thumb.webp',
+    images:         ['/projects/proj5/image1.webp', '/projects/proj5/image2.webp'],
+    defaultFeatured: 'img0',
   },
 ]

@@ -154,9 +154,6 @@
   z-index: 2;
 }
 
-.mobileProjectIconOverlay[src$="MAS.png"] {
-  filter: invert(var(--icon-invert, 0));
-}
 
 /* Title area (card open state) — normal block, height = content */
 .mobileProjectTitleArea {
