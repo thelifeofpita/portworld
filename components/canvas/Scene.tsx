@@ -9,6 +9,7 @@ import PostProcessing from './PostProcessing'
 import { bgStore } from '@/lib/bgStore'
 import { shaderStore } from '@/lib/shaderStore'
 import { modelScrollStore } from '@/lib/modelScrollStore'
+import { cameraStore } from '@/lib/cameraStore'
 import type { Zone } from '@/types'
 
 // Mounts only after Suspense resolves — signals that the model is loaded
@@ -70,30 +71,41 @@ function getMobileModelYOffset(isMobile: boolean): number {
   return MOBILE_NDC_OFFSET * halfH  // +0.881 — model moves up → appears above center
 }
 
+// Smoothly moves camera Z between "nav" (close) and "content" (pulled back) modes.
+// Nav: z=5 (default), Content: z=15 — model appears ~1/3 size, revealing work.
+// Pull-in uses a higher factor to counteract the perceptual "size grows slowly at distance" effect —
+// the angular size change rate ∝ 1/z² is much lower at z=15 than at z=5, making pull-in look slow
+// even though the camera moves the same absolute distance. Higher k compensates.
+function CameraZoom({ isContentMode }: { isContentMode: boolean }) {
+  const { camera } = useThree()
+  const targetZ = useRef(5)
+
+  useEffect(() => {
+    targetZ.current = isContentMode ? 15 : 5
+  }, [isContentMode])
+
+  useFrame((_, delta) => {
+    const cam = camera as THREE.PerspectiveCamera
+    const diff = targetZ.current - cam.position.z
+    if (Math.abs(diff) < 0.001) return
+    const k = diff < 0 ? 0.24 : 0.18  // pull-in faster, pull-out slightly slower
+    const t = 1 - Math.pow(1 - k, Math.min(delta, 0.1) * 60)
+    cam.position.z += diff * t
+    cameraStore.z = cam.position.z
+  })
+
+  return null
+}
+
 function CameraFov({ isMobile }: { isMobile: boolean }) {
   const { camera, size } = useThree()
-  const scrollDelta = useRef(0)
-  const targetFov   = useRef(getBaseFov(size.width, size.height, isMobile))
+  const targetFov = useRef(getBaseFov(size.width, size.height, isMobile))
 
-  // Recompute base on viewport resize; preserve accumulated scroll delta
   useEffect(() => {
     targetFov.current = Math.max(12, Math.min(65,
-      getBaseFov(size.width, size.height, isMobile) + scrollDelta.current
+      getBaseFov(size.width, size.height, isMobile)
     ))
   }, [size, isMobile])
-
-  useEffect(() => {
-    if (isMobile) return
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault()
-      scrollDelta.current = Math.max(-8, Math.min(37, scrollDelta.current + e.deltaY * 0.08))
-      targetFov.current = Math.max(12, Math.min(65,
-        getBaseFov(window.innerWidth, window.innerHeight, isMobile) + scrollDelta.current
-      ))
-    }
-    window.addEventListener('wheel', onWheel, { passive: false })
-    return () => window.removeEventListener('wheel', onWheel)
-  }, [isMobile])
 
   useFrame((_, delta) => {
     const cam = camera as THREE.PerspectiveCamera
@@ -195,12 +207,14 @@ function ScrollingGroup({ baseY, isMobile, children }: { baseY: number; isMobile
 interface SceneProps {
   onZoneChange: (zone: Zone) => void
   onZoneReset: () => void
+  onSnapStart?: (zone: Zone) => void
   onLoad: () => void
   isMobile?: boolean
   canvasStyle?: React.CSSProperties
+  isContentMode?: boolean
 }
 
-export default function Scene({ onZoneChange, onZoneReset, onLoad, isMobile = false, canvasStyle }: SceneProps) {
+export default function Scene({ onZoneChange, onZoneReset, onSnapStart, onLoad, isMobile = false, canvasStyle, isContentMode = false }: SceneProps) {
   const [bg, setBg]           = useState<'white' | 'black'>('white')
   const [shaderMode, setShaderMode] = useState<0|1|2>(0)
   const [initialFov]   = useState(() => getBaseFov(window.innerWidth, window.innerHeight, isMobile))
@@ -214,7 +228,13 @@ export default function Scene({ onZoneChange, onZoneReset, onLoad, isMobile = fa
     window.dispatchEvent(new CustomEvent('shaderModeChange', { detail: next }))
   }, [shaderMode])
 
-  const defaultStyle: React.CSSProperties = { position: 'fixed', inset: 0, width: '100%', height: '100%' }
+  const defaultStyle: React.CSSProperties = {
+    position: 'fixed', inset: 0, width: '100%', height: '100%',
+    // Always auto: cards (z-index:10, pointer-events:auto) intercept their own
+    // clicks before the canvas sees them, so keeping the canvas interactive
+    // doesn't break card interactions and allows drag to restart after a snap.
+    pointerEvents: 'auto',
+  }
 
   return (
     <Canvas
@@ -222,7 +242,7 @@ export default function Scene({ onZoneChange, onZoneReset, onLoad, isMobile = fa
       gl={{ antialias: true, alpha: false }}
       dpr={1}
       style={canvasStyle ?? defaultStyle}
-      onPointerMissed={onPointerMissed}
+      onPointerMissed={isContentMode ? undefined : onPointerMissed}
     >
       <BackgroundSync color={bg} />
 
@@ -234,8 +254,9 @@ export default function Scene({ onZoneChange, onZoneReset, onLoad, isMobile = fa
         <Environment preset="studio" />
         <EnvironmentTracker />
         <CameraFov isMobile={isMobile} />
+        <CameraZoom isContentMode={isContentMode} />
         <ScrollingGroup baseY={modelYOffset} isMobile={isMobile}>
-          <Model onZoneChange={onZoneChange} onZoneReset={onZoneReset} onAsciiToggle={onAsciiToggle} yOffset={modelYOffset} />
+          <Model onZoneChange={onZoneChange} onZoneReset={onZoneReset} onSnapStart={onSnapStart} onAsciiToggle={onAsciiToggle} yOffset={modelYOffset} />
         </ScrollingGroup>
         <OnLoad onLoad={onLoad} />
         <Preload all />

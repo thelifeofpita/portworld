@@ -7,12 +7,29 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Inter';
+  src: url('/fonts/InterVariable.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: 'Alt Gothic ATF Black';
+  src: url('/fonts/AltGothicATFBlack.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --bg-color: #ffffff;
   --fg-color: #0d0d0d;
   --fg-muted: #999999;
   --accent-color: #F2DF0C; /* focused yellow — matches COLOR_FOCUS in ZoneNav/PostProcessing */
-  --font-primary: 'Young Serif', Georgia, serif;
+  --font-primary: 'Inter', sans-serif;
+  --font-display: 'Alt Gothic ATF Black', sans-serif;
 }
 
 *,
@@ -43,6 +60,7 @@ body {
   background-color: var(--bg-color);
   color: var(--fg-color);
   font-family: var(--font-primary);
+  font-weight: 700;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

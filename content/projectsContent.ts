@@ -34,7 +34,7 @@ export interface ProjectItem {
 
 export const projectsContent: ProjectItem[] = [
   {
-    title:       'Google Gemini: Surf the Spike',
+    title:       'Google Gemini: Surf the Spike.',
     description: `Google needed a new and creative use of their Gemini AI for students, professors or classrooms. Surf the Spike helps college students take full advantage of their late-night caffeine-filled study sessions.`,
     youtubeId:   'nf5xLDfsp5k',
     thumb:       '/projects/proj1/thumb.webp',
@@ -43,7 +43,7 @@ export const projectsContent: ProjectItem[] = [
     iconLabel:   'One Show Young Ones Merit Winner',
   },
   {
-    title:       'Duolingo: Your Coolest Lesson Yet',
+    title:       'Duolingo: Your Coolest Lesson Yet.',
     description: `Duolingo's reminders need to be memorable again. Summer is the season where people use their phone the least, and without their phones, they don't see Duo's notifications. But they do eat ice cream, so we offer their coolest lesson yet.`,
     youtubeId:   'bWRIjCEHXJk',
     thumb:       '/projects/proj3/thumb.webp',
@@ -61,14 +61,14 @@ export const projectsContent: ProjectItem[] = [
     iconLabel:   'D&AD New Blood Pencil Winner',
   },
   {
-    title:       'Hat Twix',
+    title:       'Hat Twix.',
     description: 'One is good, and two is better, but football fans are not really aware. They praise single goals and hat tricks, but two goals are rarely celebrated. Through football commentators, Twix honors the beauty of the two goals.',
     thumb:       '/projects/proj4/thumb.webp',
     youtubeId:   'VykD83mmSTo',
     images:      ['/projects/proj4/image1.webp', '/projects/proj4/image2.webp'],
   },
   {
-    title:       'Canesten: Cottage Coocheese',
+    title:       'Canesten: Cottage Coocheese.',
     description: 'Taboos stop society from talking about intimate health issues. Canesten used supermarkets, where bypassers look around everyday, as a platform to communicate. Through cottage cheese, known for looking like one of the most common symptoms of vaginal yeast infection.',
     youtubeId:   'gXgjxnCaRxM',
     thumb:       '/projects/proj6/thumb.webp',
@@ -76,7 +76,7 @@ export const projectsContent: ProjectItem[] = [
     thumbScale:  1.2,
   },
   {
-    title:          'PlatanoMelón: Back in Smoothly',
+    title:          'PlatanoMelón: Back in smoothly.',
     description:    'Backing in smoothly is relevant for cars, but also, for PlatanoMelón, who took over situations that go back-first to promote their relaxant lubricant.',
     youtubeId:      'ZOVg5GCUxqs',
     thumb:          '/projects/proj5/thumb.webp',

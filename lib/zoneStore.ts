@@ -3,10 +3,15 @@ import type { Zone } from '@/types'
 // Model.tsx registers snapToZone here on mount so ZoneNav (a DOM sibling,
 // outside the Canvas) can trigger snapping without any prop drilling.
 // activeZone is null until the model finishes loading and detects a zone.
+// isContentMode: true when camera is pulled back to reveal content (set by page.tsx).
 export const zoneStore: {
-  snapToZone: ((zone: Zone) => void) | null
-  activeZone: Zone | null
+  snapToZone:     ((zone: Zone) => void) | null
+  resetToLanding: (() => void) | null
+  activeZone:     Zone | null
+  isContentMode:  boolean
 } = {
-  snapToZone: null,
-  activeZone: null,
+  snapToZone:     null,
+  resetToLanding: null,
+  activeZone:     null,
+  isContentMode:  false,
 }

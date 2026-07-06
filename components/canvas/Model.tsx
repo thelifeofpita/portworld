@@ -47,11 +47,12 @@ const _qc    = new THREE.Quaternion()
 interface ModelProps {
   onZoneChange: (zone: Zone) => void
   onZoneReset?: () => void
+  onSnapStart?: (zone: Zone) => void
   onAsciiToggle?: () => void
   yOffset?: number
 }
 
-export default function Model({ onZoneChange, onZoneReset, onAsciiToggle, yOffset = 0 }: ModelProps) {
+export default function Model({ onZoneChange, onZoneReset, onSnapStart, onAsciiToggle, yOffset = 0 }: ModelProps) {
   const { scene } = useGLTF('/models/modelSeparated.glb')
   const groupRef = useRef<THREE.Group>(null)
   const { gl, camera } = useThree()
@@ -202,6 +203,19 @@ export default function Model({ onZoneChange, onZoneReset, onAsciiToggle, yOffse
     return () => { zoneStore.snapToZone = null }
   }, [snapToZone])
 
+  const resetToLanding = useCallback(() => {
+    targetQuat.current.identity()
+    isSnapping.current    = true
+    hasInteracted.current = false
+    activeZone.current    = -1
+    onZoneReset?.()
+  }, [onZoneReset])
+
+  useEffect(() => {
+    zoneStore.resetToLanding = resetToLanding
+    return () => { zoneStore.resetToLanding = null }
+  }, [resetToLanding])
+
   const onPointerUp = useCallback(() => {
     if (!isDragging.current) return
     isDragging.current = false
@@ -221,8 +235,11 @@ export default function Model({ onZoneChange, onZoneReset, onAsciiToggle, yOffse
       if (dist < bestDist) { bestDist = dist; snapZone = zone }
     })
 
-    if (snapZone !== null) snapToZone(snapZone as Zone)
-  }, [gl, snapToZone])
+    if (snapZone !== null) {
+      snapToZone(snapZone as Zone)
+      onSnapStart?.(snapZone as Zone)
+    }
+  }, [gl, snapToZone, onSnapStart])
 
   useEffect(() => {
     const el = gl.domElement

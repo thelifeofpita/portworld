@@ -17,7 +17,8 @@ export default function RootLayout({
       <head>
         {/* Start fetching the model and fonts as early as possible */}
         <link rel="preload" href="/models/modelSeparated.glb" as="fetch" crossOrigin="anonymous" />
-        <link rel="preload" href="/fonts/YoungSerif-Regular.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/AltGothicATFBlack.otf" as="font" type="font/otf" crossOrigin="anonymous" />
+        <link rel="preload" href="/fonts/InterVariable.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
         <link rel="preload" href="/fonts/HemingVariable.woff2" as="font" type="font/woff2" crossOrigin="anonymous" />
         {/* Preload project thumbnails so they're ready before the user rotates to zone 0 */}
         {projectsContent.map(p => p.thumb

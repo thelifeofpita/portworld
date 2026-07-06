@@ -224,39 +224,47 @@ function MobilePlaygroundItem({ item, isSelected, onRef, onVideoRef }: Playgroun
   const [ar, setAr] = useState(item.aspectRatio ?? 1)
 
   return (
-    <div
-      ref={onRef}
-      className={`${styles.mobilePlaygroundItem}${isSelected ? ` ${styles.mobilePlaygroundSelected}` : ''}`}
-    >
-      <div className={styles.mobilePlaygroundThumb} style={{ aspectRatio: String(ar) }}>
-        {(item.mp4 || item.webm) && (
-          <video
-            ref={onVideoRef}
-            muted loop playsInline preload="metadata"
-            onLoadedMetadata={e => {
-              const v = e.currentTarget
-              if (v.videoWidth && v.videoHeight) setAr(v.videoWidth / v.videoHeight)
-            }}
-            style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-          >
-            {item.webm && <source src={item.webm} type="video/webm" />}
-            {item.mp4  && <source src={item.mp4}  type="video/mp4"  />}
-          </video>
-        )}
-        {item.poster && (
-          <img
-            src={item.poster} alt=""
-            className={styles.mobilePlaygroundPoster}
-            style={{ opacity: isSelected && (item.mp4 || item.webm) ? 0 : 1 }}
-            onLoad={e => {
-              if (item.mp4 || item.webm) return
-              const img = e.currentTarget
-              if (img.naturalWidth && img.naturalHeight) setAr(img.naturalWidth / img.naturalHeight)
-            }}
-          />
-        )}
-      </div>
-      <p className={styles.mobilePlaygroundTitle}>{item.title}</p>
+    <div ref={onRef} className={styles.mobilePlaygroundItem}>
+      <motion.div
+        animate={{ y: isSelected ? -10 : 0, scale: isSelected ? 1.06 : 1 }}
+        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        style={{ pointerEvents: 'none' }}
+      >
+        <motion.div
+          className={styles.mobilePlaygroundThumb}
+          style={{ aspectRatio: String(ar) }}
+          animate={{ boxShadow: isSelected ? '0 20px 40px rgba(0,0,0,0.12)' : '0 20px 40px rgba(0,0,0,0)' }}
+          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {(item.mp4 || item.webm) && (
+            <video
+              ref={onVideoRef}
+              muted loop playsInline preload="metadata"
+              onLoadedMetadata={e => {
+                const v = e.currentTarget
+                if (v.videoWidth && v.videoHeight) setAr(v.videoWidth / v.videoHeight)
+              }}
+              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+            >
+              {item.webm && <source src={item.webm} type="video/webm" />}
+              {item.mp4  && <source src={item.mp4}  type="video/mp4"  />}
+            </video>
+          )}
+          {item.poster && (
+            <img
+              src={item.poster} alt=""
+              className={styles.mobilePlaygroundPoster}
+              style={{ opacity: isSelected && (item.mp4 || item.webm) ? 0 : 1 }}
+              onLoad={e => {
+                if (item.mp4 || item.webm) return
+                const img = e.currentTarget
+                if (img.naturalWidth && img.naturalHeight) setAr(img.naturalWidth / img.naturalHeight)
+              }}
+            />
+          )}
+        </motion.div>
+        <p className={styles.mobilePlaygroundTitle}>{item.title}</p>
+      </motion.div>
     </div>
   )
 }
@@ -267,7 +275,7 @@ function MobileProjectCard({
   item, isOpen, onToggle,
 }: { item: ProjectItem; isOpen: boolean; onToggle: () => void }) {
   return (
-    <div className={styles.mobileProjectCard}>
+    <div className={`${styles.mobileProjectCard}${isOpen ? ` ${styles.mobileProjectCardOpen}` : ''}`}>
 
       <div className={styles.mobileProjectHeader} onClick={onToggle}>
         <AnimatePresence mode="wait" initial={false}>
@@ -280,9 +288,6 @@ function MobileProjectCard({
             >
               {item.thumb && (
                 <Image src={item.thumb} alt={item.title} fill quality={90} style={{ objectFit: 'cover', transform: item.thumbScale && item.thumbScale !== 1 ? `scale(${item.thumbScale})` : undefined }} sizes="100vw" />
-              )}
-              {item.icon && (
-                <img src={item.icon} alt="" className={styles.mobileProjectIconOverlay} />
               )}
             </motion.div>
           ) : (
@@ -308,6 +313,8 @@ function MobileProjectCard({
             transition={{ duration: 0.38, ease: EASE_OUT }}
             style={{ overflow: 'hidden' }}
           >
+            <p className={styles.mobileProjectDesc}>{item.description}</p>
+
             {item.youtubeId && (
               <div className={styles.mobileProjectVideo}>
                 <iframe
@@ -327,17 +334,6 @@ function MobileProjectCard({
             {item.images[1] && (
               <div className={styles.mobileProjectImageWrap}>
                 <Image src={item.images[1]} alt="" fill quality={90} style={{ objectFit: 'cover' }} sizes="100vw" />
-              </div>
-            )}
-
-            <p className={styles.mobileProjectDesc}>{item.description}</p>
-
-            {item.icon && (
-              <div className={styles.mobileProjectIconGroup}>
-                <img src={item.icon} alt="" className={styles.mobileProjectIconDetail} />
-                {item.iconLabel && (
-                  <span className={styles.mobileProjectIconLabel}>{item.iconLabel}</span>
-                )}
               </div>
             )}
           </motion.div>
@@ -373,30 +369,6 @@ function MobileProjects() {
 function MobileAbout() {
   const [photoIndex, setPhotoIndex] = useState(0)
   const [prevIndex, setPrevIndex]   = useState<number | null>(null)
-  const [pitaSize, setPitaSize]     = useState('')
-
-  const SHARED_STYLE = 'position:absolute;top:-9999px;visibility:hidden;white-space:nowrap;font-size:1rem;letter-spacing:-0.02em;font-family:inherit;pointer-events:none'
-  const nameRef = useCallback((node: HTMLSpanElement | null) => {
-    if (!node) return
-    const measure = () => {
-      const parent = node.parentElement!
-      const tName = document.createElement('span')
-      tName.style.cssText = SHARED_STYLE
-      tName.textContent = 'Jose David'
-      const tPita = document.createElement('span')
-      tPita.style.cssText = SHARED_STYLE
-      tPita.textContent = 'Pita'
-      parent.appendChild(tName)
-      parent.appendChild(tPita)
-      const nameW = tName.getBoundingClientRect().width
-      const pitaW = tPita.getBoundingClientRect().width
-      tName.remove()
-      tPita.remove()
-      if (nameW > 0 && pitaW > 0) setPitaSize(`${(nameW / pitaW).toFixed(4)}rem`)
-    }
-    measure()
-    document.fonts.ready.then(measure)
-  }, [])
 
   useEffect(() => {
     aboutContent.photos.forEach(src => { new window.Image().src = src })
@@ -432,8 +404,7 @@ function MobileAbout() {
           </div>
         </div>
         <div className={styles.mobileAboutName}>
-          <span ref={nameRef} className={styles.mobileAboutBylineName}>Jose David</span>
-          <span className={styles.mobileAboutBylineLast} style={{ fontSize: pitaSize || undefined }}>Pita</span>
+          <span className={styles.mobileAboutBylineText}>THELIFEOF<span className={styles.mobileAboutBylinePita}>PITA</span></span>
         </div>
       </div>
 

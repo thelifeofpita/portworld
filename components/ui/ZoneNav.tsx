@@ -33,7 +33,16 @@ const _lastDesired = new Float64Array([
 
 interface BoxState { x: number; y: number; angle: number }
 
-export default function ZoneNav() {
+export default function ZoneNav({ isContentMode = false, onSnap }: { isContentMode?: boolean; onSnap?: (zone: number) => void }) {
+  const isContentModeRef = useRef(isContentMode)
+  const navOpacity = useRef(1)
+  const svgRef = useRef<SVGSVGElement>(null)
+  const navContainerRef = useRef<HTMLElement>(null)
+
+  useEffect(() => {
+    isContentModeRef.current = isContentMode
+  }, [isContentMode])
+
   const box0 = useRef<HTMLDivElement>(null)
   const box1 = useRef<HTMLDivElement>(null)
   const box2 = useRef<HTMLDivElement>(null)
@@ -62,9 +71,9 @@ export default function ZoneNav() {
   const hoverBlends   = useRef(new Float64Array(N))
   // Tracks which boxes are currently hovered (updated by mouse events, read per frame)
   const hovered       = useRef(new Uint8Array(N))
-  const snapTo0 = useCallback(() => zoneStore.snapToZone?.(0), [])
-  const snapTo1 = useCallback(() => zoneStore.snapToZone?.(1), [])
-  const snapTo2 = useCallback(() => zoneStore.snapToZone?.(2), [])
+  const snapTo0 = useCallback(() => { onSnap?.(0); zoneStore.snapToZone?.(0) }, [onSnap])
+  const snapTo1 = useCallback(() => { onSnap?.(1); zoneStore.snapToZone?.(1) }, [onSnap])
+  const snapTo2 = useCallback(() => { onSnap?.(2); zoneStore.snapToZone?.(2) }, [onSnap])
 
   // useLayoutEffect fires before the first paint, so states are correct before
   // the first useAnimationFrame tick — boxes never start at (0, 0).
@@ -83,6 +92,13 @@ export default function ZoneNav() {
     const angleF  = 1 - Math.pow(1 - ANGLE_SMOOTH,  dt)
     const followF = 1 - Math.pow(1 - FOLLOW_RATE,   dt)
     const accentF = 1 - Math.pow(1 - ACCENT_SMOOTH, dt)
+
+    // Fade nav in/out based on content mode — lerp opacity each frame
+    const targetOpacity = isContentModeRef.current ? 0 : 1
+    navOpacity.current += (targetOpacity - navOpacity.current) * accentF
+    const opStr = String(navOpacity.current)
+    if (svgRef.current) svgRef.current.style.opacity = opStr
+    if (navContainerRef.current) navContainerRef.current.style.opacity = opStr
 
     const { cx, cy, pts, count } = silhouetteStore
     const active = zoneStore.activeZone
@@ -221,7 +237,7 @@ export default function ZoneNav() {
 
   return (
     <>
-      <svg className={styles.svg} aria-hidden="true">
+      <svg ref={svgRef} className={styles.svg} aria-hidden="true">
         <line ref={line0} stroke="#F20C1F" strokeWidth="2" />
         <line ref={line1} stroke="#F20C1F" strokeWidth="2" />
         <line ref={line2} stroke="#F20C1F" strokeWidth="2" />
@@ -234,7 +250,7 @@ export default function ZoneNav() {
         <rect ref={ul2} height="2" />
       </svg>
 
-      <nav className={styles.nav} aria-label="Sections">
+      <nav ref={navContainerRef} className={styles.nav} aria-label="Sections">
         <div ref={box0} className={styles.box} onClick={snapTo0} onMouseEnter={() => { hovered.current[0] = 1 }} onMouseLeave={() => { hovered.current[0] = 0 }}>Projects</div>
         <div ref={box1} className={styles.box} onClick={snapTo1} onMouseEnter={() => { hovered.current[1] = 1 }} onMouseLeave={() => { hovered.current[1] = 0 }}>About Me</div>
         <div ref={box2} className={styles.box} onClick={snapTo2} onMouseEnter={() => { hovered.current[2] = 1 }} onMouseLeave={() => { hovered.current[2] = 0 }}>Playground</div>
