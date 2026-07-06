@@ -68,7 +68,7 @@ export const aboutContent: AboutContent = {
       { title: 'Advertising and Public Relations Degree', meta: 'Universidad Rey Juan Carlos · Sep. 2022 - May. 2026' },
     ],
     languages:      ['Native Spanish', 'Bilingual English', 'Basic French'],
-    awards: ['One Show Young Ones Merit Winner', 'D&AD New Blood Pencil Winner', 'Miami Ad School Scholarship Winner'],
+    awards: ['One Show Young Ones Merit Winner', 'D&AD New Blood Pencil Winner'],
     software:       ['[PLACEHOLDER]', '[PLACEHOLDER]'],
   },
 }
