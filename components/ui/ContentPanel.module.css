@@ -9,6 +9,15 @@
   padding-bottom: 3rem;
 }
 
+/* One per zone — transform/opacity/pointer-events driven per-frame in
+   ContentPanel so panes cross-fade and drift instead of cutting. */
+.paneLayer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  will-change: transform, opacity;
+}
+
 /* ─── Bottom content (About / Misc) ──────────────────────────────── */
 
 .content {
@@ -268,6 +277,39 @@
   font-weight: 400;
   letter-spacing: 0.05em;
   color: var(--fg-muted);
+}
+
+/* ─── Playground detail overlay ──────────────────────────────────── */
+/* Background is forced white (not var(--bg-color)) — the feature always
+   shows the piece against white, regardless of the current black/white toggle. */
+
+.playgroundBackdrop {
+  position: fixed;
+  inset: 0;
+  background: #ffffff;
+  z-index: 50;
+  pointer-events: auto;
+}
+
+/* top/left/width/height driven by Framer Motion (grid rect ↔ near-fullscreen bounds) */
+.playgroundDetailMedia {
+  position: fixed;
+  z-index: 51;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: auto;
+}
+
+.playgroundDetailTitle {
+  z-index: 51;
+  pointer-events: none;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  color: var(--fg-muted);
+  text-align: center;
 }
 
 /* ─── Project card thumbnail image ──────────────────────────────── */
