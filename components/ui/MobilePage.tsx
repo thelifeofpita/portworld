@@ -449,8 +449,8 @@ function MobileAbout() {
             ))}
           </div>
         )}
-        <a href="/JOSE_PITA_EN.pdf" download className={styles.mobileCvDownload}>
-          ▾ Download Full CV
+        <a href="/JOSE_PITA_EN.pdf" target="_blank" rel="noopener noreferrer" className={styles.mobileCvDownload}>
+          ▾ Full CV
         </a>
       </div>
 

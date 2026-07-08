@@ -686,9 +686,10 @@ function AboutPane() {
 
           <a
             href="/JOSE_PITA_EN.pdf"
-            download
+            target="_blank"
+            rel="noopener noreferrer"
             className={styles.cvDownload}
-          >▾ Download Full CV</a>
+          >▾ Full CV</a>
 
         </div>
       </div>

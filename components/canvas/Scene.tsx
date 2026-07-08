@@ -207,14 +207,14 @@ function ScrollingGroup({ baseY, isMobile, children }: { baseY: number; isMobile
 interface SceneProps {
   onZoneChange: (zone: Zone) => void
   onZoneReset: () => void
-  onSnapStart?: (zone: Zone) => void
+  onModelClick?: () => void
   onLoad: () => void
   isMobile?: boolean
   canvasStyle?: React.CSSProperties
   isContentMode?: boolean
 }
 
-export default function Scene({ onZoneChange, onZoneReset, onSnapStart, onLoad, isMobile = false, canvasStyle, isContentMode = false }: SceneProps) {
+export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad, isMobile = false, canvasStyle, isContentMode = false }: SceneProps) {
   const [bg, setBg]           = useState<'white' | 'black'>('white')
   const [shaderMode, setShaderMode] = useState<0|1|2>(0)
   const [initialFov]   = useState(() => getBaseFov(window.innerWidth, window.innerHeight, isMobile))
@@ -234,6 +234,10 @@ export default function Scene({ onZoneChange, onZoneReset, onSnapStart, onLoad, 
     // clicks before the canvas sees them, so keeping the canvas interactive
     // doesn't break card interactions and allows drag to restart after a snap.
     pointerEvents: 'auto',
+    // Stops the browser from treating a drag-to-rotate touch as a page-scroll
+    // gesture — the canvas handles the touch itself (rotation), so native
+    // panning/zooming on this element must be disabled.
+    touchAction: 'none',
   }
 
   return (
@@ -256,7 +260,7 @@ export default function Scene({ onZoneChange, onZoneReset, onSnapStart, onLoad, 
         <CameraFov isMobile={isMobile} />
         <CameraZoom isContentMode={isContentMode} />
         <ScrollingGroup baseY={modelYOffset} isMobile={isMobile}>
-          <Model onZoneChange={onZoneChange} onZoneReset={onZoneReset} onSnapStart={onSnapStart} onAsciiToggle={onAsciiToggle} yOffset={modelYOffset} />
+          <Model onZoneChange={onZoneChange} onZoneReset={onZoneReset} onAsciiToggle={onAsciiToggle} onModelClick={onModelClick} isContentMode={isContentMode} yOffset={modelYOffset} />
         </ScrollingGroup>
         <OnLoad onLoad={onLoad} />
         <Preload all />

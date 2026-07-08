@@ -6,12 +6,18 @@ import { posStore } from '@/lib/posStore'
 import { silhouetteStore } from '@/lib/silhouetteStore'
 import { zoneStore } from '@/lib/zoneStore'
 import { bgStore } from '@/lib/bgStore'
+import { cameraStore } from '@/lib/cameraStore'
 import styles from './ZoneNav.module.css'
 
 const N              = 3
 const TWO_PI         = Math.PI * 2
 const STEP           = TWO_PI / N       // 120° between boxes
-const PADDING        = 55              // gap outside silhouette (CSS px)
+const PADDING        = 55              // gap outside silhouette (CSS px, at nav-mode zoom)
+const MIN_LINE       = 128             // minimum dot→label distance (CSS px, at nav-mode zoom)
+// Camera Z at nav-mode (must match CameraZoom's NAV_Z in Scene.tsx). PADDING/MIN_LINE
+// are tuned for the model's on-screen size at this zoom — scale them down with it
+// (apparent size ∝ 1/z) so labels stay proportionally close when the model is small.
+const NAV_Z          = 5
 const ANGLE_SMOOTH   = 0.18   // per-box angle smoothing — sole lag stage, settles in ~3 frames
 const FOLLOW_RATE    = 0.22   // position convergence
 // Accent colors — must match PostProcessing.tsx shader constants
@@ -33,7 +39,7 @@ const _lastDesired = new Float64Array([
 
 interface BoxState { x: number; y: number; angle: number }
 
-export default function ZoneNav({ isContentMode = false, onSnap }: { isContentMode?: boolean; onSnap?: (zone: number) => void }) {
+export default function ZoneNav({ isContentMode = false }: { isContentMode?: boolean }) {
   const isContentModeRef = useRef(isContentMode)
   const navOpacity = useRef(1)
   const svgRef = useRef<SVGSVGElement>(null)
@@ -71,9 +77,9 @@ export default function ZoneNav({ isContentMode = false, onSnap }: { isContentMo
   const hoverBlends   = useRef(new Float64Array(N))
   // Tracks which boxes are currently hovered (updated by mouse events, read per frame)
   const hovered       = useRef(new Uint8Array(N))
-  const snapTo0 = useCallback(() => { onSnap?.(0); zoneStore.snapToZone?.(0) }, [onSnap])
-  const snapTo1 = useCallback(() => { onSnap?.(1); zoneStore.snapToZone?.(1) }, [onSnap])
-  const snapTo2 = useCallback(() => { onSnap?.(2); zoneStore.snapToZone?.(2) }, [onSnap])
+  const snapTo0 = useCallback(() => { zoneStore.snapToZone?.(0) }, [])
+  const snapTo1 = useCallback(() => { zoneStore.snapToZone?.(1) }, [])
+  const snapTo2 = useCallback(() => { zoneStore.snapToZone?.(2) }, [])
 
   // useLayoutEffect fires before the first paint, so states are correct before
   // the first useAnimationFrame tick — boxes never start at (0, 0).
@@ -102,6 +108,13 @@ export default function ZoneNav({ isContentMode = false, onSnap }: { isContentMo
 
     const { cx, cy, pts, count } = silhouetteStore
     const active = zoneStore.activeZone
+
+    // Shrinks as the camera pulls back for content mode, so label offsets shrink
+    // in step with the model's on-screen size — but only halfway (floored at 0.5)
+    // so labels stay legibly clear of the model instead of crowding it at full scale.
+    const zoomScale = 0.5 + 0.5 * (NAV_Z / Math.max(cameraStore.z, NAV_Z))
+    const padding   = PADDING  * zoomScale
+    const minLine   = MIN_LINE * zoomScale
 
     // Hover text: lerp target is the complement of #F20C1F against the current bg
     // (so it renders as the literal site red through mix-blend-mode:difference).
@@ -157,24 +170,23 @@ export default function ZoneNav({ isContentMode = false, onSnap }: { isContentMo
       // Support function: furthest model point in this orbital direction
       const nx = Math.cos(s.angle)
       const ny = Math.sin(s.angle)
-      let maxProj = 80
+      let maxProj = 80 * zoomScale
       for (let k = 0; k < count; k++) {
         const d = (pts[k * 2] - cx) * nx + (pts[k * 2 + 1] - cy) * ny
         if (d > maxProj) maxProj = d
       }
 
-      let targetX = cx + nx * (maxProj + PADDING)
-      let targetY = cy + ny * (maxProj + PADDING)
+      let targetX = cx + nx * (maxProj + padding)
+      let targetY = cy + ny * (maxProj + padding)
 
       // Enforce a minimum visible line length from the dot to the label centre.
       // Without this, labels whose accent part sits at the silhouette boundary
-      // (hand, foot) end up only PADDING px from the dot with no visible line.
-      const MIN_LINE = 128
+      // (hand, foot) end up only `padding` px from the dot with no visible line.
       const dxDot   = targetX - mesh.x
       const dyDot   = targetY - mesh.y
       const lineDist = Math.sqrt(dxDot * dxDot + dyDot * dyDot)
-      if (lineDist < MIN_LINE) {
-        const extra = MIN_LINE - lineDist
+      if (lineDist < minLine) {
+        const extra = minLine - lineDist
         targetX += nx * extra
         targetY += ny * extra
       }

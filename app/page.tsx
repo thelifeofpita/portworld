@@ -12,8 +12,8 @@ import { aboutContent } from '@/content/aboutContent'
 import type { Zone } from '@/types'
 import styles from './page.module.css'
 
-const CENTER_ENTER_RADIUS = 110  // px — enter nav mode when cursor enters the small model
-const CENTER_EXIT_RADIUS  = 300  // px — stay in nav mode until cursor clears the section titles
+const CENTER_ENTER_RADIUS = 110  // px — reveal nav lines/titles when cursor enters the small model
+const CENTER_EXIT_RADIUS  = 300  // px — keep nav lines visible until cursor clears the section titles
 
 const Scene = dynamic(() => import('@/components/canvas/Scene'), { ssr: false })
 
@@ -63,10 +63,12 @@ export default function Home() {
   const isMobile = useIsMobile()
   const [activeZone,       setActiveZone]       = useState<Zone | null>(null)
   const [loaded,           setLoaded]           = useState(false)
+  // Hover near the small model only reveals the nav lines/titles — it never
+  // grows the model or hides the work. Only an explicit click does that (see
+  // handleModelClick), and that click fully deselects back to the landing view.
   const [isHoveringCenter, setIsHoveringCenter] = useState(false)
   const isDraggingRef    = useRef(false)
   const dragReleasedAt   = useRef(0)
-  const activeZoneRef    = useRef<Zone | null>(null)  // mirror of activeZone for stable callbacks
 
   // Track pointer drag state globally — block center-exit during an active drag
   // so the camera doesn't pull back mid-drag when cursor leaves the center zone.
@@ -103,7 +105,10 @@ export default function Home() {
     if (activeZone === null) setIsHoveringCenter(false)
   }, [activeZone])
 
-  const isContentMode = activeZone !== null && !isHoveringCenter
+  // Content mode (small model, camera pulled back, work visible) lasts as long
+  // as a section is selected — hover never leaves it, only a model click does
+  // (handleModelClick fully deselects, which clears activeZone).
+  const isContentMode = activeZone !== null
 
   // Keep store in sync so ZoneNav can read it per-frame (non-React path)
   zoneStore.isContentMode = isContentMode
@@ -124,28 +129,21 @@ export default function Home() {
     return () => window.removeEventListener('mousemove', onMove)
   }, [isContentMode])
 
+  // Nav lines/titles are visible at landing (no content) — plus whenever the
+  // cursor is hovering the small model while content is showing.
+  const navVisible = !isContentMode || isHoveringCenter
+
   const handleLoad       = useCallback(() => setLoaded(true), [])
   const handleZoneChange = useCallback((zone: Zone) => {
-    activeZoneRef.current = zone
     setActiveZone(zone)
-    if (!isDraggingRef.current) setIsHoveringCenter(false)
   }, [])
   const handleZoneReset  = useCallback(() => {
-    activeZoneRef.current = null
     setActiveZone(null)
     setIsHoveringCenter(false)
   }, [])
-  // Called by Model as soon as the drag-release snap target is known.
-  // Same zone → clear hover now (content won't change, camera can pull back).
-  // Different zone → do nothing; handleZoneChange fires once the model arrives
-  // and clears hover then, so the pull-back and content switch happen together.
-  const handleSnapStart = useCallback((zone: Zone) => {
-    if (zone === activeZoneRef.current) setIsHoveringCenter(false)
-  }, [])
-  // ZoneNav title clicks
-  const handleSnap = useCallback((zone: number) => {
-    if (zone === activeZoneRef.current) setIsHoveringCenter(false)
-  }, [])
+  // Click on the small model while viewing content — deselects the section
+  // entirely and returns to the landing view (model grows, work leaves).
+  const handleModelClick = useCallback(() => { zoneStore.resetToLanding?.() }, [])
 
   if (isMobile) {
     return (
@@ -166,17 +164,17 @@ export default function Home() {
       <Scene
         onZoneChange={handleZoneChange}
         onZoneReset={handleZoneReset}
-        onSnapStart={handleSnapStart}
+        onModelClick={handleModelClick}
         onLoad={handleLoad}
         isContentMode={isContentMode}
       />
       <ContentPanel activeZone={activeZone} isContentMode={isContentMode} />
-      <ZoneNav isContentMode={isContentMode} onSnap={handleSnap} />
+      <ZoneNav isContentMode={!navVisible} />
 
       {/* Visual reference zone over the small model — entry detection is via global mousemove */}
       {activeZone !== null && <div className={styles.centerNav} />}
 
-      <div className={styles.byline} onClick={() => { handleSnap(1); zoneStore.snapToZone?.(1) }}>
+      <div className={styles.byline} onClick={() => zoneStore.resetToLanding?.()}>
         <span className={styles.bylineText}>THELIFEOF<span className={styles.bylinePita}>PITA</span></span>
       </div>
       <div className={styles.contactFooter}>

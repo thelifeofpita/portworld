@@ -30,10 +30,15 @@ const CHROME_MATERIAL = new THREE.MeshStandardMaterial({
   envMapIntensity: 2.5,
 })
 
-const DRAG_SENSITIVITY = 0.008
+const DRAG_SENSITIVITY = 0.008  // tuned at NAV_Z — see onPointerMove for the zoom compensation
 const SLERP_DRAG = 0.1
 const SLERP_SNAP = 0.04
 const RAD2DEG = 180 / Math.PI
+// Camera Z at nav-mode (must match CameraZoom's NAV_Z in Scene.tsx). The model's
+// apparent on-screen size shrinks ∝ 1/z as the camera pulls back for content mode,
+// so the same drag distance rotates a visually smaller arc — scale sensitivity by
+// z/NAV_Z to keep drag response feeling equally direct at any zoom.
+const NAV_Z = 5
 
 // ── Pre-allocated scratch objects — never re-created, safe because JS is single-threaded ──
 const _v3a   = new THREE.Vector3()
@@ -47,16 +52,18 @@ const _qc    = new THREE.Quaternion()
 interface ModelProps {
   onZoneChange: (zone: Zone) => void
   onZoneReset?: () => void
-  onSnapStart?: (zone: Zone) => void
   onAsciiToggle?: () => void
+  onModelClick?: () => void
+  isContentMode?: boolean
   yOffset?: number
 }
 
-export default function Model({ onZoneChange, onZoneReset, onSnapStart, onAsciiToggle, yOffset = 0 }: ModelProps) {
+export default function Model({ onZoneChange, onZoneReset, onAsciiToggle, onModelClick, isContentMode = false, yOffset = 0 }: ModelProps) {
   const { scene } = useGLTF('/models/modelSeparated.glb')
   const groupRef = useRef<THREE.Group>(null)
   const { gl, camera } = useThree()
   const cameraRef = useRef(camera)
+  const isContentModeRef = useRef(isContentMode)
 
   // Quaternion rotation — no gimbal lock, POV-aware
   const currentQuat = useRef(new THREE.Quaternion())
@@ -80,6 +87,12 @@ export default function Model({ onZoneChange, onZoneReset, onSnapStart, onAsciiT
   useEffect(() => {
     cameraRef.current = camera
   }, [camera])
+
+  // Keep content-mode ref in sync so handleClick reads live state without
+  // re-subscribing the click listener every render.
+  useEffect(() => {
+    isContentModeRef.current = isContentMode
+  }, [isContentMode])
 
   // Compute bounding box center (for pivot) + sampled vertex positions + normals (for silhouette).
   // Both arrays are in group-local centered space (scene-world pos/dir + centerOffset/normalMatrix),
@@ -165,11 +178,15 @@ export default function Model({ onZoneChange, onZoneReset, onSnapStart, onAsciiT
     lastY.current = e.clientY
     if (Math.abs(dx) + Math.abs(dy) > 3) dragMoved.current = true
 
+    // Compensate for the model's shrunken apparent size at content-mode zoom
+    // (camera pulled back) so dragging feels equally responsive when small.
+    const sensitivity = DRAG_SENSITIVITY * (cameraRef.current.position.z / NAV_Z)
+
     // Rotate around camera-space axes so drag direction matches what you see
     _v3b.setFromMatrixColumn(cameraRef.current.matrix, 1) // up
     _v3a.setFromMatrixColumn(cameraRef.current.matrix, 0) // right
-    _qa.setFromAxisAngle(_v3b, dx * DRAG_SENSITIVITY)
-    _qb.setFromAxisAngle(_v3a, dy * DRAG_SENSITIVITY)
+    _qa.setFromAxisAngle(_v3b, dx * sensitivity)
+    _qb.setFromAxisAngle(_v3a, dy * sensitivity)
     targetQuat.current.premultiply(_qa).premultiply(_qb)
   }, [])
 
@@ -237,9 +254,8 @@ export default function Model({ onZoneChange, onZoneReset, onSnapStart, onAsciiT
 
     if (snapZone !== null) {
       snapToZone(snapZone as Zone)
-      onSnapStart?.(snapZone as Zone)
     }
-  }, [gl, snapToZone, onSnapStart])
+  }, [gl, snapToZone])
 
   useEffect(() => {
     const el = gl.domElement
@@ -351,13 +367,20 @@ export default function Model({ onZoneChange, onZoneReset, onSnapStart, onAsciiT
   const handleClick = useCallback((e: ThreeEvent<MouseEvent>) => {
     e.stopPropagation()
     if (dragMoved.current) return
+    // Inside a section, viewing content (small model): a click is the sole
+    // trigger that leaves the content and returns to the big nav pose.
+    // Hovering must never do this — see CENTER_ENTER_RADIUS in app/page.tsx.
+    if (isContentModeRef.current) {
+      onModelClick?.()
+      return
+    }
     const zone = ACCENT_ZONE[e.object.name]
     if (zone !== undefined) {
       snapToZone(zone)
     } else {
       onAsciiToggle?.()
     }
-  }, [onAsciiToggle, snapToZone])
+  }, [onAsciiToggle, onModelClick, snapToZone])
 
   const handleContextMenu = useCallback((e: ThreeEvent<MouseEvent>) => {
     e.nativeEvent.preventDefault()
