@@ -667,6 +667,17 @@ function AboutPane() {
             </div>
           )}
 
+          {aboutContent.cv.skills.length > 0 && (
+            <div className={styles.cvSection}>
+              <h3 className={styles.cvHeading}>Skills</h3>
+              <div className={styles.cvSkillsGrid}>
+                {aboutContent.cv.skills.map((skill, i) => (
+                  <p key={i} className={styles.cvTitle}>{skill}</p>
+                ))}
+              </div>
+            </div>
+          )}
+
           {aboutContent.cv.awards.length > 0 && (
             <div className={styles.cvSection}>
               <h3 className={styles.cvHeading}>Awards</h3>

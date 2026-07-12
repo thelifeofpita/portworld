@@ -31,7 +31,7 @@ export interface AboutContent {
     education:      CvItem[]
     languages:      string[]
     awards: string[]
-    software:       string[]
+    skills:         string[]
   }
 }
 
@@ -68,7 +68,7 @@ export const aboutContent: AboutContent = {
       { title: 'Advertising and Public Relations Degree', meta: 'Universidad Rey Juan Carlos · Sep. 2022 - May. 2026' },
     ],
     languages:      ['Native Spanish', 'Bilingual English', 'Basic French'],
-    awards: ['One Show Young Ones Merit Winner', 'D&AD New Blood Pencil Winner'],
-    software:       ['[PLACEHOLDER]', '[PLACEHOLDER]'],
+    awards: ['One Show Young Ones Merit Winner', 'D&AD New Blood Wood Pencil Winner'],
+    skills: ['Adobe Creative Suite', 'Affinity', 'Figma', 'DaVinci Resolve', 'Blender 3D', 'TouchDesigner', 'Vibe coding', 'Image generation', 'Having fun'],
   },
 }

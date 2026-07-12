@@ -433,6 +433,16 @@ function MobileAbout() {
             ))}
           </div>
         )}
+        {aboutContent.cv.skills.length > 0 && (
+          <div className={styles.mobileCvSection}>
+            <h3 className={styles.mobileCvHeading}>Skills</h3>
+            <div className={styles.mobileCvSkillsGrid}>
+              {aboutContent.cv.skills.map((s, i) => (
+                <p key={i} className={styles.mobileCvTitle}>{s}</p>
+              ))}
+            </div>
+          </div>
+        )}
         {aboutContent.cv.awards.length > 0 && (
           <div className={styles.mobileCvSection}>
             <h3 className={styles.mobileCvHeading}>Awards</h3>
