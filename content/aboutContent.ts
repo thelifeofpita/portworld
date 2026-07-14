@@ -69,6 +69,6 @@ export const aboutContent: AboutContent = {
     ],
     languages:      ['Native Spanish', 'Bilingual English', 'Basic French'],
     awards: ['One Show Young Ones Merit Winner', 'D&AD New Blood Wood Pencil Winner'],
-    skills: ['Adobe Creative Suite', 'Affinity', 'Figma', 'DaVinci Resolve', 'Blender 3D', 'TouchDesigner', 'Vibe coding', 'Image generation', 'Having fun'],
+    skills: ['Adobe Suite', 'Affinity', 'Figma', 'DaVinci Resolve', 'Blender 3D', 'TouchDesigner', 'Vibe coding', 'Image generation', 'Having fun'],
   },
 }
