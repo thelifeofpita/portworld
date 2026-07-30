@@ -1,0 +1,79 @@
+.byline {
+  position: fixed;
+  top: 3rem;
+  left: 50%;
+  transform: translateX(-50%);
+  pointer-events: auto;
+  cursor: pointer;
+  z-index: 12;
+  white-space: nowrap;
+  line-height: 1;
+  user-select: none;
+}
+
+.bylineText {
+  display: block;
+  font-family: var(--font-display);
+  font-weight: var(--font-display-weight);
+  font-size: calc(clamp(1.6rem, 3.5vw, 2.75rem) * var(--font-display-scale, 1));
+  letter-spacing: calc(0em + var(--tracking));
+  text-transform: uppercase;
+}
+
+/* Each letter is two stacked layers instead of one span: a static base
+   (idle color) and a cycle layer whose step-end color animation runs
+   CONTINUOUSLY, infinite, from mount — never started/stopped by hover.
+   Hover only crossfades opacity between the two. That's the point: because
+   the cycle layer is already moving by the time hover reveals it, the fade
+   itself shows colors already in motion instead of a static color that
+   holds still and then suddenly starts moving once the fade completes. */
+.letterWrap {
+  position: relative;
+  display: inline-block;
+}
+
+.letterBase,
+.letterCycle {
+  transition: opacity 0.15s ease-out;
+}
+
+.letterBase {
+  color: var(--fg-color);
+  opacity: 1;
+}
+
+.bylinePita .letterBase {
+  color: var(--hover-color);
+}
+
+.letterCycle {
+  position: absolute;
+  top: 0;
+  left: 0;
+  opacity: 0;
+  pointer-events: none;
+  animation: letterColorCycle 0.5s step-end infinite;
+}
+
+.byline:hover .letterBase {
+  opacity: 0;
+}
+
+.byline:hover .letterCycle {
+  opacity: 1;
+}
+
+/* --pc0.. are set from paletteStore's prefetched preview palette by
+   Byline.tsx, so this literally previews the colors a click would apply.
+   step-end (not linear) is what keeps each letter a flat solid color instead
+   of crossfading through the gradient between stops. Each letter runs the
+   same loop at a different negative delay (set inline per-letter), which is
+   what makes the colors read as marching across the text rather than
+   flashing in unison. */
+@keyframes letterColorCycle {
+  0%   { color: var(--pc0, var(--fg-color)); }
+  25%  { color: var(--pc1, var(--hover-color)); }
+  50%  { color: var(--pc2, var(--fg-color)); }
+  75%  { color: var(--pc3, var(--hover-color)); }
+  100% { color: var(--pc0, var(--fg-color)); }
+}

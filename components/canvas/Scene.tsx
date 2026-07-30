@@ -1,15 +1,18 @@
 'use client'
 
-import React, { Suspense, useEffect, useRef, useCallback, useState } from 'react'
+import React, { Suspense, useEffect, useRef, useCallback, useState, useReducer } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, Preload } from '@react-three/drei'
 import * as THREE from 'three'
 import Model from './Model'
 import PostProcessing from './PostProcessing'
 import { bgStore } from '@/lib/bgStore'
+import { fgStore } from '@/lib/fgStore'
 import { shaderStore } from '@/lib/shaderStore'
 import { modelScrollStore } from '@/lib/modelScrollStore'
 import { cameraStore } from '@/lib/cameraStore'
+import { debugStore } from '@/lib/debugStore'
+import { getThemeColors, subscribePalette } from '@/lib/paletteStore'
 import type { Zone } from '@/types'
 
 // Mounts only after Suspense resolves — signals that the model is loaded
@@ -120,55 +123,145 @@ function CameraFov({ isMobile }: { isMobile: boolean }) {
 }
 
 
-const BG_COLORS = {
-  white: { bg: '#ffffff', fg: '#0d0d0d', fgMuted: '#999999' },
-  black: { bg: '#000000', fg: '#f0f0f0', fgMuted: '#666666' },
-}
+// Total time a bg/fg/muted fade takes, regardless of how far apart the old
+// and new colors are — see the fadeStart/startBg.. machinery in BackgroundSync
+// below for why this replaced a plain per-frame lerp.
+const COLOR_FADE_DURATION = 0.25
+const easeOutQuintic = (x: number) => 1 - Math.pow(1 - x, 5)
 
 // Smoothly lerps scene.background and CSS variables toward the target color.
 // The canvas is full-page on mobile so scene.background provides the page
 // background everywhere — no compositor-layer seam against HTML elements.
-function BackgroundSync({ color }: { color: 'white' | 'black' }) {
+function BackgroundSync() {
   const { scene } = useThree()
-  const curBg     = useRef(new THREE.Color(BG_COLORS.white.bg))
-  const curFg     = useRef(new THREE.Color(BG_COLORS.white.fg))
-  const curMuted  = useRef(new THREE.Color(BG_COLORS.white.fgMuted))
-  const tgtBg     = useRef(new THREE.Color(BG_COLORS.white.bg))
-  const tgtFg     = useRef(new THREE.Color(BG_COLORS.white.fg))
-  const tgtMuted  = useRef(new THREE.Color(BG_COLORS.white.fgMuted))
-  const settled   = useRef(true)
+  const initialColors = getThemeColors()
+  const curBg     = useRef(new THREE.Color(initialColors.bg))
+  const curFg     = useRef(new THREE.Color(initialColors.fg))
+  const curMuted  = useRef(new THREE.Color(initialColors.fgMuted))
+  const tgtBg     = useRef(new THREE.Color(initialColors.bg))
+  const tgtFg     = useRef(new THREE.Color(initialColors.fg))
+  const tgtMuted  = useRef(new THREE.Color(initialColors.fgMuted))
+  // Colors curBg/curFg/curMuted are fading FROM, and when that fade began —
+  // captured fresh (from wherever curBg.. currently sits) every time the
+  // target changes, so a fade that gets interrupted by another reroll starts
+  // its own full-duration fade from the current on-screen color rather than
+  // snapping. See the useFrame below for why this replaced a plain per-frame
+  // percentage-of-remaining-distance lerp: that approach closes the same
+  // FRACTION of the gap every frame, so it visually settles quickly for a
+  // small color jump but takes much longer to become imperceptible for a
+  // large one — the fade needs to take the same wall-clock time regardless
+  // of distance.
+  const startBg    = useRef(new THREE.Color(initialColors.bg))
+  const startFg    = useRef(new THREE.Color(initialColors.fg))
+  const startMuted = useRef(new THREE.Color(initialColors.fgMuted))
+  const fadeStart  = useRef(0)
+  // Tracks the debug override's previous on/off state so the frame it turns
+  // off can restart the fade from curBg's current (override-set) color —
+  // otherwise the fade would resume from a start captured before the
+  // override began, snapping back toward that stale position.
+  const wasOverridden = useRef(false)
+  // Bumped when the random palette finishes loading (arrives async, after
+  // this component's first render) — forces the target effect below to
+  // re-run even though `color` itself hasn't changed, so curBg/curFg/curMuted
+  // lerp smoothly from the temporary defaults into the palette's colors
+  // instead of snapping.
+  const [paletteTick, onPaletteChange] = useReducer((n: number) => n + 1, 0)
+  useEffect(() => subscribePalette(onPaletteChange), [])
+  // Last hex actually written to each CSS var — lets natural-lerp writes stop
+  // once converged (CSS variables are write-expensive even unchanged) while
+  // still reacting instantly the frame an override starts/stops, regardless
+  // of whether the natural lerp itself happens to be settled at that moment.
+  const lastWritten = useRef({ bg: '', fg: '', muted: '', iconInvert: '' })
 
   // Set scene.background once so Three.js tracks the same object
   useEffect(() => { scene.background = curBg.current }, [scene])
 
-  // Update targets when color changes; mark unsettled so DOM writes resume
+  // Update targets when the random palette finishes loading, so curBg/curFg
+  // lerp smoothly from the placeholder defaults into the real palette colors.
   useEffect(() => {
-    const { bg, fg, fgMuted } = BG_COLORS[color]
+    const { bg, fg, fgMuted } = getThemeColors()
     tgtBg.current.set(bg)
     tgtFg.current.set(fg)
     tgtMuted.current.set(fgMuted)
-    settled.current = false
-  }, [color])
+    startBg.current.copy(curBg.current)
+    startFg.current.copy(curFg.current)
+    startMuted.current.copy(curMuted.current)
+    fadeStart.current = performance.now() / 1000
+  }, [paletteTick])
 
-  useFrame((_, delta) => {
-    const t = 1 - Math.pow(1 - 0.12, Math.min(delta, 0.1) * 60)
-    curBg.current.lerp(tgtBg.current, t)
-    curFg.current.lerp(tgtFg.current, t)
-    curMuted.current.lerp(tgtMuted.current, t)
-    bgStore.luminance = curBg.current.r
+  useFrame(() => {
+    // Debug menu overrides are hard-pinned every frame (not lerped — the color
+    // picker is already a continuous input) instead of feeding into the
+    // natural palette lerp target. This keeps scene.background — the ACTUAL
+    // pixels Three.js renders — in lockstep with whatever color the shader
+    // composites against. Previously the override only reached the shader's
+    // uBgColor uniform while scene.background stayed the natural color, so
+    // the shader's ink/background luminance threshold was comparing against a
+    // color that wasn't actually on screen — misclassifying most of the
+    // background as "ink" and tinting it with whatever the ink color was.
+    const bgOverride    = debugStore.bgColor
+    const fgOverride     = debugStore.fgColor
+    const mutedOverride  = debugStore.fgMutedColor
+    const overridden = !!(bgOverride || fgOverride || mutedOverride)
 
-    // Skip DOM writes once the transition has converged — CSS variables are
-    // write-expensive even if the value is unchanged.
-    if (settled.current) return
-    const diff = Math.abs(curBg.current.r - tgtBg.current.r)
-               + Math.abs(curBg.current.g - tgtBg.current.g)
-               + Math.abs(curBg.current.b - tgtBg.current.b)
-    if (diff < 0.002) settled.current = true
-    const root = document.documentElement
-    root.style.setProperty('--bg-color',    '#' + curBg.current.getHexString())
-    root.style.setProperty('--fg-color',    '#' + curFg.current.getHexString())
-    root.style.setProperty('--fg-muted',    '#' + curMuted.current.getHexString())
-    root.style.setProperty('--icon-invert', String(1 - curBg.current.r))
+    if (wasOverridden.current && !overridden) {
+      startBg.current.copy(curBg.current)
+      startFg.current.copy(curFg.current)
+      startMuted.current.copy(curMuted.current)
+      fadeStart.current = performance.now() / 1000
+    }
+    wasOverridden.current = overridden
+
+    const elapsed = performance.now() / 1000 - fadeStart.current
+    const eased   = easeOutQuintic(Math.min(1, elapsed / COLOR_FADE_DURATION))
+
+    if (bgOverride) curBg.current.set(bgOverride)
+    else curBg.current.lerpColors(startBg.current, tgtBg.current, eased)
+
+    if (fgOverride) curFg.current.set(fgOverride)
+    else curFg.current.lerpColors(startFg.current, tgtFg.current, eased)
+
+    if (mutedOverride) curMuted.current.set(mutedOverride)
+    else curMuted.current.lerpColors(startMuted.current, tgtMuted.current, eased)
+
+    // bgStore is the single source of truth PostProcessing reads for the
+    // shader's background color/luminance — always derived from curBg
+    // (whichever of the two paths above produced it) so the two never disagree.
+    bgStore.luminance = curBg.current.r * 0.299 + curBg.current.g * 0.587 + curBg.current.b * 0.114
+    bgStore.r = curBg.current.r
+    bgStore.g = curBg.current.g
+    bgStore.b = curBg.current.b
+
+    // fgStore mirrors bgStore for the live fg color — needed because fg is no
+    // longer necessarily grayscale (it's the palette's black/white slot, which
+    // can be any hue), so non-React readers can't re-derive it from luminance alone.
+    fgStore.r = curFg.current.r
+    fgStore.g = curFg.current.g
+    fgStore.b = curFg.current.b
+
+    // Overrides write their own CSS vars instantly via debugStore.applyCssVars
+    // on every change — this loop only needs to drive the DOM while following
+    // the natural palette fade-in, and only when the value actually moved.
+    const bgHex = '#' + curBg.current.getHexString()
+    if (!bgOverride && bgHex !== lastWritten.current.bg) {
+      document.documentElement.style.setProperty('--bg-color', bgHex)
+      lastWritten.current.bg = bgHex
+    }
+    const fgHex = '#' + curFg.current.getHexString()
+    if (!fgOverride && fgHex !== lastWritten.current.fg) {
+      document.documentElement.style.setProperty('--fg-color', fgHex)
+      lastWritten.current.fg = fgHex
+    }
+    const mutedHex = '#' + curMuted.current.getHexString()
+    if (!mutedOverride && mutedHex !== lastWritten.current.muted) {
+      document.documentElement.style.setProperty('--fg-muted', mutedHex)
+      lastWritten.current.muted = mutedHex
+    }
+    const iconInvertStr = String(1 - bgStore.luminance)
+    if (iconInvertStr !== lastWritten.current.iconInvert) {
+      document.documentElement.style.setProperty('--icon-invert', iconInvertStr)
+      lastWritten.current.iconInvert = iconInvertStr
+    }
   })
 
   return null
@@ -215,12 +308,23 @@ interface SceneProps {
 }
 
 export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad, isMobile = false, canvasStyle, isContentMode = false }: SceneProps) {
-  const [bg, setBg]           = useState<'white' | 'black'>('white')
   const [shaderMode, setShaderMode] = useState<0|1|2>(0)
   const [initialFov]   = useState(() => getBaseFov(window.innerWidth, window.innerHeight, isMobile))
   const [modelYOffset] = useState(() => getMobileModelYOffset(isMobile))
 
-  const onPointerMissed  = useCallback(() => setBg(p => p === 'white' ? 'black' : 'white'), [])
+  // WebGL contexts can be lost for reasons entirely outside this app's control
+  // (GPU driver reset, the OS reclaiming VRAM under pressure from other apps,
+  // too many contexts open, etc.) — when it happens, Three.js/R3F's internal
+  // state (textures, render targets, compiled programs) is gone and cannot be
+  // trivially re-uploaded in place, so the canvas otherwise just freezes on
+  // its last rendered frame forever. A full reload is the standard, reliable
+  // recovery for a WebGL app — cheap here since there's no unsaved state to lose.
+  const onContextLost = useCallback((e: Event) => {
+    e.preventDefault()
+    console.warn('[Scene] WebGL context lost — reloading to recover.')
+    window.location.reload()
+  }, [])
+
   const onAsciiToggle    = useCallback(() => {
     const next = ((shaderMode + 1) % 3) as 0|1|2
     setShaderMode(next)
@@ -246,9 +350,11 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
       gl={{ antialias: true, alpha: false }}
       dpr={1}
       style={canvasStyle ?? defaultStyle}
-      onPointerMissed={isContentMode ? undefined : onPointerMissed}
+      onCreated={(state) => {
+        state.gl.domElement.addEventListener('webglcontextlost', onContextLost)
+      }}
     >
-      <BackgroundSync color={bg} />
+      <BackgroundSync />
 
       <ambientLight intensity={0.4} />
       <directionalLight position={[4, 6, 4]} intensity={1.2} castShadow />

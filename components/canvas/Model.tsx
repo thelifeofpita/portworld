@@ -10,6 +10,8 @@ import { posStore } from '@/lib/posStore'
 import { silhouetteStore } from '@/lib/silhouetteStore'
 import { zoneStore } from '@/lib/zoneStore'
 import { modelScrollStore } from '@/lib/modelScrollStore'
+import { debugStore } from '@/lib/debugStore'
+import { getModelColor } from '@/lib/paletteStore'
 import type { Zone } from '@/types'
 
 // ── Accent meshes & zone mapping ──────────────────────────────────────────────
@@ -23,7 +25,7 @@ const ACCENT_ZONE: Record<string, Zone> = {
 
 useGLTF.preload('/models/modelSeparated.glb')
 
-const CHROME_MATERIAL = new THREE.MeshStandardMaterial({
+export const CHROME_MATERIAL = new THREE.MeshStandardMaterial({
   metalness: 1,
   roughness: 0.2,
   color: new THREE.Color(0xd4d4d4),
@@ -82,6 +84,7 @@ export default function Model({ onZoneChange, onZoneReset, onAsciiToggle, onMode
   const activeZone    = useRef<Zone | -1>(-1)
   const meshesReady   = useRef(false)
   const hasInteracted = useRef(false)
+  const lastModelColor = useRef<string | null>('__unset__')
 
   // Keep camera ref in sync without re-creating callbacks
   useEffect(() => {
@@ -287,6 +290,15 @@ export default function Model({ onZoneChange, onZoneReset, onAsciiToggle, onMode
     _euler.setFromQuaternion(currentQuat.current, 'YXZ')
     rotStore.xDeg = ((_euler.x * RAD2DEG) % 360 + 360) % 360
     rotStore.yDeg = ((_euler.y * RAD2DEG) % 360 + 360) % 360
+
+    // Debug menu model-color override, else the palette-derived default (which
+    // itself changes once the random palette finishes loading) — only touch the
+    // material when the resolved value actually changed.
+    const resolvedModelColor = debugStore.modelColor ?? getModelColor()
+    if (resolvedModelColor !== lastModelColor.current) {
+      lastModelColor.current = resolvedModelColor
+      CHROME_MATERIAL.color.set(resolvedModelColor)
+    }
 
     // Compute rest positions once — bbox centers are constant in model-local space.
     // (getWorldPosition returns the pivot for all meshes; bbox center gives the

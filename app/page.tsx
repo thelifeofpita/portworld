@@ -6,8 +6,10 @@ import Loader from '@/components/ui/Loader'
 import ContentPanel from '@/components/ui/ContentPanel'
 import ZoneNav from '@/components/ui/ZoneNav'
 import MobilePage from '@/components/ui/MobilePage'
+import Byline from '@/components/ui/Byline'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { zoneStore } from '@/lib/zoneStore'
+import { loadPalette } from '@/lib/paletteStore'
 import { aboutContent } from '@/content/aboutContent'
 import type { Zone } from '@/types'
 import styles from './page.module.css'
@@ -63,6 +65,11 @@ export default function Home() {
   const isMobile = useIsMobile()
   const [activeZone,       setActiveZone]       = useState<Zone | null>(null)
   const [loaded,           setLoaded]           = useState(false)
+  // A random Lospec palette is fetched fresh on every visit (see paletteStore) —
+  // kicked off here, in parallel with the 3D model loading, so the loading
+  // screen never lets the site reveal itself in the wrong colors.
+  const [paletteReady,     setPaletteReady]     = useState(false)
+  useEffect(() => { loadPalette().finally(() => setPaletteReady(true)) }, [])
   // Hover near the small model only reveals the nav lines/titles — it never
   // grows the model or hides the work. Only an explicit click does that (see
   // handleModelClick), and that click fully deselects back to the landing view.
@@ -154,7 +161,7 @@ export default function Home() {
           onZoneReset={handleZoneReset}
           onLoad={handleLoad}
         />
-        <Loader visible={!loaded} />
+        <Loader visible={!loaded || !paletteReady} />
       </>
     )
   }
@@ -174,22 +181,17 @@ export default function Home() {
       {/* Visual reference zone over the small model — entry detection is via global mousemove */}
       {activeZone !== null && <div className={styles.centerNav} />}
 
-      <div className={styles.byline} onClick={() => zoneStore.resetToLanding?.()}>
-        <span className={styles.bylineText}>THELIFEOF<span className={styles.bylinePita}>PITA</span></span>
-      </div>
+      <Byline />
       <div className={styles.contactFooter}>
         {aboutContent.linkedin && (
           <a href={aboutContent.linkedin} className={styles.contactLink} target="_blank" rel="noopener noreferrer">LinkedIn</a>
-        )}
-        {aboutContent.email && (
-          <a href={`mailto:${aboutContent.email}`} className={styles.contactLink}>{aboutContent.email}</a>
         )}
         {aboutContent.instagram && (
           <a href={aboutContent.instagram} className={styles.contactLink} target="_blank" rel="noopener noreferrer">Instagram</a>
         )}
       </div>
       <CursorHint visible={loaded && !isContentMode} />
-      <Loader visible={!loaded} />
+      <Loader visible={!loaded || !paletteReady} />
     </main>
   )
 }

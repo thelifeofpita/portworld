@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import { projectsContent } from '@/content/projectsContent'
+import DebugMenu from '@/components/ui/DebugMenu'
 
 export const metadata: Metadata = {
   title: "Pita's goods",
@@ -13,7 +14,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         {/* Start fetching the model and fonts as early as possible */}
         <link rel="preload" href="/models/modelSeparated.glb" as="fetch" crossOrigin="anonymous" />
@@ -26,7 +27,10 @@ export default function RootLayout({
           : null
         )}
       </head>
-      <body>{children}</body>
+      <body suppressHydrationWarning>
+        {children}
+        <DebugMenu />
+      </body>
     </html>
   )
 }

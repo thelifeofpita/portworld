@@ -11,36 +11,6 @@
   user-select: none;
 }
 
-.byline {
-  position: fixed;
-  top: 3rem;
-  left: 50%;
-  transform: translateX(-50%);
-  pointer-events: auto;
-  cursor: pointer;
-  z-index: 12;
-  white-space: nowrap;
-  line-height: 1;
-}
-
-.bylineText {
-  display: block;
-  font-family: var(--font-display);
-  font-size: clamp(1.6rem, 3.5vw, 2.75rem);
-  letter-spacing: 0;
-  color: var(--fg-color);
-  text-transform: uppercase;
-  transition: color 0.15s ease-out;
-}
-
-.byline:hover .bylineText {
-  color: #e01010;
-}
-
-.bylinePita {
-  color: #e01010;
-}
-
 .contactFooter {
   position: fixed;
   bottom: 4rem;
@@ -53,15 +23,15 @@
 }
 
 .contactLink {
-  font-size: 1rem;
-  letter-spacing: -0.01em;
-  color: #b3b3b3;
+  font-size: calc(1rem * var(--font-primary-scale, 1));
+  letter-spacing: calc(-0.01em + var(--tracking));
+  color: var(--fg-color);
   white-space: nowrap;
   transition: color 0.2s ease-out;
 }
 
 .contactLink:hover {
-  color: red;
+  color: var(--accent-color);
 }
 
 /* Invisible circle centered over the small 3D model in content mode.
@@ -91,10 +61,10 @@
   gap: 4rem;
   transform: translate(-50%, -50%);
   transition: opacity 0.4s ease;
-  font-size: 1rem;
+  font-size: calc(1rem * var(--font-primary-scale, 1));
   font-weight: normal;
-  letter-spacing: -0.01em;
-  color: var(--fg-muted, #999);
+  letter-spacing: calc(-0.01em + var(--tracking));
+  color: var(--fg-muted);
   user-select: none;
   white-space: nowrap;
 }

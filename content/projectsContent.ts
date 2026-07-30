@@ -30,6 +30,8 @@ export interface ProjectItem {
   iconLabel?:     string
   defaultFeatured?: 'video' | 'img0' | 'img1'
   thumbScale?:      number  // CSS scale applied to the thumbnail image, e.g. 1.2 for 20% zoom
+  accentColor?:     string  // brand color for the 3D card mode's extruded frame (debug menu)
+  customLayout?:    'backInSmoothly'  // bypasses the generic carousel detail view entirely
 }
 
 export const projectsContent: ProjectItem[] = [
@@ -41,6 +43,7 @@ export const projectsContent: ProjectItem[] = [
     images:      ['/projects/proj1/image1.webp', '/projects/proj1/image2.webp'],
     icon:        '/icons/oneShowShortlist.png',
     iconLabel:   'One Show Young Ones Merit Winner',
+    accentColor: '#4285F4',
   },
   {
     title:       'Duolingo: Your Coolest Lesson Yet.',
@@ -50,6 +53,7 @@ export const projectsContent: ProjectItem[] = [
     images:      ['/projects/proj3/image1.webp', '/projects/proj3/image2.webp'],
     icon:        '/icons/MAS.png',
     iconLabel:   'Miami Ad School Scholarship Winner',
+    accentColor: '#58CC02',
   },
   {
     title:       'giffgaff X Big Issue: Verified.',
@@ -59,6 +63,7 @@ export const projectsContent: ProjectItem[] = [
     images:      ['/projects/proj2/image1.webp', '/projects/proj2/image2.webp'],
     icon:        '/icons/DNADShortlist.svg',
     iconLabel:   'D&AD New Blood Pencil Winner',
+    accentColor: '#E30613', // Big Issue red
   },
   {
     title:       'Hat Twix.',
@@ -66,6 +71,7 @@ export const projectsContent: ProjectItem[] = [
     thumb:       '/projects/proj4/thumb.webp',
     youtubeId:   'VykD83mmSTo',
     images:      ['/projects/proj4/image1.webp', '/projects/proj4/image2.webp'],
+    accentColor: '#ED1C24', // Twix red
   },
   {
     title:       'Canesten: Cottage Coocheese.',
@@ -74,6 +80,7 @@ export const projectsContent: ProjectItem[] = [
     thumb:       '/projects/proj6/thumb.webp',
     images:      ['/projects/proj6/image1.webp', '/projects/proj6/image2.webp'],
     thumbScale:  1.2,
+    accentColor: '#E6007E', // Canesten pink
   },
   {
     title:          'PlatanoMelón: Back in smoothly.',
@@ -82,5 +89,7 @@ export const projectsContent: ProjectItem[] = [
     thumb:          '/projects/proj5/thumb.webp',
     images:         ['/projects/proj5/image1.webp', '/projects/proj5/image2.webp'],
     defaultFeatured: 'img0',
+    accentColor:     '#FFE500', // matches the custom detail page's background exactly
+    customLayout:    'backInSmoothly',
   },
 ]

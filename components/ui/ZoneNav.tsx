@@ -5,8 +5,8 @@ import { useAnimationFrame } from 'framer-motion'
 import { posStore } from '@/lib/posStore'
 import { silhouetteStore } from '@/lib/silhouetteStore'
 import { zoneStore } from '@/lib/zoneStore'
-import { bgStore } from '@/lib/bgStore'
 import { cameraStore } from '@/lib/cameraStore'
+import { debugStore, hexToRgb255 } from '@/lib/debugStore'
 import styles from './ZoneNav.module.css'
 
 const N              = 3
@@ -20,9 +20,6 @@ const MIN_LINE       = 128             // minimum dot→label distance (CSS px, 
 const NAV_Z          = 5
 const ANGLE_SMOOTH   = 0.18   // per-box angle smoothing — sole lag stage, settles in ~3 frames
 const FOLLOW_RATE    = 0.22   // position convergence
-// Accent colors — must match PostProcessing.tsx shader constants
-const COLOR_BASE  = [242,  12, 31] as const  // #F20C1F unfocused red
-const COLOR_FOCUS = [242, 223, 12] as const  // #F2DF0C focused yellow
 
 const ACCENT_SMOOTH = 0.16  // lerp factor per 60-fps frame (same as PostProcessing tAccent)
 
@@ -73,10 +70,6 @@ export default function ZoneNav({ isContentMode = false }: { isContentMode?: boo
   ])
   // Per-box blend: 0 = unfocused red, 1 = focused yellow
   const blends        = useRef(new Float64Array(N))
-  // Per-box hover blend: 0 = resting white, 1 = hover red (lerped with accentF)
-  const hoverBlends   = useRef(new Float64Array(N))
-  // Tracks which boxes are currently hovered (updated by mouse events, read per frame)
-  const hovered       = useRef(new Uint8Array(N))
   const snapTo0 = useCallback(() => { zoneStore.snapToZone?.(0) }, [])
   const snapTo1 = useCallback(() => { zoneStore.snapToZone?.(1) }, [])
   const snapTo2 = useCallback(() => { zoneStore.snapToZone?.(2) }, [])
@@ -109,20 +102,16 @@ export default function ZoneNav({ isContentMode = false }: { isContentMode?: boo
     const { cx, cy, pts, count } = silhouetteStore
     const active = zoneStore.activeZone
 
+    // Accent colors — sourced from the debug menu (same uniforms PostProcessing uses)
+    const COLOR_BASE  = hexToRgb255(debugStore.accentBaseColor)
+    const COLOR_FOCUS = hexToRgb255(debugStore.accentFocusColor)
+
     // Shrinks as the camera pulls back for content mode, so label offsets shrink
     // in step with the model's on-screen size — but only halfway (floored at 0.5)
     // so labels stay legibly clear of the model instead of crowding it at full scale.
     const zoomScale = 0.5 + 0.5 * (NAV_Z / Math.max(cameraStore.z, NAV_Z))
     const padding   = PADDING  * zoomScale
     const minLine   = MIN_LINE * zoomScale
-
-    // Hover text: lerp target is the complement of #F20C1F against the current bg
-    // (so it renders as the literal site red through mix-blend-mode:difference).
-    // bgStore.luminance is the live grayscale value (1 = white, 0 = black).
-    const bgCh  = Math.round(bgStore.luminance * 255)
-    const htR   = Math.abs(COLOR_BASE[0] - bgCh)
-    const htG   = Math.abs(COLOR_BASE[1] - bgCh)
-    const htB   = Math.abs(COLOR_BASE[2] - bgCh)
 
     // ── 1. Desired angle for each box (direction toward its mesh) ─────────────
     // When the mesh is far enough from center, record the real direction.
@@ -198,21 +187,6 @@ export default function ZoneNav({ isContentMode = false }: { isContentMode?: boo
       const h = box.offsetHeight
       box.style.transform = `translate(${s.x - w / 2}px, ${s.y - h / 2}px)`
 
-      // Hover color — lerped with accentF so it fades in/out at the same speed
-      // as the accent highlight. Target is 1 for inactive hovered boxes, 0 otherwise.
-      const hoverTarget = (hovered.current[i] && i !== active) ? 1 : 0
-      hoverBlends.current[i] += (hoverTarget - hoverBlends.current[i]) * accentF
-      const hb = hoverBlends.current[i]
-      if (hb < 0.002) {
-        box.style.color = ''  // fully resting — let CSS default (white) take over
-      } else {
-        // Lerp raw CSS color from white (255,255,255) toward the hover complement
-        const cr = Math.round(255 + (htR - 255) * hb)
-        const cg = Math.round(255 + (htG - 255) * hb)
-        const cb = Math.round(255 + (htB - 255) * hb)
-        box.style.color = `rgb(${cr},${cg},${cb})`
-      }
-
       const lx = mesh.x - s.x
       const ly = mesh.y - s.y
       const tx = w > 0 && lx !== 0 ? (w / 2) / Math.abs(lx) : Infinity
@@ -250,12 +224,12 @@ export default function ZoneNav({ isContentMode = false }: { isContentMode?: boo
   return (
     <>
       <svg ref={svgRef} className={styles.svg} aria-hidden="true">
-        <line ref={line0} stroke="#F20C1F" strokeWidth="2" />
-        <line ref={line1} stroke="#F20C1F" strokeWidth="2" />
-        <line ref={line2} stroke="#F20C1F" strokeWidth="2" />
-        <circle ref={dot0} r="4" fill="#F20C1F" />
-        <circle ref={dot1} r="4" fill="#F20C1F" />
-        <circle ref={dot2} r="4" fill="#F20C1F" />
+        <line ref={line0} stroke="var(--accent-base-color)" strokeWidth="2" />
+        <line ref={line1} stroke="var(--accent-base-color)" strokeWidth="2" />
+        <line ref={line2} stroke="var(--accent-base-color)" strokeWidth="2" />
+        <circle ref={dot0} r="4" fill="var(--accent-base-color)" />
+        <circle ref={dot1} r="4" fill="var(--accent-base-color)" />
+        <circle ref={dot2} r="4" fill="var(--accent-base-color)" />
         {/* Underlines — in the SVG so they sit outside the difference-blend nav layer */}
         <rect ref={ul0} height="2" />
         <rect ref={ul1} height="2" />
@@ -263,9 +237,9 @@ export default function ZoneNav({ isContentMode = false }: { isContentMode?: boo
       </svg>
 
       <nav ref={navContainerRef} className={styles.nav} aria-label="Sections">
-        <div ref={box0} className={styles.box} onClick={snapTo0} onMouseEnter={() => { hovered.current[0] = 1 }} onMouseLeave={() => { hovered.current[0] = 0 }}>Projects</div>
-        <div ref={box1} className={styles.box} onClick={snapTo1} onMouseEnter={() => { hovered.current[1] = 1 }} onMouseLeave={() => { hovered.current[1] = 0 }}>About Me</div>
-        <div ref={box2} className={styles.box} onClick={snapTo2} onMouseEnter={() => { hovered.current[2] = 1 }} onMouseLeave={() => { hovered.current[2] = 0 }}>Playground</div>
+        <div ref={box0} className={styles.box} onClick={snapTo0}>Projects</div>
+        <div ref={box1} className={styles.box} onClick={snapTo1}>About Me</div>
+        <div ref={box2} className={styles.box} onClick={snapTo2}>Playground</div>
       </nav>
     </>
   )

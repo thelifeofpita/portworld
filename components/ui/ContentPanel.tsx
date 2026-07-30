@@ -3,57 +3,96 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import Image from 'next/image'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, animate, motion, useMotionValue, useSpring, useMotionTemplate, useTransform, type MotionValue } from 'framer-motion'
+import { AnimatePresence, animate, motion, useMotionValue, useSpring, useTransform, type MotionValue } from 'framer-motion'
 import type { Zone } from '@/types'
 import { playgroundContent, type PlaygroundItem } from '@/content/playgroundContent'
 import { projectsContent, type ProjectItem } from '@/content/projectsContent'
 import { aboutContent } from '@/content/aboutContent'
 import { cameraStore } from '@/lib/cameraStore'
+import { posStore } from '@/lib/posStore'
 import { silhouetteStore } from '@/lib/silhouetteStore'
 import { zoneStore } from '@/lib/zoneStore'
-import { posStore } from '@/lib/posStore'
+import { zoneTransitionStore } from '@/lib/zoneTransitionStore'
+import { cardGlowStore, projectCardCorners } from '@/lib/cardGlowStore'
+import { playgroundGlowStore } from '@/lib/playgroundGlowStore'
+import { cursorStore, ensureCursorTracking } from '@/lib/cursorStore'
+import { debugStore } from '@/lib/debugStore'
+import { buildConfigs, resolveAspectRatio, type PlaygroundCardConfig } from '@/lib/playgroundLayout'
+import BackInSmoothlyDetail from './BackInSmoothly'
 import styles from './ContentPanel.module.css'
 
 // Snappy panel open/close — same feel as the accent color snap
 const PANEL_TRANSITION = { duration: 0.22, ease: [0.2, 0, 0, 1] as const }
 const PANEL_EXIT       = { duration: 0.25, ease: [0.22, 1, 0.36, 1] as const }
 
-// ─── Hover tilt / lift / shine ───────────────────────────────────────────────
-// Shared by project and playground cards: on hover the card lifts up, tilts in
-// 3D toward the pointer, casts a soft shadow, and shows a moving specular shine.
+// ─── Hover tilt ───────────────────────────────────────────────────────────────
+// Shared by project/playground/about cards: the whole card leans toward the
+// live cursor position at all times (not just on hover), matching the deleted
+// 3D cards' look-toward-cursor behavior (see project_card_outer_glow.md
+// memory). Uncapped: dx/dy are no longer clamped to [-1, 1] before scaling,
+// so cards far from the viewport center (where the cursor-to-card-center
+// offset already exceeds one screen half at rest) keep tilting further as
+// the cursor keeps moving instead of saturating at LOOK_MAX_DEG partway
+// through the cursor's travel. Hover itself now only drives each card's own
+// separate feedback (the outer glow's color/presence) rather than any lift/
+// tilt/shine here — see ProjectCard/PlaygroundCard/AboutPane's own
+// glow-publish effects.
+const LOOK_MAX_DEG      = 16
+const LOOK_SENSITIVITY  = 1.15
+// Must match ProjectCard's `transformPerspective: PROJECT_CARD_PERSPECTIVE`
+// style — projectCardCorners() replicates that exact CSS transform in JS to
+// find the tilted card's true on-screen quad, so the two have to agree.
+const PROJECT_CARD_PERSPECTIVE = 900
+// Must match PlaygroundCard's `transformPerspective: PLAYGROUND_CARD_PERSPECTIVE` style.
+const PLAYGROUND_CARD_PERSPECTIVE = 700
+// dt-normalized smoothing factor for the glow's hover color-wipe progress —
+// same shape/pace as PostProcessing.tsx's own dither-mode transition lerp.
+const HOVER_WIPE_SMOOTH = 0.14
 
-const LIFT     = { duration: 0.3, ease: [0.22, 1, 0.36, 1] as const }
-const TILT_MAX = 10  // degrees of rotation at the card edge
-
-function useCardTilt() {
+function useCardTilt<T extends HTMLElement = HTMLElement>() {
   const [hovered, setHovered] = useState(false)
+  // Mirrors `hovered` for consumers with their own rAF loop (e.g. ProjectCard's
+  // glow-color publish) that need the live value without re-running their
+  // effect (and restarting their loop) on every hover enter/leave.
+  const hoveredRef = useRef(false)
+  const rootRef  = useRef<T>(null)
   const rotateX = useMotionValue(0)
   const rotateY = useMotionValue(0)
-  const shineX  = useMotionValue(50)
-  const shineY  = useMotionValue(50)
   const springX = useSpring(rotateX, { stiffness: 260, damping: 22 })
   const springY = useSpring(rotateY, { stiffness: 260, damping: 22 })
-  const shine   = useMotionTemplate`radial-gradient(circle at ${shineX}% ${shineY}%, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.07) 45%, rgba(255,255,255,0) 70%)`
 
-  const onTiltMove = useCallback((e: React.PointerEvent<HTMLElement>) => {
-    const r = e.currentTarget.getBoundingClientRect()
-    if (!r.width || !r.height) return
-    const px = (e.clientX - r.left) / r.width  - 0.5
-    const py = (e.clientY - r.top)  / r.height - 0.5
-    rotateY.set(px * TILT_MAX * 2)
-    rotateX.set(-py * TILT_MAX * 2)
-    shineX.set((px + 0.5) * 100)
-    shineY.set((py + 0.5) * 100)
-  }, [rotateX, rotateY, shineX, shineY])
-
-  const onTiltEnter = useCallback(() => setHovered(true), [])
-  const onTiltLeave = useCallback(() => {
-    setHovered(false)
-    rotateX.set(0)
-    rotateY.set(0)
+  // Ambient look-toward-cursor — runs continuously (hovered or not), reading
+  // the shared cursorStore (one global listener for every card) against this
+  // card's own live rect each frame.
+  useEffect(() => {
+    ensureCursorTracking()
+    let rafId: number
+    const tick = () => {
+      if (cursorStore.hasMoved) {
+        const el = rootRef.current
+        if (el) {
+          const r = el.getBoundingClientRect()
+          const cx = r.left + r.width  / 2
+          const cy = r.top  + r.height / 2
+          const dx = (cursorStore.x - cx) / (window.innerWidth  / 2)
+          const dy = (cursorStore.y - cy) / (window.innerHeight / 2)
+          rotateY.set(dx * LOOK_SENSITIVITY * LOOK_MAX_DEG)
+          rotateX.set(-dy * LOOK_SENSITIVITY * LOOK_MAX_DEG)
+        }
+      }
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId)
   }, [rotateX, rotateY])
 
-  return { hovered, springX, springY, shine, onTiltMove, onTiltEnter, onTiltLeave }
+  const onTiltEnter = useCallback(() => { hoveredRef.current = true; setHovered(true) }, [])
+  const onTiltLeave = useCallback(() => {
+    hoveredRef.current = false
+    setHovered(false)
+  }, [])
+
+  return { hovered, hoveredRef, springX, springY, onTiltEnter, onTiltLeave, rootRef }
 }
 
 // ─── Single card ─────────────────────────────────────────────────────────────
@@ -61,74 +100,128 @@ function useCardTilt() {
 type CardRect = { top: number; left: number; width: number; height: number }
 
 interface CardProps {
-  direction: 'left' | 'right'
-  onExpand: (rect: CardRect) => void
-  thumb?: string
-  isOpen: boolean      // portal is fully open — card hides so they don't overlap
+  index:       number  // slot in cardGlowStore.entries (0-5) — matches projectsContent order
+  direction:   'left' | 'right'
+  arcInset?:   boolean // top/bottom card in its column — pulled inward for the circular composition
+  onExpand:    (rect: CardRect) => void
+  thumb?:      string
+  accentColor?: string // published to cardGlowStore for PostProcessing's outer-glow pass
+  isOpen:      boolean // portal is fully open — card hides so they don't overlap
   thumbScale?: number  // CSS scale applied to the thumbnail image
 }
 
-function ProjectCard({ direction, onExpand, thumb, isOpen, thumbScale = 1 }: CardProps) {
+function ProjectCard({ index, direction, arcInset, onExpand, thumb, accentColor, isOpen, thumbScale = 1 }: CardProps) {
   const thumbRef     = useRef<HTMLDivElement>(null)
   const dragBlockRef = useRef(false)
-  const { hovered, springX, springY, shine, onTiltMove, onTiltEnter, onTiltLeave } = useCardTilt()
+  const { hoveredRef, springX, springY, onTiltEnter, onTiltLeave, rootRef } = useCardTilt<HTMLDivElement>()
+
+  // Publish this card's live tilted QUAD (its 4 corners after rotateX/rotateY/
+  // perspective — not the axis-aligned bounding box, which is visibly larger
+  // than the actual tilted card) + colors every frame, so PostProcessing.tsx's
+  // outer-glow pass — running inside the R3F Canvas, behind this DOM layer —
+  // can hug the real shape. rootRef gives the UNROTATED anchor rect (rotation
+  // lives on a deeper child, projectCardInner, so rootRef's own rect — which
+  // does include drag's translate — is exactly the pre-rotation box); reading
+  // springX/springY's live values (rather than the DOM) sidesteps having to
+  // reverse-engineer the applied CSS matrix. On hover the glow wipes from
+  // `color` (the project's own brand color) to `hoverColor` (the sitewide
+  // "focused" accent color, matching the same convention used elsewhere — the
+  // model's hand/foot/head, ZoneNav — for "this one is selected") — the wipe
+  // itself (radiating outward from the card's own center through the glow
+  // ring) is computed in the shader from `hoverProgress`, smoothed here so it
+  // animates rather than cutting instantly. Cleared on unmount so a stale
+  // glow doesn't linger after this pane hides.
+  useEffect(() => {
+    let rafId: number
+    let lastTime = performance.now()
+    const hoverProgress = { current: 0 }
+    const tick = (now: number) => {
+      const dt = Math.min((now - lastTime) / 1000, 0.1)
+      lastTime = now
+      const f = 1 - Math.pow(1 - HOVER_WIPE_SMOOTH, dt * 60)
+      hoverProgress.current += ((hoveredRef.current ? 1 : 0) - hoverProgress.current) * f
+
+      const anchorEl = rootRef.current
+      const w = thumbRef.current?.offsetWidth  ?? 0
+      const h = thumbRef.current?.offsetHeight ?? 0
+      // isOpen: the detail portal has taken over and this card is hidden
+      // (opacity 0) at the same rect — publishing would glow an invisible card.
+      if (anchorEl && accentColor && w && h && !isOpen) {
+        const r  = anchorEl.getBoundingClientRect()
+        const cx = r.left + r.width  / 2
+        const cy = r.top  + r.height / 2
+        const corners = projectCardCorners(springX.get(), springY.get(), w, h, PROJECT_CARD_PERSPECTIVE, cx, cy)
+        cardGlowStore.entries[index] = {
+          corners,
+          color:      accentColor,
+          hoverColor: debugStore.accentFocusColor,
+          hoverProgress: hoverProgress.current,
+        }
+      } else {
+        cardGlowStore.entries[index] = null
+      }
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => {
+      cancelAnimationFrame(rafId)
+      cardGlowStore.entries[index] = null
+    }
+  }, [index, accentColor, isOpen, rootRef, springX, springY, hoveredRef])
+
+  // Arc composition — top/bottom cards in each column pull horizontally toward
+  // the model at screen-center (mirrors the deleted 3D cards' COL_X/ARC_RADIUS_Y
+  // arc, see project_card_outer_glow.md memory). Static, so it lives on the
+  // outer <li> (plain, not a motion element) rather than fighting the inner
+  // motion.div's own drag-driven x/y transform.
+  const edgeClass = arcInset
+    ? (direction === 'left' ? styles.projectCardEdgeLeft : styles.projectCardEdgeRight)
+    : ''
 
   return (
-    <motion.li
-      className={styles.projectCard}
-      drag
-      dragElastic={0}
-      dragMomentum={false}
-      whileDrag={{ scale: 1.05, zIndex: 20 }}
-      onDragStart={() => { dragBlockRef.current = true }}
-      onDragEnd={() => { setTimeout(() => { dragBlockRef.current = false }, 0) }}
-      onPointerMove={onTiltMove}
-      onPointerEnter={onTiltEnter}
-      onPointerLeave={onTiltLeave}
-      onTap={() => {
-        if (dragBlockRef.current) return
-        // Measure the thumb's live rect (including the hover lift) so the portal
-        // opens from exactly where the card is on screen.
-        const r = thumbRef.current?.getBoundingClientRect()
-        if (r) onExpand({ top: r.top, left: r.left, width: r.width, height: r.height })
-      }}
-      style={{ cursor: 'grab' }}
-    >
-      {/* Hidden only while the portal is fully open (isOpen). During the closing
-          animation the card is already visible underneath — the portal sits on top
-          via z-index and animates back to the card position, so when it unmounts
-          the card is already there with no gap or blink. */}
+    <li className={`${styles.projectCard} ${edgeClass}`}>
       <motion.div
-        style={{ width: '100%' }}
-        initial={false}
-        animate={{ opacity: isOpen ? 0 : 1 }}
-        transition={{ opacity: { duration: isOpen ? 0.05 : 0 } }}
+        ref={rootRef}
+        drag
+        dragElastic={0}
+        dragMomentum={false}
+        whileDrag={{ scale: 1.05, zIndex: 20 }}
+        onDragStart={() => { dragBlockRef.current = true }}
+        onDragEnd={() => { setTimeout(() => { dragBlockRef.current = false }, 0) }}
+        onPointerEnter={onTiltEnter}
+        onPointerLeave={onTiltLeave}
+        onTap={() => {
+          if (dragBlockRef.current) return
+          // Measure the thumb's live rect so the portal opens from exactly
+          // where the card is on screen.
+          const r = thumbRef.current?.getBoundingClientRect()
+          if (r) onExpand({ top: r.top, left: r.left, width: r.width, height: r.height })
+        }}
+        style={{ cursor: 'grab', touchAction: 'none' }}
       >
+        {/* Hidden only while the portal is fully open (isOpen). During the closing
+            animation the card is already visible underneath — the portal sits on top
+            via z-index and animates back to the card position, so when it unmounts
+            the card is already there with no gap or blink. */}
         <motion.div
-          className={styles.projectCardInner}
-          style={{ rotateX: springX, rotateY: springY, transformPerspective: 900, pointerEvents: 'none' }}
-          animate={{ y: hovered ? -12 : 0, scale: hovered ? 1.04 : 1 }}
-          transition={LIFT}
+          style={{ width: '100%' }}
+          initial={false}
+          animate={{ opacity: isOpen ? 0 : 1 }}
+          transition={{ opacity: { duration: isOpen ? 0.05 : 0 } }}
         >
-          <div className={styles.projectCardRow}>
-            <motion.div
-              ref={thumbRef}
-              className={styles.projectThumb}
-              animate={{ boxShadow: hovered ? '0 24px 48px rgba(0, 0, 0, 0.12)' : '0 24px 48px rgba(0, 0, 0, 0)' }}
-              transition={LIFT}
-            >
-              {thumb && <Image src={thumb} alt="" fill priority quality={90} style={{ objectFit: 'cover', transform: thumbScale !== 1 ? `scale(${thumbScale})` : undefined }} sizes="30vw" />}
-              <motion.div
-                className={styles.cardShine}
-                style={{ background: shine }}
-                animate={{ opacity: hovered ? 1 : 0 }}
-                transition={{ duration: 0.25 }}
-              />
-            </motion.div>
-          </div>
+          <motion.div
+            className={styles.projectCardInner}
+            style={{ rotateX: springX, rotateY: springY, transformPerspective: PROJECT_CARD_PERSPECTIVE, pointerEvents: 'none' }}
+          >
+            <div className={styles.projectCardRow}>
+              <div ref={thumbRef} className={styles.projectThumb}>
+                {thumb && <Image src={thumb} alt="" fill priority quality={90} style={{ objectFit: 'cover', transform: thumbScale !== 1 ? `scale(${thumbScale})` : undefined }} sizes="30vw" />}
+              </div>
+            </div>
+          </motion.div>
         </motion.div>
       </motion.div>
-    </motion.li>
+    </li>
   )
 }
 
@@ -212,7 +305,7 @@ function MediaContent({ slot, item }: { slot: MediaSlot; item: ProjectItem }) {
   const src = item.images[slot === 'img0' ? 0 : 1]
   return src
     ? <Image src={src} alt="" fill quality={90} style={{ objectFit: 'cover' }} sizes="65vw" />
-    : <div style={{ width: '100%', height: '100%', background: '#f0ece8' }} />
+    : <div style={{ width: '100%', height: '100%', background: 'var(--placeholder-color)' }} />
 }
 
 function ProjectDetail({
@@ -224,6 +317,8 @@ function ProjectDetail({
   onClose:    () => void
   onNavigate: (newIndex: number) => void
 }) {
+  const isCustomLayout = item.customLayout === 'backInSmoothly'
+
   const defaultVIdx = item.defaultFeatured ? ALL_SLOTS.indexOf(item.defaultFeatured) : 0
 
   const [vIdx, setVIdx]    = useState(defaultVIdx)
@@ -285,6 +380,7 @@ function ProjectDetail({
   // Listen on window so scroll works from anywhere in the panel (title, desc, sides),
   // not just when the cursor is directly over the carousel track.
   useEffect(() => {
+    if (isCustomLayout) return  // custom layout scrolls the page normally instead
     let lastTime = 0
     const handleWheel = (e: WheelEvent) => {
       e.preventDefault()
@@ -296,17 +392,18 @@ function ProjectDetail({
     }
     window.addEventListener('wheel', handleWheel, { passive: false })
     return () => window.removeEventListener('wheel', handleWheel)
-  }, [goTo])
+  }, [goTo, isCustomLayout])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape')     onClose()
+      if (e.key === 'Escape') onClose()
+      if (isCustomLayout) return  // no carousel to step through on this layout
       if (e.key === 'ArrowLeft')  goTo(vIdxRef.current - 1)
       if (e.key === 'ArrowRight') goTo(vIdxRef.current + 1)
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [onClose, goTo])
+  }, [onClose, goTo, isCustomLayout])
 
   // Pointer-based drag — updates trackX directly, no Framer Motion drag needed.
   const pointerStartX  = useRef(0)
@@ -368,16 +465,31 @@ function ProjectDetail({
         className={styles.detailPanel}
         initial={{ ...cardRect, borderRadius: 0 }}
         animate={{ ...final, borderRadius: 0, transition: PANEL_TRANSITION }}
-        exit={{ ...cardRect, borderRadius: 0, transition: PANEL_EXIT }}
+        exit={{
+          ...cardRect,
+          borderRadius: 0,
+          opacity: [1, 1, 0],
+          transition: { ...PANEL_EXIT, opacity: { duration: PANEL_EXIT.duration, times: [0, 0.8, 1] } },
+        }}
+        style={isCustomLayout ? { backgroundColor: item.accentColor } : undefined}
         role="dialog"
         aria-modal="true"
       >
-        {/* Thumbnail flash */}
+        {/* Thumbnail flash — on open, the custom layout's accent color already matches
+            the destination page background, so it stays hidden and the growing rect
+            fills with that flat color instead of the thumbnail image (the transition
+            reads as the color taking over rather than an image zooming in and fading).
+            On close it fades back in for every layout so the shrinking rect shows the
+            real thumbnail image matching the card underneath, then dissolves away again
+            just before the panel unmounts — in 3D card mode the mesh underneath never
+            fades and its rect is only an approximation, so a shape/position mismatch is
+            unavoidable; fading out first (rather than cutting straight from opaque to
+            gone) keeps that handoff smooth regardless of how closely it lines up. */}
         <motion.div
-          initial={{ opacity: 1 }}
-          animate={{ opacity: 0, transition: { delay: 0.08, duration: 0.12 } }}
-          exit={{ opacity: 1, transition: { delay: 0.04, duration: 0.10 } }}
-          style={{ position: 'absolute', inset: 0, background: '#f0ece8', zIndex: 1, pointerEvents: 'none', overflow: 'hidden' }}
+          initial={{ opacity: isCustomLayout ? 0 : 1 }}
+          animate={{ opacity: 0, transition: isCustomLayout ? { duration: 0 } : { delay: 0.08, duration: 0.12 } }}
+          exit={{ opacity: [null, 1, 1, 0], transition: { duration: PANEL_EXIT.duration, times: [0, 0.4, 0.72, 1] } }}
+          style={{ position: 'absolute', inset: 0, background: 'var(--placeholder-color)', zIndex: 1, pointerEvents: 'none', overflow: 'hidden' }}
         >
           {item.thumb && (
             <Image src={item.thumb} alt="" fill quality={90} style={{ objectFit: 'cover', transform: item.thumbScale && item.thumbScale !== 1 ? `scale(${item.thumbScale})` : undefined }} sizes="100vw" />
@@ -391,81 +503,102 @@ function ProjectDetail({
           exit={{ opacity: 0, transition: { duration: 0.04 } }}
           style={{ position: 'absolute', top: 0, left: 0, width: final.width, height: final.height, display: 'flex', flexDirection: 'column', overflow: 'hidden', zIndex: 2 }}
         >
-          <button className={styles.detailClose} onClick={onClose} aria-label="Close">×</button>
+          {/* backInSmoothly has its own [X] inside the top/bottom in-page nav
+              rows (BackInSmoothly.tsx's ProjectNav) instead of this fixed
+              corner control, so it scrolls away with that menu rather than
+              hovering over the page the whole time. */}
+          {!isCustomLayout && (
+            <button className={styles.detailClose} onClick={onClose} aria-label="Close">×</button>
+          )}
 
           <button
-            className={styles.detailHomeLink}
+            className={`${styles.detailHomeLink} ${isCustomLayout ? styles.detailHomeLinkCustom : ''}`}
             onClick={() => { onClose(); setTimeout(() => zoneStore.resetToLanding?.(), 300) }}
             aria-label="Return to home"
           >
             THELIFEOF<span className={styles.detailHomePita}>PITA</span>
           </button>
 
-          {/* Header — prev/next project flanking centered title */}
-          <div className={styles.detailHeader}>
-            <button className={`${styles.detailNavItem} ${styles.detailNavLeft}`} onClick={() => onNavigate(prevIndex)}>
-              <span className={styles.detailNavArrow}>←</span>
-              <span className={styles.detailNavTitle}>{prevProject.title}</span>
-            </button>
+          {isCustomLayout ? (
+            // scrollbarGutter reserves equal space on both edges regardless of
+            // whether the scrollbar is actually showing, so this scrolling
+            // container's own centered content (BackInSmoothly's nav/hero/etc.)
+            // stays centered on the true viewport width — otherwise a
+            // right-only scrollbar shifts its visual center a few px left of
+            // the fixed THELIFEOFPITA logo above (which isn't inside this
+            // scroll container), reading as "off-center."
+            <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', paddingTop: '2.4rem', scrollbarGutter: 'stable both-edges' }}>
+              <BackInSmoothlyDetail onPrev={() => onNavigate(prevIndex)} onNext={() => onNavigate(nextIndex)} onClose={onClose} />
+            </div>
+          ) : (
+            <>
+              {/* Header — prev/next project flanking centered title */}
+              <div className={styles.detailHeader}>
+                <button className={`${styles.detailNavItem} ${styles.detailNavLeft}`} onClick={() => onNavigate(prevIndex)}>
+                  <span className={styles.detailNavArrow}>←</span>
+                  <span className={styles.detailNavTitle}>{prevProject.title}</span>
+                </button>
 
-            <AnimatePresence mode="wait">
-              <motion.div
-                key={item.title}
-                className={styles.detailHeaderCenter}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.18 }}
+                <AnimatePresence mode="wait">
+                  <motion.div
+                    key={item.title}
+                    className={styles.detailHeaderCenter}
+                    initial={{ opacity: 0, y: 8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -8 }}
+                    transition={{ duration: 0.18 }}
+                  >
+                    <h2 className={styles.detailTitle}>{item.title}</h2>
+                    <p className={styles.detailDesc}>{item.description}</p>
+                  </motion.div>
+                </AnimatePresence>
+
+                <button className={`${styles.detailNavItem} ${styles.detailNavRight}`} onClick={() => onNavigate(nextIndex)}>
+                  <span className={styles.detailNavArrow}>→</span>
+                  <span className={styles.detailNavTitle}>{nextProject.title}</span>
+                </button>
+              </div>
+
+              {/* Infinite 3D wheel carousel */}
+              <div
+                ref={carouselRef}
+                className={styles.carousel}
+                style={{
+                  position: 'relative',
+                  height: slideHeight,
+                  perspective: '2400px',
+                  clipPath: 'inset(0)',
+                  touchAction: 'none',
+                  userSelect: 'none',
+                }}
+                onPointerDown={onPointerDown}
+                onPointerMove={onPointerMove}
+                onPointerUp={onPointerUp}
+                onPointerCancel={onPointerUp}
               >
-                <h2 className={styles.detailTitle}>{item.title}</h2>
-                <p className={styles.detailDesc}>{item.description}</p>
-              </motion.div>
-            </AnimatePresence>
-
-            <button className={`${styles.detailNavItem} ${styles.detailNavRight}`} onClick={() => onNavigate(nextIndex)}>
-              <span className={styles.detailNavArrow}>→</span>
-              <span className={styles.detailNavTitle}>{nextProject.title}</span>
-            </button>
-          </div>
-
-          {/* Infinite 3D wheel carousel */}
-          <div
-            ref={carouselRef}
-            className={styles.carousel}
-            style={{
-              position: 'relative',
-              height: slideHeight,
-              perspective: '2400px',
-              clipPath: 'inset(0)',
-              touchAction: 'none',
-              userSelect: 'none',
-            }}
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
-          >
-            {/* 7 virtual slides: 3 before active, active, 3 after */}
-            {[-3, -2, -1, 0, 1, 2, 3].map(offset => {
-              const vi       = vIdx + offset
-              const realSlot = ((vi % SLOT_COUNT) + SLOT_COUNT) % SLOT_COUNT
-              return (
-                <CarouselSlide
-                  key={vi}
-                  trackX={trackX}
-                  vi={vi}
-                  PITCH={PITCH}
-                  trackOffset={trackOffset}
-                  slideWidth={slideWidth}
-                  slideHeight={slideHeight}
-                  slot={ALL_SLOTS[realSlot]}
-                  item={item}
-                  activeVi={vIdx}
-                  onGoTo={goTo}
-                />
-              )
-            })}
-          </div>
+                {/* 7 virtual slides: 3 before active, active, 3 after */}
+                {[-3, -2, -1, 0, 1, 2, 3].map(offset => {
+                  const vi       = vIdx + offset
+                  const realSlot = ((vi % SLOT_COUNT) + SLOT_COUNT) % SLOT_COUNT
+                  return (
+                    <CarouselSlide
+                      key={vi}
+                      trackX={trackX}
+                      vi={vi}
+                      PITCH={PITCH}
+                      trackOffset={trackOffset}
+                      slideWidth={slideWidth}
+                      slideHeight={slideHeight}
+                      slot={ALL_SLOTS[realSlot]}
+                      item={item}
+                      activeVi={vIdx}
+                      onGoTo={goTo}
+                    />
+                  )
+                })}
+              </div>
+            </>
+          )}
 
         </motion.div>
       </motion.div>
@@ -520,13 +653,13 @@ function ProjectsPane() {
     <>
       <div className={styles.projectsPane}>
         <ul ref={leftListRef} className={styles.projectsList}>
-          {[0, 1, 2].map(i => (
-            <ProjectCard key={i} direction="left" onExpand={(r) => handleExpand(i, r)} thumb={projectsContent[i].thumb} isOpen={expandedIndex === i} thumbScale={projectsContent[i].thumbScale} />
+          {[0, 1, 2].map((i, pos) => (
+            <ProjectCard key={i} index={i} direction="left" arcInset={pos !== 1} onExpand={(r) => handleExpand(i, r)} thumb={projectsContent[i].thumb} accentColor={projectsContent[i].accentColor} isOpen={expandedIndex === i} thumbScale={projectsContent[i].thumbScale} />
           ))}
         </ul>
         <ul ref={rightListRef} className={styles.projectsList}>
-          {[3, 4, 5].map(i => (
-            <ProjectCard key={i} direction="right" onExpand={(r) => handleExpand(i, r)} thumb={projectsContent[i].thumb} isOpen={expandedIndex === i} thumbScale={projectsContent[i].thumbScale} />
+          {[3, 4, 5].map((i, pos) => (
+            <ProjectCard key={i} index={i} direction="right" arcInset={pos !== 1} onExpand={(r) => handleExpand(i, r)} thumb={projectsContent[i].thumb} accentColor={projectsContent[i].accentColor} isOpen={expandedIndex === i} thumbScale={projectsContent[i].thumbScale} />
           ))}
         </ul>
       </div>
@@ -555,13 +688,17 @@ function AboutPane() {
   const [prevIndex,  setPrevIndex]  = useState<number | null>(null)
   const [photoHovered, setPhotoHovered] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const { hovered, springX, springY, shine, onTiltMove, onTiltEnter, onTiltLeave } = useCardTilt()
+  const photoThumbRef = useRef<HTMLDivElement>(null)
+  const { hoveredRef, springX, springY, onTiltEnter, onTiltLeave, rootRef } = useCardTilt<HTMLDivElement>()
 
   // Preload all photos immediately so subsequent frames are already in cache
   useEffect(() => {
     aboutContent.photos.forEach(src => { new window.Image().src = src })
   }, [])
 
+  // Same auto-rotate-pauses-on-hover behavior as before — untouched by the
+  // lift/shine/glow treatment below, which only changes hover FEEDBACK, not
+  // this existing "stop rotating while the user's looking at it" behavior.
   useEffect(() => {
     if (photoHovered || aboutContent.photos.length <= 1) return
     intervalRef.current = setInterval(() => {
@@ -579,6 +716,55 @@ function AboutPane() {
   const handleEnter = useCallback(() => { onTiltEnter(); setPhotoHovered(true)  }, [onTiltEnter])
   const handleLeave = useCallback(() => { onTiltLeave(); setPhotoHovered(false) }, [onTiltLeave])
 
+  // Hover-only glow — same treatment as PlaygroundCard (see its own comment
+  // for the reasoning), sharing playgroundGlowStore's pool since About and
+  // Playground are different zones that are never displayed simultaneously
+  // (see ContentPanel's zoneTransitionStore/`inert` gating), so there's no
+  // slot-collision risk. Reuses PROJECT_CARD_PERSPECTIVE since this photo's
+  // own transformPerspective (below) happens to be the same 900 value.
+  const glowSlotRef = useRef<number | null>(null)
+  useEffect(() => {
+    let rafId: number
+    let lastTime = performance.now()
+    const hoverProgress = { current: 0 }
+    const releaseSlot = () => {
+      if (glowSlotRef.current !== null) {
+        playgroundGlowStore.entries[glowSlotRef.current] = null
+        glowSlotRef.current = null
+      }
+    }
+    const tick = (now: number) => {
+      const dt = Math.min((now - lastTime) / 1000, 0.1)
+      lastTime = now
+      const f = 1 - Math.pow(1 - HOVER_WIPE_SMOOTH, dt * 60)
+      hoverProgress.current += ((hoveredRef.current ? 1 : 0) - hoverProgress.current) * f
+
+      const el = photoThumbRef.current
+      const w  = el?.offsetWidth  ?? 0
+      const h  = el?.offsetHeight ?? 0
+      if (el && w && h && hoverProgress.current > 0.001) {
+        if (glowSlotRef.current === null) {
+          glowSlotRef.current = playgroundGlowStore.entries.findIndex(e => e === null)
+        }
+        if (glowSlotRef.current !== -1 && glowSlotRef.current !== null) {
+          const r  = el.getBoundingClientRect()
+          const cx = r.left + r.width  / 2
+          const cy = r.top  + r.height / 2
+          const corners = projectCardCorners(springX.get(), springY.get(), w, h, PROJECT_CARD_PERSPECTIVE, cx, cy)
+          playgroundGlowStore.entries[glowSlotRef.current] = { corners, opacity: hoverProgress.current }
+        }
+      } else {
+        releaseSlot()
+      }
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => {
+      cancelAnimationFrame(rafId)
+      releaseSlot()
+    }
+  }, [springX, springY, hoveredRef])
+
   return (
     <div className={styles.aboutPane}>
 
@@ -587,6 +773,7 @@ function AboutPane() {
 
         <div className={styles.aboutPanelInner}>
           <motion.div
+            ref={rootRef}
             className={styles.aboutPhoto}
             aria-hidden="true"
             drag
@@ -594,20 +781,13 @@ function AboutPane() {
             dragMomentum={false}
             whileDrag={{ scale: 1.05, zIndex: 20 }}
             style={{ cursor: 'grab' }}
-            onPointerMove={onTiltMove}
             onPointerEnter={handleEnter}
             onPointerLeave={handleLeave}
           >
             <motion.div
-              style={{ rotateX: springX, rotateY: springY, transformPerspective: 900, pointerEvents: 'none' }}
-              animate={{ y: hovered ? -12 : 0, scale: hovered ? 1.04 : 1 }}
-              transition={LIFT}
+              style={{ rotateX: springX, rotateY: springY, transformPerspective: PROJECT_CARD_PERSPECTIVE, pointerEvents: 'none' }}
             >
-              <motion.div
-                className={styles.aboutPhotoThumb}
-                animate={{ boxShadow: hovered ? '0 24px 48px rgba(0, 0, 0, 0.12)' : '0 24px 48px rgba(0, 0, 0, 0)' }}
-                transition={LIFT}
-              >
+              <div ref={photoThumbRef} className={styles.aboutPhotoThumb}>
                 {/* Outgoing photo — stays fully opaque underneath as the base layer */}
                 {prevPhoto && (
                   <img
@@ -626,13 +806,7 @@ function AboutPane() {
                     style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
                   />
                 )}
-                <motion.div
-                  className={styles.cardShine}
-                  style={{ background: shine }}
-                  animate={{ opacity: hovered ? 1 : 0 }}
-                  transition={{ duration: 0.25 }}
-                />
-              </motion.div>
+              </div>
             </motion.div>
           </motion.div>
           <p className={styles.bio}>{aboutContent.bio}</p>
@@ -710,181 +884,6 @@ function AboutPane() {
   )
 }
 
-// ─── Playground content ───────────────────────────────────────────────────────
-
-interface PlaygroundCardConfig {
-  x: number            // card centre as % of viewport width
-  y: number            // card centre as % of viewport height
-  thumbW: number       // thumbnail width in px
-  thumbH: number       // thumbnail height in px
-  aspectRatio: number  // real w/h — resolved from poster/video before layout
-}
-
-// Full-width masonry with per-column circular exclusion.
-//
-// N equal-width columns span the viewport. Columns whose footprint intersects
-// the exclusion circle get a vertical gap — items sit above AND below the model.
-// Portrait items that are too tall to fit in a gap-column section are routed to
-// outer (full-height) columns instead, preventing any overflow.
-function buildConfigs(vw: number, vh: number, items: PlaygroundItem[]): PlaygroundCardConfig[] {
-  const rem         = parseFloat(getComputedStyle(document.documentElement).fontSize)
-  const GAP         = 20
-  const LABEL_H     = 22
-  const marginX     = 44
-  const marginTop    = rem * 7    // clears header: 3rem top + ~2.75rem text + gap
-  const marginBottom = rem * 6    // clears footer: 4rem bottom + 1rem text + gap
-
-  const R  = Math.min(vw, vh) * 0.08
-  const ex = vw / 2
-  const ey = vh / 2
-
-  const n     = items.length
-  const ars   = items.map(it => it.aspectRatio ?? 1)
-  const avgAR = ars.reduce((s, ar) => s + ar, 0) / n
-  const zoneH = vh - marginTop - marginBottom
-
-  // Equal-area sizing: thumbW = S*√AR, thumbH = S/√AR → area = S² for every card.
-  // Use √avgAR for the column-count estimate (average card height ≈ S/√avgAR).
-  const sqrtAvgAR = Math.sqrt(avgAR)
-  let N = 8, cardW = 0
-  for (let nc = 6; nc <= 10; nc++) {
-    const w = (vw - 2 * marginX - (nc - 1) * GAP) / nc
-    if ((w / sqrtAvgAR + LABEL_H + GAP) * (n / nc) <= zoneH * 0.88) {
-      N = nc; cardW = w; break
-    }
-  }
-  if (!cardW) {
-    N = 10
-    cardW = (vw - 2 * marginX - (N - 1) * GAP) / N
-  }
-
-  interface ColInfo {
-    cx: number; gapTop: number | null; gapBottom: number | null
-    topAvail: number; botAvail: number; items: number[]
-  }
-
-  const cols: ColInfo[] = []
-  for (let c = 0; c < N; c++) {
-    const xLeft    = marginX + c * (cardW + GAP)
-    const colCx    = xLeft + cardW / 2
-    const nearX    = Math.max(xLeft, Math.min(ex, xLeft + cardW))
-    const nearDist = Math.abs(nearX - ex)
-
-    let gapTop: number | null = null, gapBottom: number | null = null
-    let topAvail = zoneH, botAvail = 0
-
-    if (nearDist < R) {
-      const half = Math.sqrt(R * R - nearDist * nearDist)
-      gapTop    = Math.max(marginTop,         ey - half)
-      gapBottom = Math.min(vh - marginBottom, ey + half)
-      topAvail  = Math.max(0, gapTop - marginTop)
-      botAvail  = Math.max(0, vh - marginBottom - gapBottom)
-    }
-
-    cols.push({ cx: colCx, gapTop, gapBottom, topAvail, botAvail, items: [] })
-  }
-
-  // Per-card visual dimensions with equal-area scaling: thumbW = S*√AR, thumbH = S/√AR.
-  // Cap thumbW to the column pitch so adjacent landscape cards never visually overlap.
-  // For capped cards the true AR is still preserved (thumbH = cappedW / AR),
-  // only the area is slightly reduced for very wide cards.
-  const sqrtArs = ars.map(ar => Math.sqrt(ar))
-  const pitch   = cardW + GAP
-
-  function visW(itemIdx: number): number {
-    return Math.min(cardW * sqrtArs[itemIdx], pitch - 2)
-  }
-
-  function cardH(itemIdx: number): number {
-    return visW(itemIdx) / ars[itemIdx]
-  }
-
-  // Returns true if the item can fit in at least one section of the column.
-  function canFit(itemIdx: number, col: ColInfo): boolean {
-    if (col.gapTop === null) return true
-    const itemH = cardH(itemIdx) + LABEL_H
-    return itemH <= col.topAvail || itemH <= col.botAvail
-  }
-
-  // Greedy: prefer columns where the item actually fits in a section.
-  // Add a small left/right alternating tiebreaker so cards spread evenly
-  // across both sides of the center model rather than clustering on one side.
-  const remaining = cols.map(c => c.gapTop === null ? zoneH : c.topAvail + c.botAvail)
-  let lastSide = -1  // 0 = left of center, 1 = right of center
-  for (let i = 0; i < n; i++) {
-    let best = -1, bestScore = -Infinity
-    for (let c = 0; c < N; c++) {
-      if (!canFit(i, cols[c]) || remaining[c] <= 0) continue
-      const side = cols[c].cx > ex ? 1 : 0
-      const sideBonus = (lastSide === -1 || side !== lastSide) ? 0.5 : 0
-      const score = remaining[c] + sideBonus
-      if (score > bestScore) { bestScore = score; best = c }
-    }
-    if (best === -1) {
-      let fallback = -Infinity
-      for (let c = 0; c < N; c++) {
-        const side = cols[c].cx > ex ? 1 : 0
-        const sideBonus = (lastSide === -1 || side !== lastSide) ? 0.5 : 0
-        const score = remaining[c] + sideBonus
-        if (score > fallback) { fallback = score; best = c }
-      }
-    }
-    if (best === -1) best = 0
-    cols[best].items.push(i)
-    remaining[best] -= cardH(i) + LABEL_H + GAP
-    lastSide = cols[best].cx > ex ? 1 : 0
-  }
-
-  const configs: PlaygroundCardConfig[] = new Array(n)
-
-  // Place group within [yStart, yEnd]. Each card: thumbW = S*√AR, thumbH = S/√AR → same area.
-  function placeGroup(group: number[], yStart: number, yEnd: number, colCx: number) {
-    if (!group.length || yEnd <= yStart) return
-    const placed: number[] = []
-    let usedH = 0
-    for (const idx of group) {
-      const itemH = cardH(idx) + LABEL_H
-      const gap   = placed.length > 0 ? GAP : 0
-      if (usedH + gap + itemH > yEnd - yStart + 1) break
-      placed.push(idx)
-      usedH += gap + itemH
-    }
-    if (!placed.length) return
-    const total  = placed.reduce((s, idx) => s + cardH(idx) + LABEL_H + GAP, 0) - GAP
-    const offset = Math.max(0, (yEnd - yStart - total) / 2)
-    let y = yStart + offset
-    for (const idx of placed) {
-      const h = cardH(idx)
-      const w = visW(idx)
-      configs[idx] = {
-        x: colCx / vw * 100,
-        y: (y + (h + LABEL_H) / 2) / vh * 100,
-        thumbW: Math.round(w), thumbH: Math.round(h), aspectRatio: ars[idx],
-      }
-      y += h + LABEL_H + GAP
-    }
-  }
-
-  for (const col of cols) {
-    if (!col.items.length) continue
-    if (col.gapTop === null) {
-      placeGroup(col.items, marginTop, vh - marginBottom, col.cx)
-    } else {
-      let usedTop = 0, split = 0
-      for (let k = 0; k < col.items.length; k++) {
-        const itemH = cardH(col.items[k]) + LABEL_H
-        const gap   = split > 0 ? GAP : 0
-        if (usedTop + gap + itemH > col.topAvail) break
-        usedTop += gap + itemH; split = k + 1
-      }
-      placeGroup(col.items.slice(0, split), marginTop,      col.gapTop,        col.cx)
-      placeGroup(col.items.slice(split),    col.gapBottom!, vh - marginBottom, col.cx)
-    }
-  }
-
-  return configs
-}
-
 // ─── Playground card ──────────────────────────────────────────────────────────
 
 interface PlaygroundCardProps {
@@ -900,7 +899,7 @@ function PlaygroundCard({ index, cfg, item, isOpen, onExpand, registerRef }: Pla
   const videoRef     = useRef<HTMLVideoElement>(null)
   const thumbRef      = useRef<HTMLDivElement>(null)
   const dragBlockRef = useRef(false)
-  const { hovered, springX, springY, shine, onTiltMove, onTiltEnter, onTiltLeave } = useCardTilt()
+  const { hovered, hoveredRef, springX, springY, onTiltEnter, onTiltLeave, rootRef } = useCardTilt<HTMLDivElement>()
 
   // Register the thumb's element so the detail overlay can measure its live
   // rect for the FLIP-open animation and for the close animation (which needs
@@ -921,10 +920,65 @@ function PlaygroundCard({ index, cfg, item, isOpen, onExpand, registerRef }: Pla
     if (v) { v.pause(); v.currentTime = 0 }
   }, [onTiltLeave])
 
+  // Hover-only glow — unlike Projects' always-on glow, Playground items have
+  // no per-item brand color, so the glow only fades in (in the sitewide
+  // focus accent color) while hovered, using a dynamically-claimed slot from
+  // playgroundGlowStore's small pool (see that file for why — far more items
+  // than fit a fixed per-item uniform array, but only ever a couple are
+  // mid-transition at once). Anchor uses thumbRef's own (post-rotation) rect
+  // center rather than an unrotated ancestor — unlike ProjectCard, this
+  // card's rotated element also contains the title text below the thumb, so
+  // no ancestor box matches the thumb's own pre-rotation position exactly;
+  // this is a deliberate small-bias approximation (a few px at this card's
+  // clamped tilt range), not the exact approach used for Projects.
+  const glowSlotRef = useRef<number | null>(null)
+  useEffect(() => {
+    let rafId: number
+    let lastTime = performance.now()
+    const hoverProgress = { current: 0 }
+    const releaseSlot = () => {
+      if (glowSlotRef.current !== null) {
+        playgroundGlowStore.entries[glowSlotRef.current] = null
+        glowSlotRef.current = null
+      }
+    }
+    const tick = (now: number) => {
+      const dt = Math.min((now - lastTime) / 1000, 0.1)
+      lastTime = now
+      const f = 1 - Math.pow(1 - HOVER_WIPE_SMOOTH, dt * 60)
+      hoverProgress.current += ((hoveredRef.current ? 1 : 0) - hoverProgress.current) * f
+
+      const el = thumbRef.current
+      const w  = el?.offsetWidth  ?? 0
+      const h  = el?.offsetHeight ?? 0
+      if (el && w && h && !isOpen && hoverProgress.current > 0.001) {
+        if (glowSlotRef.current === null) {
+          glowSlotRef.current = playgroundGlowStore.entries.findIndex(e => e === null)
+        }
+        if (glowSlotRef.current !== -1 && glowSlotRef.current !== null) {
+          const r  = el.getBoundingClientRect()
+          const cx = r.left + r.width  / 2
+          const cy = r.top  + r.height / 2
+          const corners = projectCardCorners(springX.get(), springY.get(), w, h, PLAYGROUND_CARD_PERSPECTIVE, cx, cy)
+          playgroundGlowStore.entries[glowSlotRef.current] = { corners, opacity: hoverProgress.current }
+        }
+      } else {
+        releaseSlot()
+      }
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => {
+      cancelAnimationFrame(rafId)
+      releaseSlot()
+    }
+  }, [isOpen, springX, springY, hoveredRef])
+
   return (
     <div style={{ position: 'absolute', left: `${cfg.x}%`, top: `${cfg.y}%`, pointerEvents: 'none', zIndex: hovered ? 100 : 'auto' }}>
       <div className={styles.playgroundCardAnchor}>
         <motion.div
+          ref={rootRef}
           className={styles.playgroundCard}
           style={{ width: cfg.thumbW, cursor: 'grab' }}
           drag
@@ -933,7 +987,6 @@ function PlaygroundCard({ index, cfg, item, isOpen, onExpand, registerRef }: Pla
           whileDrag={{ scale: 1.05, zIndex: 20 }}
           onDragStart={() => { dragBlockRef.current = true }}
           onDragEnd={() => { setTimeout(() => { dragBlockRef.current = false }, 0) }}
-          onPointerMove={onTiltMove}
           onPointerEnter={handleEnter}
           onPointerLeave={handleLeave}
           onTap={() => {
@@ -952,16 +1005,12 @@ function PlaygroundCard({ index, cfg, item, isOpen, onExpand, registerRef }: Pla
           >
             <motion.div
               className={styles.playgroundCardInner}
-              style={{ rotateX: springX, rotateY: springY, transformPerspective: 700, pointerEvents: 'none' }}
-              animate={{ y: hovered ? -10 : 0, scale: hovered ? 1.06 : 1 }}
-              transition={LIFT}
+              style={{ rotateX: springX, rotateY: springY, transformPerspective: PLAYGROUND_CARD_PERSPECTIVE, pointerEvents: 'none' }}
             >
-              <motion.div
+              <div
                 ref={thumbRef}
                 className={styles.playgroundThumb}
                 style={{ aspectRatio: String(cfg.aspectRatio) }}
-                animate={{ boxShadow: hovered ? '0 20px 40px rgba(0, 0, 0, 0.12)' : '0 20px 40px rgba(0, 0, 0, 0)' }}
-                transition={LIFT}
               >
                 {(item.mp4 || item.webm) && (
                   <video ref={videoRef} className={styles.playgroundVideo} muted loop playsInline preload="metadata">
@@ -976,13 +1025,7 @@ function PlaygroundCard({ index, cfg, item, isOpen, onExpand, registerRef }: Pla
                     style={{ opacity: (hovered && (item.mp4 || item.webm)) ? 0 : 1 }}
                   />
                 )}
-                <motion.div
-                  className={styles.cardShine}
-                  style={{ background: shine }}
-                  animate={{ opacity: hovered ? 1 : 0 }}
-                  transition={{ duration: 0.25 }}
-                />
-              </motion.div>
+              </div>
               <p className={styles.playgroundCardTitle}>{item.title}</p>
             </motion.div>
           </motion.div>
@@ -1014,7 +1057,7 @@ function PlaygroundMedia({ item }: { item: PlaygroundItem }) {
   }
   return item.poster
     ? <img src={item.poster} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
-    : <div style={{ width: '100%', height: '100%', background: '#f0ece8' }} />
+    : <div style={{ width: '100%', height: '100%', background: 'var(--placeholder-color)' }} />
 }
 
 function PlaygroundDetail({
@@ -1134,11 +1177,10 @@ function PlaygroundDetail({
 
         <button
           key="pg-close"
-          className={styles.detailClose}
-          style={{ position: 'fixed', zIndex: 52 }}
+          className={styles.playgroundDetailClose}
           onClick={onClose}
           aria-label="Close"
-        >×</button>,
+        >[X]</button>,
 
         <motion.p
           key={`pg-title-${index}`}
@@ -1154,36 +1196,6 @@ function PlaygroundDetail({
     </AnimatePresence>,
     document.body
   )
-}
-
-// ─── Aspect-ratio resolver ────────────────────────────────────────────────────
-// Reads the real w/h from the poster image (fast, always available when set)
-// or from video metadata as fallback, before buildConfigs runs — so placement
-// is computed with the actual card shape and cards never overlap post-load.
-
-function resolveAspectRatio(item: PlaygroundItem): Promise<number> {
-  if (item.aspectRatio !== undefined) return Promise.resolve(item.aspectRatio)
-
-  const giveUp = new Promise<number>(r => setTimeout(() => r(1), 3000))
-
-  const detect = new Promise<number>(resolve => {
-    if (item.poster) {
-      const img = new window.Image()
-      img.onload  = () => resolve((img.naturalWidth / img.naturalHeight) || 1)
-      img.onerror = () => resolve(1)
-      img.src = item.poster
-    } else if (item.mp4 || item.webm) {
-      const v = document.createElement('video')
-      v.preload = 'metadata'
-      v.onloadedmetadata = () => resolve((v.videoWidth / v.videoHeight) || 1)
-      v.onerror = () => resolve(1)
-      v.src = (item.mp4 ?? item.webm)!
-    } else {
-      resolve(1)
-    }
-  })
-
-  return Promise.race([detect, giveUp])
 }
 
 // ─── Playground pane ──────────────────────────────────────────────────────────
@@ -1252,23 +1264,58 @@ interface ContentPanelProps {
   isContentMode: boolean
 }
 
-// How strongly a pane drifts toward its accent mesh's live screen position
-// while it's not the active zone — 1 would track the mesh exactly; kept well
-// under that so the drift reads as "vaguely following" rather than pinned to it.
-const ZONE_PARALLAX = 0.55
-// Crossfade speed between zones, per frame — same lerp feel as the accent color snap.
-const ZONE_BLEND = 0.14
+function easeOutCubic(t: number): number { const inv = 1 - t; return 1 - inv * inv * inv }
+function easeInCubic(t: number): number { return t * t * t }
+// Drives every section's zone-to-zone crossfade (opacity + a directional drift).
+const ZONE_FADE_DURATION = 0.2
+// Multiplier on the raw screen-px offset of a zone's own accent body part
+// (posStore — hand/foot/head) from viewport center, so a pane visibly
+// originates from that body part's position and settles into place, instead
+// of growing from the center. Raw posStore offsets only run ±40-80px in
+// practice, so this needs real amplification to read clearly against crisp
+// DOM content.
+const ZONE_PARALLAX = 2.2
 
 export default function ContentPanel({ activeZone, isContentMode }: ContentPanelProps) {
   const overlayRef        = useRef<HTMLDivElement>(null)
   // One layer per zone, always mounted while isVisible — a hard swap between
-  // panes read as a cut, so instead all three stay in the DOM and cross-fade,
-  // each drifting on a 2D plane toward wherever its own accent mesh (posStore)
-  // currently sits on screen. As the model rotates a zone's mesh to center,
-  // that zone's blend eases to 1 and its drift eases to 0 — cards settle into
-  // their designed layout exactly as the body part locks in front-facing.
-  const paneRefs   = useRef<Record<Zone, HTMLDivElement | null>>({ 0: null, 1: null, 2: null })
-  const paneBlend  = useRef<Record<Zone, number>>({ 0: 0, 1: 0, 2: 0 })
+  // panes read as a cut, so instead all three stay in the DOM and cross-fade
+  // (+ scale pop) in place. Only ONE zone is ever actually fading/shown at a
+  // time (displayedZoneRef) — switching zones fully fades the old one OUT
+  // first, then fades the new one IN, rather than blending both together.
+  // An earlier version blended the outgoing and incoming zone simultaneously
+  // (independent per-zone tweens), which — once the position-drift that used
+  // to keep them visually apart was removed for being unreliable (see memory
+  // project_debug_menu_3d_cards.md) — left both panes' content overlapping
+  // in the same screen position mid-transition, looking like a messy double
+  // exposure. Sequential exit-then-enter is simpler and guarantees zero
+  // overlap by construction: whatever isn't the currently-displayed zone is
+  // always fully hidden (blend 0), never partially visible at the same time
+  // as another zone.
+  const paneRefs        = useRef<Record<Zone, HTMLDivElement | null>>({ 0: null, 1: null, 2: null })
+  const displayedZoneRef = useRef<Zone | null>(null) // the one zone currently shown/fading
+  const blendRef         = useRef(0)   // 0..1 opacity/drift progress for displayedZoneRef
+  const targetBlendRef   = useRef(0)   // 0 (exiting) or 1 (entering) for displayedZoneRef
+  const fadeStartRef     = useRef(0)   // blend value when the current phase began
+  const elapsedRef       = useRef(0)
+  // Entrance drift-origin vector (px offset of a zone's own accent body part
+  // from viewport center) — captured ONCE, the instant that zone starts
+  // entering, not re-sampled live every frame, so a pane arrives from a
+  // fixed point and eases smoothly into rest rather than chasing a moving
+  // target the whole way in. EXIT deliberately does NOT reuse this frozen
+  // value (an earlier version did, for exact mirror symmetry) — the body
+  // part is already mid-rotation toward whatever zone is being entered next
+  // by the time a pane exits, and content should visibly leave toward
+  // wherever its body part is heading now, not back the way it arrived —
+  // see the live sample in the render loop below.
+  const enterDriftRef = useRef<Record<Zone, { x: number; y: number }>>({
+    0: { x: 0, y: 0 }, 1: { x: 0, y: 0 }, 2: { x: 0, y: 0 },
+  })
+  const liveDrift = (zone: Zone) => ({
+    x: (posStore[zone].x - window.innerWidth  / 2) * ZONE_PARALLAX,
+    y: (posStore[zone].y - window.innerHeight / 2) * ZONE_PARALLAX,
+  })
+  const captureDrift = (zone: Zone) => { enterDriftRef.current[zone] = liveDrift(zone) }
   const isContentModeRef  = useRef(isContentMode)
   // Content stays mounted while camera is mid-travel back to nav, so the exit
   // animation (scale 1→3, fade out) plays out fully before unmounting.
@@ -1277,11 +1324,18 @@ export default function ContentPanel({ activeZone, isContentMode }: ContentPanel
   useEffect(() => {
     isContentModeRef.current = isContentMode
     if (isContentMode) {
-      // Snap blends to whichever zone is already active so entry doesn't fade
-      // in from scratch — only zone-to-zone switches (while already visible)
-      // ease via the per-frame lerp below.
+      // Snap straight to whichever zone is already active so entry doesn't
+      // fade in from scratch — only zone-to-zone switches (while already
+      // visible) ease via the sequential tween below.
       const active = zoneStore.activeZone
-      paneBlend.current = { 0: active === 0 ? 1 : 0, 1: active === 1 ? 1 : 0, 2: active === 2 ? 1 : 0 }
+      displayedZoneRef.current = active
+      blendRef.current       = active !== null ? 1 : 0
+      targetBlendRef.current = blendRef.current
+      fadeStartRef.current   = blendRef.current
+      elapsedRef.current     = ZONE_FADE_DURATION
+      if (active !== null) captureDrift(active)
+      zoneTransitionStore.displayedZone = active
+      zoneTransitionStore.blend         = blendRef.current
       setIsVisible(true)
     }
   }, [isContentMode])
@@ -1343,26 +1397,63 @@ export default function ContentPanel({ activeZone, isContentMode }: ContentPanel
         }
       }
 
-      // Cross-fade + 2D drift between zone panes — see paneBlend/paneRefs comment above.
-      const cx = window.innerWidth  / 2
-      const cy = window.innerHeight / 2
-      const active = zoneStore.activeZone
-      const blendFactor = 1 - Math.pow(1 - ZONE_BLEND, dt * 60)
+      // Sequential cross-fade + directional drift — see displayedZoneRef
+      // comment above. Only ONE zone (displayedZoneRef) is ever non-zero;
+      // switching zones exits the current one to blend 0 first, THEN starts
+      // entering the new one, so no two zones are ever partially visible
+      // together.
+      const desired = zoneStore.activeZone
+      if (desired !== displayedZoneRef.current && targetBlendRef.current !== 0) {
+        // Desired zone changed — begin exiting whatever's currently shown
+        // (or mid-entrance), from wherever its blend currently sits.
+        fadeStartRef.current   = blendRef.current
+        elapsedRef.current     = 0
+        targetBlendRef.current = 0
+      }
+      if (targetBlendRef.current === 0 && blendRef.current <= 0.001 && displayedZoneRef.current !== desired) {
+        // Fully exited (or nothing was shown yet) — switch to the desired
+        // zone and start entering it. Freeze its entrance drift origin NOW
+        // (see enterDriftRef comment) — exit does NOT reuse this, it
+        // live-samples instead (see the render loop below).
+        displayedZoneRef.current = desired
+        fadeStartRef.current     = 0
+        elapsedRef.current       = 0
+        targetBlendRef.current   = desired !== null ? 1 : 0
+        if (desired !== null) captureDrift(desired)
+      }
+      elapsedRef.current += dt
+      const tp = Math.min(elapsedRef.current / ZONE_FADE_DURATION, 1)
+      const eased = targetBlendRef.current === 1 ? easeOutCubic(tp) : easeInCubic(tp)
+      blendRef.current = fadeStartRef.current + (targetBlendRef.current - fadeStartRef.current) * eased
+
+      // Publish for anything outside this component to read — see
+      // zoneTransitionStore.ts for why this needs to be the literal same
+      // number, not an independently-computed one.
+      zoneTransitionStore.displayedZone = displayedZoneRef.current
+      zoneTransitionStore.blend         = blendRef.current
+
       ;([0, 1, 2] as const).forEach(zone => {
         const layer = paneRefs.current[zone]
         if (!layer) return
-        const target = active === zone ? 1 : 0
-        const b = paneBlend.current[zone] += (target - paneBlend.current[zone]) * blendFactor
-        const drift = 1 - b
-        const dx = (posStore[zone].x - cx) * ZONE_PARALLAX * drift
-        const dy = (posStore[zone].y - cy) * ZONE_PARALLAX * drift
-        layer.style.transform     = `translate(${dx}px, ${dy}px)`
-        layer.style.opacity       = String(b)
+        const b = zone === displayedZoneRef.current ? blendRef.current : 0
+        // Exiting (this zone is displayed but easing toward 0): live-sample
+        // every frame, so the content visibly chases wherever its body part
+        // is heading right now as the model keeps rotating toward whatever
+        // zone comes next — NOT a mirror of the frozen direction it arrived
+        // from. Entering (or settled): use the frozen entrance origin, so
+        // it still arrives from a fixed point rather than an ever-shifting
+        // target.
+        const isExiting = zone === displayedZoneRef.current && targetBlendRef.current === 0
+        const drift = isExiting ? liveDrift(zone) : enterDriftRef.current[zone]
+        const dx = drift.x * (1 - b)
+        const dy = drift.y * (1 - b)
+        layer.style.transform = `translate(${dx}px, ${dy}px)`
+        layer.style.opacity   = String(b)
         // Cards declare their own `pointer-events: auto` (so drags on the empty
         // canvas between them still reach the 3D model), which means the
         // layer's own pointer-events can't gate them — only `inert` actually
         // disables a faded-out zone's cards without also blocking the canvas.
-        layer.inert = active !== zone
+        layer.inert = desired !== zone
       })
 
       rafId = requestAnimationFrame(tick)

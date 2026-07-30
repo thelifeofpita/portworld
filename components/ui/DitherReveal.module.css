@@ -1,0 +1,28 @@
+.defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+/* Sits on top of the real content, painted in a solid color that matches
+   whatever's behind this block, masked by the pattern below. Never touches
+   the actual content's own compositing — see DitherReveal.tsx's comment on
+   why that distinction is the whole point. */
+.overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Cells are holes drawn in black over the pattern's white base — appearing
+   means punching through. Transition duration/delay/easing are set inline
+   from DitherReveal.tsx's own constants (single source of truth), so only
+   the opacity endpoints live here. */
+.cellRect {
+  fill: #000;
+  opacity: 0;
+}
+.go .cellRect {
+  opacity: 1;
+}

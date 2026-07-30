@@ -6,10 +6,16 @@ import Image from 'next/image'
 import { AnimatePresence, motion, useAnimationFrame } from 'framer-motion'
 import { posStore } from '@/lib/posStore'
 import { zoneStore } from '@/lib/zoneStore'
-import { bgStore } from '@/lib/bgStore'
+import { zoneTransitionStore } from '@/lib/zoneTransitionStore'
+import { fgStore } from '@/lib/fgStore'
+import { rerollPalette } from '@/lib/paletteStore'
+import { debugStore, hexToRgb255 } from '@/lib/debugStore'
+import { playgroundGlowStore } from '@/lib/playgroundGlowStore'
+import { projectCardCorners } from '@/lib/cardGlowStore'
 import { aboutContent } from '@/content/aboutContent'
 import { projectsContent, type ProjectItem } from '@/content/projectsContent'
 import { playgroundContent } from '@/content/playgroundContent'
+import BackInSmoothlyDetail from './BackInSmoothly'
 import type { Zone } from '@/types'
 import styles from './MobilePage.module.css'
 
@@ -17,14 +23,16 @@ const Scene = dynamic(() => import('@/components/canvas/Scene'), { ssr: false })
 
 // ─── Shared constants ─────────────────────────────────────────────────────────
 
-const COLOR_BASE  = [242,  12, 31] as const
-const COLOR_FOCUS = [242, 223, 12] as const
 const ACCENT_SMOOTH = 0.16
 
 // Must match .mobileCanvasArea height in CSS
 const CANVAS_VH = 0.45
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const
+
+// dt-normalized smoothing factor for the selected-card glow's fade in/out —
+// same shape/pace as desktop's hover-glow smoothing (see ContentPanel.tsx).
+const GLOW_SMOOTH = 0.14
 
 // ─── Zone Nav ────────────────────────────────────────────────────────────────
 
@@ -71,6 +79,11 @@ function MobileZoneNav({ activeZone, canvasAreaRef }: MobileZoneNavProps) {
     const dt      = Math.min(delta, 100) / 16.67
     const accentF = 1 - Math.pow(1 - ACCENT_SMOOTH, dt)
 
+    // Accent colors — sourced from the debug menu (same uniforms PostProcessing
+    // uses), read live each frame since the random palette overwrites these on load.
+    const COLOR_BASE  = hexToRgb255(debugStore.accentBaseColor)
+    const COLOR_FOCUS = hexToRgb255(debugStore.accentFocusColor)
+
     boxRefs.forEach((boxRef, i) => {
       const box  = boxRef.current
       const line = lineRefs[i].current
@@ -111,21 +124,22 @@ function MobileZoneNav({ activeZone, canvasAreaRef }: MobileZoneNavProps) {
       dot.setAttribute('fill',   css)
       if (ul) ul.setAttribute('fill', css)
 
-      // Sync nav label color with bg transition (dark on light, light on dark)
-      const fgVal = Math.round(13 + 227 * (1 - bgStore.luminance))
-      box.style.color = `rgb(${fgVal},${fgVal},${fgVal})`
+      // Sync nav label color with the live palette-driven fg color (not
+      // necessarily grayscale, so this reads fgStore directly rather than
+      // re-deriving a gray from luminance).
+      box.style.color = `rgb(${Math.round(fgStore.r * 255)},${Math.round(fgStore.g * 255)},${Math.round(fgStore.b * 255)})`
     })
   })
 
   return (
     <div ref={containerRef} className={styles.mobileZoneNavContainer}>
       <svg ref={svgRef} className={styles.mobileZoneNavSvg} aria-hidden="true">
-        <line ref={line0} strokeWidth="1.5" stroke="#F20C1F" />
-        <line ref={line1} strokeWidth="1.5" stroke="#F20C1F" />
-        <line ref={line2} strokeWidth="1.5" stroke="#F20C1F" />
-        <circle ref={dot0} r="3" fill="#F20C1F" />
-        <circle ref={dot1} r="3" fill="#F20C1F" />
-        <circle ref={dot2} r="3" fill="#F20C1F" />
+        <line ref={line0} strokeWidth="1.5" stroke="var(--accent-base-color)" />
+        <line ref={line1} strokeWidth="1.5" stroke="var(--accent-base-color)" />
+        <line ref={line2} strokeWidth="1.5" stroke="var(--accent-base-color)" />
+        <circle ref={dot0} r="3" fill="var(--accent-base-color)" />
+        <circle ref={dot1} r="3" fill="var(--accent-base-color)" />
+        <circle ref={dot2} r="3" fill="var(--accent-base-color)" />
         <rect ref={ul0} height="1.5" />
         <rect ref={ul1} height="1.5" />
         <rect ref={ul2} height="1.5" />
@@ -222,19 +236,65 @@ interface PlaygroundItemProps {
 
 function MobilePlaygroundItem({ item, isSelected, onRef, onVideoRef }: PlaygroundItemProps) {
   const [ar, setAr] = useState(item.aspectRatio ?? 1)
+  const thumbRef = useRef<HTMLDivElement>(null)
+  const isSelectedRef = useRef(false)
+  useEffect(() => { isSelectedRef.current = isSelected }, [isSelected])
+
+  // Same WebGL dithered-ring glow as desktop's PlaygroundCard (via the
+  // shared playgroundGlowStore pool + PostProcessing's outer-glow pass) —
+  // not a CSS box-shadow approximation. No tilt on mobile (no ambient
+  // cursor to look toward), so the published quad is a plain axis-aligned
+  // rect: projectCardCorners(0, 0, ...) reduces to exactly that.
+  const glowSlotRef = useRef<number | null>(null)
+  useEffect(() => {
+    let rafId: number
+    let lastTime = performance.now()
+    const glowProgress = { current: 0 }
+    const releaseSlot = () => {
+      if (glowSlotRef.current !== null) {
+        playgroundGlowStore.entries[glowSlotRef.current] = null
+        glowSlotRef.current = null
+      }
+    }
+    const tick = (now: number) => {
+      const dt = Math.min((now - lastTime) / 1000, 0.1)
+      lastTime = now
+      const f = 1 - Math.pow(1 - GLOW_SMOOTH, dt * 60)
+      glowProgress.current += ((isSelectedRef.current ? 1 : 0) - glowProgress.current) * f
+
+      const el = thumbRef.current
+      const w  = el?.offsetWidth  ?? 0
+      const h  = el?.offsetHeight ?? 0
+      if (el && w && h && glowProgress.current > 0.001) {
+        if (glowSlotRef.current === null) {
+          glowSlotRef.current = playgroundGlowStore.entries.findIndex(e => e === null)
+        }
+        if (glowSlotRef.current !== -1 && glowSlotRef.current !== null) {
+          const r  = el.getBoundingClientRect()
+          const cx = r.left + r.width  / 2
+          const cy = r.top  + r.height / 2
+          const corners = projectCardCorners(0, 0, w, h, 900, cx, cy)
+          playgroundGlowStore.entries[glowSlotRef.current] = { corners, opacity: glowProgress.current }
+        }
+      } else {
+        releaseSlot()
+      }
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => {
+      cancelAnimationFrame(rafId)
+      releaseSlot()
+    }
+  }, [])
 
   return (
     <div ref={onRef} className={styles.mobilePlaygroundItem}>
-      <motion.div
-        animate={{ y: isSelected ? -10 : 0, scale: isSelected ? 1.06 : 1 }}
-        transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
-        style={{ pointerEvents: 'none' }}
-      >
-        <motion.div
+      <div style={{ pointerEvents: 'none' }}>
+        <div
+          ref={thumbRef}
           className={styles.mobilePlaygroundThumb}
           style={{ aspectRatio: String(ar) }}
-          animate={{ boxShadow: isSelected ? '0 20px 40px rgba(0,0,0,0.12)' : '0 20px 40px rgba(0,0,0,0)' }}
-          transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
         >
           {(item.mp4 || item.webm) && (
             <video
@@ -262,9 +322,9 @@ function MobilePlaygroundItem({ item, isSelected, onRef, onVideoRef }: Playgroun
               }}
             />
           )}
-        </motion.div>
+        </div>
         <p className={styles.mobilePlaygroundTitle}>{item.title}</p>
-      </motion.div>
+      </div>
     </div>
   )
 }
@@ -272,10 +332,10 @@ function MobilePlaygroundItem({ item, isSelected, onRef, onVideoRef }: Playgroun
 // ─── Projects ─────────────────────────────────────────────────────────────────
 
 function MobileProjectCard({
-  item, isOpen, onToggle,
-}: { item: ProjectItem; isOpen: boolean; onToggle: () => void }) {
+  item, isOpen, onToggle, onPrev, onNext,
+}: { item: ProjectItem; isOpen: boolean; onToggle: () => void; onPrev: () => void; onNext: () => void }) {
   return (
-    <div className={`${styles.mobileProjectCard}${isOpen ? ` ${styles.mobileProjectCardOpen}` : ''}`}>
+    <div className={`${styles.mobileProjectCard}${isOpen ? ` ${styles.mobileProjectCardOpen} ${styles.mobileProjectCardFullBleed}` : ''}`}>
 
       <div className={styles.mobileProjectHeader} onClick={onToggle}>
         <AnimatePresence mode="wait" initial={false}>
@@ -313,28 +373,34 @@ function MobileProjectCard({
             transition={{ duration: 0.38, ease: EASE_OUT }}
             style={{ overflow: 'hidden' }}
           >
-            <p className={styles.mobileProjectDesc}>{item.description}</p>
+            {item.customLayout === 'backInSmoothly' ? (
+              <BackInSmoothlyDetail onPrev={onPrev} onNext={onNext} onClose={onToggle} />
+            ) : (
+              <>
+                <p className={styles.mobileProjectDesc}>{item.description}</p>
 
-            {item.youtubeId && (
-              <div className={styles.mobileProjectVideo}>
-                <iframe
-                  src={`https://www.youtube.com/embed/${item.youtubeId}`}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                  title={item.title}
-                />
-              </div>
-            )}
+                {item.youtubeId && (
+                  <div className={styles.mobileProjectVideo}>
+                    <iframe
+                      src={`https://www.youtube.com/embed/${item.youtubeId}`}
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allowFullScreen
+                      title={item.title}
+                    />
+                  </div>
+                )}
 
-            {item.images[0] && (
-              <div className={styles.mobileProjectImageWrap}>
-                <Image src={item.images[0]} alt="" fill quality={90} style={{ objectFit: 'cover' }} sizes="100vw" />
-              </div>
-            )}
-            {item.images[1] && (
-              <div className={styles.mobileProjectImageWrap}>
-                <Image src={item.images[1]} alt="" fill quality={90} style={{ objectFit: 'cover' }} sizes="100vw" />
-              </div>
+                {item.images[0] && (
+                  <div className={styles.mobileProjectImageWrap}>
+                    <Image src={item.images[0]} alt="" fill quality={90} style={{ objectFit: 'cover' }} sizes="100vw" />
+                  </div>
+                )}
+                {item.images[1] && (
+                  <div className={styles.mobileProjectImageWrap}>
+                    <Image src={item.images[1]} alt="" fill quality={90} style={{ objectFit: 'cover' }} sizes="100vw" />
+                  </div>
+                )}
+              </>
             )}
           </motion.div>
         )}
@@ -350,6 +416,8 @@ function MobileProjects() {
     setOpenIndex(prev => (prev === i ? null : i))
   }, [])
 
+  const n = projectsContent.length
+
   return (
     <div className={styles.mobileProjects}>
       {projectsContent.map((item, i) => (
@@ -358,6 +426,8 @@ function MobileProjects() {
           item={item}
           isOpen={openIndex === i}
           onToggle={() => handleToggle(i)}
+          onPrev={() => setOpenIndex((i - 1 + n) % n)}
+          onNext={() => setOpenIndex((i + 1) % n)}
         />
       ))}
     </div>
@@ -403,7 +473,12 @@ function MobileAbout() {
             )}
           </div>
         </div>
-        <div className={styles.mobileAboutName}>
+        <div
+          className={styles.mobileAboutName}
+          onClick={() => { zoneStore.resetToLanding?.(); rerollPalette() }}
+          role="button"
+          aria-label="THELIFEOFPITA — tap to change theme colors"
+        >
           <span className={styles.mobileAboutBylineText}>THELIFEOF<span className={styles.mobileAboutBylinePita}>PITA</span></span>
         </div>
       </div>
@@ -481,6 +556,18 @@ interface MobilePageProps {
 export default function MobilePage({ activeZone, onZoneChange, onZoneReset, onLoad }: MobilePageProps) {
   const canvasAreaRef = useRef<HTMLDivElement>(null)
 
+  // PostProcessing.tsx's outer-glow passes (Projects' always-on glow, and
+  // Playground/About's hover-only glow) are gated on zoneTransitionStore —
+  // normally written every frame by ContentPanel.tsx's own rAF loop, which
+  // doesn't mount on mobile. Without this, uPgGlowOpacity/uGlowOpacity stay
+  // permanently 0 and no glow renders no matter what's published into
+  // playgroundGlowStore. Mobile has no cross-fade choreography to match, so
+  // this just snaps blend to 1 the instant a zone is active.
+  useEffect(() => {
+    zoneTransitionStore.displayedZone = activeZone
+    zoneTransitionStore.blend = activeZone !== null ? 1 : 0
+  }, [activeZone])
+
   return (
     <>
       {/* Full-page fixed canvas — provides background everywhere, no seam against HTML */}
@@ -541,21 +628,19 @@ export default function MobilePage({ activeZone, onZoneChange, onZoneReset, onLo
             transition={{ duration: 0.2 }}
             className={styles.mobileFooter}
           >
-            {aboutContent.linkedin && (
-              <a href={aboutContent.linkedin} target="_blank" rel="noopener noreferrer" className={styles.mobileContactLink}>
-                LinkedIn
-              </a>
-            )}
-            {aboutContent.email && (
-              <a href={`mailto:${aboutContent.email}`} className={styles.mobileContactLink}>
-                {aboutContent.email}
-              </a>
-            )}
-            {aboutContent.instagram && (
-              <a href={aboutContent.instagram} target="_blank" rel="noopener noreferrer" className={styles.mobileContactLink}>
-                Instagram
-              </a>
-            )}
+            <div className={styles.mobileFooterSeparator} aria-hidden="true" />
+            <div className={styles.mobileFooterLinks}>
+              {aboutContent.linkedin && (
+                <a href={aboutContent.linkedin} target="_blank" rel="noopener noreferrer" className={styles.mobileContactLink}>
+                  LinkedIn
+                </a>
+              )}
+              {aboutContent.instagram && (
+                <a href={aboutContent.instagram} target="_blank" rel="noopener noreferrer" className={styles.mobileContactLink}>
+                  Instagram
+                </a>
+              )}
+            </div>
           </motion.footer>
         )}
       </AnimatePresence>

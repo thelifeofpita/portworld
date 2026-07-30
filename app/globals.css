@@ -23,13 +23,281 @@
   font-display: swap;
 }
 
+@font-face {
+  font-family: 'Heming';
+  src: url('/fonts/HemingVariable.woff2') format('woff2'),
+       url('/fonts/HemingVariable.ttf')   format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Ranade — variable weight + a separate italic variable file. Not preloaded
+   (same reasoning as New Rodin Pro below) — only loaded on demand if picked
+   in the debug menu. */
+@font-face {
+  font-family: 'Ranade';
+  src: url('/fonts/Ranade-Variable.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Ranade';
+  src: url('/fonts/Ranade-VariableItalic.ttf') format('truetype');
+  font-weight: 100 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* New Rodin Pro — six static weights, one @font-face per weight so the browser
+   picks the closest actual file for whatever font-weight is requested instead
+   of synthetically faking it. Not preloaded (unlike the core fonts above) —
+   only loaded on demand if picked in the debug menu, since each file is a
+   full CJK-glyph-set OTF (~3.7MB). */
+@font-face {
+  font-family: 'New Rodin Pro';
+  src: url('/fonts/NewRodinPro-Light.otf') format('opentype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'New Rodin Pro';
+  src: url('/fonts/NewRodinPro-Medium.otf') format('opentype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'New Rodin Pro';
+  src: url('/fonts/NewRodinPro-DemiBold.otf') format('opentype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'New Rodin Pro';
+  src: url('/fonts/NewRodinPro-Bold.otf') format('opentype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'New Rodin Pro';
+  src: url('/fonts/NewRodinPro-ExtraBold.otf') format('opentype');
+  font-weight: 800;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'New Rodin Pro';
+  src: url('/fonts/NewRodinPro-UltraBold.otf') format('opentype');
+  font-weight: 900;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Futura PT — seven static weights, each with a matching oblique/italic file.
+   Not preloaded — same reasoning as New Rodin Pro/Ranade above, only loaded
+   on demand if picked in the debug menu.
+   Weight values below are each file's own embedded OS/2.usWeightClass (read
+   with fontTools), NOT a guessed Light..Heavy → 300..900 ramp — this
+   foundry's "Heavy" is embedded as weight 600, LOWER than Bold (700) and
+   ExtraBold (800), sitting between Demi and Bold rather than at the top.
+   Declaring it as 900 (as if weight always increases with the display name)
+   made the debug menu's weight slider non-monotonic — dragging past ~700
+   visually got LIGHTER, and 900 never reached the actual boldest face.
+   ExtraBold (800) is the boldest weight this family actually has; there's no
+   real 900. */
+@font-face {
+  font-family: 'Futura PT';
+  src: url('/fonts/FuturaPT-Light.ttf') format('truetype');
+  font-weight: 300;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('/fonts/FuturaPT-LightObl.ttf') format('truetype');
+  font-weight: 300;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('/fonts/FuturaPT-Book.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('/fonts/FuturaPT-BookObl.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('/fonts/FuturaPT-Medium.ttf') format('truetype');
+  font-weight: 450;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('/fonts/FuturaPT-MediumObl.ttf') format('truetype');
+  font-weight: 450;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('/fonts/FuturaPT-Demi.ttf') format('truetype');
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('/fonts/FuturaPT-DemiObl.ttf') format('truetype');
+  font-weight: 500;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('/fonts/FuturaPT-Heavy.ttf') format('truetype');
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('/fonts/FuturaPT-HeavyObl.ttf') format('truetype');
+  font-weight: 600;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('/fonts/FuturaPT-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('/fonts/FuturaPT-BoldObl.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('/fonts/FuturaPT-ExtraBold.ttf') format('truetype');
+  font-weight: 800 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT';
+  src: url('/fonts/FuturaPT-ExtraBoldObl.ttf') format('truetype');
+  font-weight: 800 900;
+  font-style: italic;
+  font-display: swap;
+}
+
+/* Futura PT Condensed — a separate family (not a font-stretch of Futura PT
+   above; these are distinct static-width files, not a variable width axis),
+   four weights each with a matching oblique file. Not preloaded, same as
+   Futura PT. Weight values are each file's own OS/2.usWeightClass (this
+   variant's ramp is in order, unlike regular Futura PT's — see the comment
+   above — but Medium is 450, not a round 500). No real 900 weight exists
+   here either, so ExtraBold covers 800-900. */
+@font-face {
+  font-family: 'Futura PT Condensed';
+  src: url('/fonts/FuturaPTCond-Book.ttf') format('truetype');
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT Condensed';
+  src: url('/fonts/FuturaPTCond-BookObl.ttf') format('truetype');
+  font-weight: 400;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT Condensed';
+  src: url('/fonts/FuturaPTCond-Medium.ttf') format('truetype');
+  font-weight: 450;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT Condensed';
+  src: url('/fonts/FuturaPTCond-MediumObl.ttf') format('truetype');
+  font-weight: 450;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT Condensed';
+  src: url('/fonts/FuturaPTCond-Bold.ttf') format('truetype');
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT Condensed';
+  src: url('/fonts/FuturaPTCond-BoldObl.ttf') format('truetype');
+  font-weight: 700;
+  font-style: italic;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT Condensed';
+  src: url('/fonts/FuturaPTCond-ExtraBold.ttf') format('truetype');
+  font-weight: 800 900;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: 'Futura PT Condensed';
+  src: url('/fonts/FuturaPTCond-ExtraBoldObl.ttf') format('truetype');
+  font-weight: 800 900;
+  font-style: italic;
+  font-display: swap;
+}
+
 :root {
   --bg-color: #ffffff;
   --fg-color: #0d0d0d;
   --fg-muted: #999999;
-  --accent-color: #F2DF0C; /* focused yellow — matches COLOR_FOCUS in ZoneNav/PostProcessing */
+  --accent-color: #F2DF0C;      /* focused yellow — matches COLOR_FOCUS in ZoneNav/PostProcessing */
+  --accent-base-color: #F20C1F; /* unfocused red — matches COLOR_BASE in ZoneNav/PostProcessing */
+  --hover-color: #e01010;
+  --text-highlight-color: #F2DF0C;
+  --palette-white: #ffffff; /* pinned to the palette's white slot, doesn't follow the black/white invert toggle */
+  /* Image-placeholder tints — derived from fg/bg so they never need their own
+     palette slot, just a subtle mix of the two already-themed extremes. */
+  --placeholder-color:        color-mix(in srgb, var(--fg-color) 7%,  var(--bg-color));
+  --placeholder-color-strong: color-mix(in srgb, var(--fg-color) 11%, var(--bg-color));
   --font-primary: 'Inter', sans-serif;
   --font-display: 'Alt Gothic ATF Black', sans-serif;
+  --font-primary-weight: 700;
+  --font-display-weight: 700;
+  --font-primary-scale: 1; /* multiplies the root font-size, so every rem-based size scales with it */
+  --font-display-scale: 1; /* additional multiplier applied on top, only to headings using --font-display */
+  --tracking: 0em; /* added on top of each element's own letter-spacing, via calc() at each site */
+}
+
+::selection {
+  background-color: color-mix(in srgb, var(--text-highlight-color) 55%, transparent);
+  color: var(--fg-color);
 }
 
 *,
@@ -38,6 +306,19 @@
   box-sizing: border-box;
   margin: 0;
   padding: 0;
+}
+
+html {
+  /* Deliberately NOT scaled by --font-primary-scale. rem-based SPACING (gap,
+     padding, margin — used all over the layout) is also relative to this
+     root value, so scaling it here used to resize every empty space on the
+     page right along with the text, not just the text. Each individual
+     font-size declaration instead wraps its own value in
+     calc(<size> * var(--font-primary-scale, 1)) — see e.g. page.module.css,
+     ContentPanel.module.css, MobilePage.module.css — the same pattern
+     --font-display-scale already used for headings, just not previously
+     applied to body text too. */
+  font-size: 16px;
 }
 
 html,
@@ -60,7 +341,7 @@ body {
   background-color: var(--bg-color);
   color: var(--fg-color);
   font-family: var(--font-primary);
-  font-weight: 700;
+  font-weight: var(--font-primary-weight);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }

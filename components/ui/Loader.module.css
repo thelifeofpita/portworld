@@ -16,21 +16,21 @@
 
 .textBase,
 .textFill {
-  font-size: 1rem;
+  font-size: calc(1rem * var(--font-primary-scale, 1));
   white-space: nowrap;
   display: block;
 }
 
 .textBase {
-  color: #000;
+  color: var(--fg-color);
 }
 
-/* Fill layer — red, clips from left to right */
+/* Fill layer — accent color, clips from left to right */
 .textFill {
   position: absolute;
   inset: 0;
   overflow: hidden;
-  color: #F20C1F;
+  color: var(--accent-base-color);
   width: 0%;
   animation: fill 2.6s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

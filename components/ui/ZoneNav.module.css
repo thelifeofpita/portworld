@@ -8,40 +8,38 @@
   z-index: 11;
 }
 
-/* Full-viewport container — boxes are individually translated by JS.
-   mix-blend-mode on the container blends the entire nav layer against the
-   WebGL canvas + page at compositor level, which is what actually works.
-   mix-blend-mode on a child span only composites within this layer (vs
-   transparent background = no effect). */
+/* Full-viewport container — boxes are individually translated by JS. */
 .nav {
   position: fixed;
   inset: 0;
   pointer-events: none;
   z-index: 12;
-  mix-blend-mode: difference;
 }
 
-/* Boxes start at top-left (0,0) and are moved via transform each frame.
-   color: white + difference blend = letters invert against whatever is below. */
+/* Boxes start at top-left (0,0) and are moved via transform each frame. */
 .box {
   position: absolute;
   left: 0;
   top: 0;
   background: transparent;
-  color: white;
-  font-size: 1rem;
-  letter-spacing: normal;
+  color: var(--fg-color);
+  font-size: calc(1rem * var(--font-primary-scale, 1));
+  letter-spacing: calc(0em + var(--tracking));
   text-transform: none;
   padding: 0.4rem 0.9rem 0.35rem;
   pointer-events: auto;
   cursor: pointer;
   white-space: nowrap;
+  transition: color 0.2s ease-out;
+}
+
+.box:hover {
+  color: var(--accent-color);
 }
 
 /* Expand the hit area without changing the visual.
    Absolutely-positioned so it doesn't affect offsetWidth/offsetHeight
-   (which drives the SVG underline rect). Transparent = invisible through
-   the difference blend. */
+   (which drives the SVG underline rect). */
 .box::before {
   content: '';
   position: absolute;
