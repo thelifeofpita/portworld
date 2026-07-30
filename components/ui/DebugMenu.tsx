@@ -8,6 +8,11 @@ import styles from './DebugMenu.module.css'
 // of the previous one, otherwise the sequence resets.
 const PRESS_WINDOW_MS = 500
 
+// Flip to true to re-enable the triple-D shortcut that opens this menu.
+// Kept off by default so the menu isn't reachable on the live site — the
+// component itself stays mounted/intact for whenever it's needed again.
+const TRIPLE_D_ENABLED = false
+
 // Reads the live computed value for a CSS var so the color swatch reflects
 // reality (not black) while a field is in "auto" mode.
 function computedVar(name: string, fallback: string): string {
@@ -137,6 +142,7 @@ export default function DebugMenu() {
   useEffect(() => { applyCssVars() }, [])
 
   useEffect(() => {
+    if (!TRIPLE_D_ENABLED) return
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key.toLowerCase() !== 'd' || e.ctrlKey || e.metaKey || e.altKey) return
       const target = e.target as HTMLElement | null
