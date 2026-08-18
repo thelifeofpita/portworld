@@ -11,29 +11,6 @@
   user-select: none;
 }
 
-.contactFooter {
-  position: fixed;
-  bottom: 4rem;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  gap: 1.5rem;
-  z-index: 12;
-  pointer-events: auto;
-}
-
-.contactLink {
-  font-size: calc(1rem * var(--font-primary-scale, 1));
-  letter-spacing: calc(-0.01em + var(--tracking));
-  color: var(--fg-color);
-  white-space: nowrap;
-  transition: color 0.2s ease-out;
-}
-
-.contactLink:hover {
-  color: var(--accent-color);
-}
-
 /* Invisible circle centered over the small 3D model in content mode.
    Hovering it reveals the nav by pulling the camera back in. */
 .centerNav {

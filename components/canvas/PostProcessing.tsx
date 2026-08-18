@@ -717,10 +717,10 @@ export default function PostProcessing({ mode = 0 }: { mode?: 0|1|2 }) {
     }
     material.uniforms.uGlowOpacity.value = zoneTransitionStore.displayedZone === 0 ? zoneTransitionStore.blend : 0
 
-    // Playground + About cards' hover-only glow — see playgroundGlowStore.ts.
-    // Same lockstep-with-zone pattern as above; shared by zone 1 (About) and
-    // zone 2 (Playground), which are never displayed at once, so there's no
-    // slot collision between the two zones' cards writing into this pool.
+    // Hover-only card glow — see playgroundGlowStore.ts. Same
+    // lockstep-with-zone pattern as above; shared by zone 0 (Projects), zone 1
+    // (About) and zone 2 (Playground). No two are ever displayed at once, so
+    // there's no slot collision between zones' cards writing into this pool.
     const pgP0Uniforms      = material.uniforms.uPgCardP0.value      as THREE.Vector2[]
     const pgP1Uniforms      = material.uniforms.uPgCardP1.value      as THREE.Vector2[]
     const pgP2Uniforms      = material.uniforms.uPgCardP2.value      as THREE.Vector2[]
@@ -742,7 +742,9 @@ export default function PostProcessing({ mode = 0 }: { mode?: 0|1|2 }) {
       }
     }
     ;(material.uniforms.uPgGlowColor.value as THREE.Vector3).set(...hexToRgb01(debugStore.accentFocusColor))
-    const pgZoneActive = zoneTransitionStore.displayedZone === 1 || zoneTransitionStore.displayedZone === 2
+    const pgZoneActive = zoneTransitionStore.displayedZone === 0
+      || zoneTransitionStore.displayedZone === 1
+      || zoneTransitionStore.displayedZone === 2
     material.uniforms.uPgGlowOpacity.value = pgZoneActive ? zoneTransitionStore.blend : 0
 
     gl.render(quadScene, quadCamera)

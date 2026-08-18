@@ -13,10 +13,9 @@ import { posStore } from '@/lib/posStore'
 import { silhouetteStore } from '@/lib/silhouetteStore'
 import { zoneStore } from '@/lib/zoneStore'
 import { zoneTransitionStore } from '@/lib/zoneTransitionStore'
-import { cardGlowStore, projectCardCorners } from '@/lib/cardGlowStore'
+import { projectCardCorners } from '@/lib/cardGlowStore'
 import { playgroundGlowStore } from '@/lib/playgroundGlowStore'
 import { cursorStore, ensureCursorTracking } from '@/lib/cursorStore'
-import { debugStore } from '@/lib/debugStore'
 import { buildConfigs, resolveAspectRatio, type PlaygroundCardConfig } from '@/lib/playgroundLayout'
 import BackInSmoothlyDetail from './BackInSmoothly'
 import styles from './ContentPanel.module.css'
@@ -48,6 +47,101 @@ const PLAYGROUND_CARD_PERSPECTIVE = 700
 // dt-normalized smoothing factor for the glow's hover color-wipe progress —
 // same shape/pace as PostProcessing.tsx's own dither-mode transition lerp.
 const HOVER_WIPE_SMOOTH = 0.14
+
+// ─── Extruded card sheen ──────────────────────────────────────────────────────
+// The project cards' extruded side faces carry a specular highlight whose
+// FALLOFF is an ordered (Bayer) dither rather than a smooth ramp — see
+// ContentPanel.module.css's .extrudeFace::after for how the threshold pattern
+// is applied. Everything below decides how bright that highlight is on each
+// face, which is what makes it read as light rather than decoration: the
+// brightness is a lambert term against the same key light Scene.tsx puts in
+// the 3D scene, recomputed from the card's live tilt, so turning a face toward
+// the light floods it with dots and turning it away starves it to nothing.
+//
+// Vectors are CSS space (x right, y DOWN, z toward viewer), hence the negated
+// y on the three.js light position — three.js is y-up.
+const SHEEN_LIGHT: [number, number, number] = normalize3(4, -6, 4)
+
+// Half-vector between the light and the viewer — the direction a surface must
+// face to bounce the light straight at you, i.e. where a specular highlight
+// actually sits. This is the piece that was missing: the light vector alone is
+// view-independent, so it could only ever answer "how lit is this face",
+// never "where is the glint from here".
+const SHEEN_HALF: [number, number, number] = normalize3(
+  SHEEN_LIGHT[0], SHEEN_LIGHT[1], SHEEN_LIGHT[2] + 1,
+)
+
+// Raw lambert only spans a narrow band over the tilt range these cards
+// actually move through (roughly 0.3-0.6), and mapping that straight to a dot
+// density made the difference between a lit and an unlit face far too small to
+// notice. Stretching that band across the full range is what turns the
+// highlight from decoration into something you can see respond.
+const SHEEN_LO = 0.15
+const SHEEN_HI = 0.85
+
+// How far the glint travels along a face, in percent of its length.
+const SPEC_TRAVEL = 95
+
+function normalize3(x: number, y: number, z: number): [number, number, number] {
+  const len = Math.hypot(x, y, z) || 1
+  return [x / len, y / len, z / len]
+}
+
+// Face normals, in the order the faces are rendered in ProjectCard.
+const CARD_FACE_NORMALS: Array<[number, number, number]> = [
+  [0, 0, -1],  // back
+  [-1, 0, 0],  // left
+  [1, 0, 0],   // right
+  [0, -1, 0],  // top
+  [0, 1, 0],   // bottom
+]
+
+// Long axis of each face, same order. Left/right faces run vertically, the
+// rest horizontally.
+const CARD_FACE_AXES: Array<[number, number, number]> = [
+  [1, 0, 0],  // back
+  [0, 1, 0],  // left
+  [0, 1, 0],  // right
+  [1, 0, 0],  // top
+  [1, 0, 0],  // bottom
+]
+
+// Rotates a vector by the card's live tilt, using the CSS rotateX/rotateY
+// matrices in the order Framer composes them (rotateY inner, rotateX outer),
+// so the highlight tracks exactly the orientation the browser is drawing.
+function rotateVec(v: [number, number, number], degX: number, degY: number): [number, number, number] {
+  const rx = (degX * Math.PI) / 180
+  const ry = (degY * Math.PI) / 180
+  const [cx, sx] = [Math.cos(rx), Math.sin(rx)]
+  const [cy, sy] = [Math.cos(ry), Math.sin(ry)]
+  const x1 =  cy * v[0] + sy * v[2]
+  const y1 =  v[1]
+  const z1 = -sy * v[0] + cy * v[2]
+  return [x1, cx * y1 - sx * z1, sx * y1 + cx * z1]
+}
+
+const dot3 = (a: [number, number, number], b: [number, number, number]) =>
+  a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+// How hot the highlight burns: lambert against the key light, stretched.
+function sheenLevel(n: [number, number, number], degX: number, degY: number): number {
+  const lambert = Math.max(0, dot3(rotateVec(n, degX, degY), SHEEN_LIGHT))
+  const t = (lambert - SHEEN_LO) / (SHEEN_HI - SHEEN_LO)
+  return Math.max(0, Math.min(1, t)) * 100
+}
+
+// Where along the face the glint sits, from the half-vector's component along
+// that face's long axis. Using the half-vector (not the light) is what makes
+// every face respond to every axis of the tilt. A face whose normal IS the
+// rotation axis cannot change its angle to the light at all — the top face's
+// lambert is mathematically constant under yaw, which is exactly why yawing a
+// card used to leave its top face frozen and reading as a flat texture. Its
+// glint, though, travels: rotate a long flat surface about an axis lying in
+// its plane and the specular streak slides along it, which is the motion the
+// eye actually reads as light.
+function sheenSpot(axis: [number, number, number], degX: number, degY: number): number {
+  return 50 + dot3(rotateVec(axis, degX, degY), SHEEN_HALF) * SPEC_TRAVEL
+}
 
 function useCardTilt<T extends HTMLElement = HTMLElement>() {
   const [hovered, setHovered] = useState(false)
@@ -100,41 +194,39 @@ function useCardTilt<T extends HTMLElement = HTMLElement>() {
 type CardRect = { top: number; left: number; width: number; height: number }
 
 interface CardProps {
-  index:       number  // slot in cardGlowStore.entries (0-5) — matches projectsContent order
   direction:   'left' | 'right'
   arcInset?:   boolean // top/bottom card in its column — pulled inward for the circular composition
   onExpand:    (rect: CardRect) => void
   thumb?:      string
-  accentColor?: string // published to cardGlowStore for PostProcessing's outer-glow pass
+  accentColor?: string // the project's own brand color — paints its extruded side faces
   isOpen:      boolean // portal is fully open — card hides so they don't overlap
   thumbScale?: number  // CSS scale applied to the thumbnail image
 }
 
-function ProjectCard({ index, direction, arcInset, onExpand, thumb, accentColor, isOpen, thumbScale = 1 }: CardProps) {
+function ProjectCard({ direction, arcInset, onExpand, thumb, accentColor, isOpen, thumbScale = 1 }: CardProps) {
   const thumbRef     = useRef<HTMLDivElement>(null)
   const dragBlockRef = useRef(false)
   const { hoveredRef, springX, springY, onTiltEnter, onTiltLeave, rootRef } = useCardTilt<HTMLDivElement>()
 
-  // Publish this card's live tilted QUAD (its 4 corners after rotateX/rotateY/
-  // perspective — not the axis-aligned bounding box, which is visibly larger
-  // than the actual tilted card) + colors every frame, so PostProcessing.tsx's
-  // outer-glow pass — running inside the R3F Canvas, behind this DOM layer —
-  // can hug the real shape. rootRef gives the UNROTATED anchor rect (rotation
-  // lives on a deeper child, projectCardInner, so rootRef's own rect — which
-  // does include drag's translate — is exactly the pre-rotation box); reading
-  // springX/springY's live values (rather than the DOM) sidesteps having to
-  // reverse-engineer the applied CSS matrix. On hover the glow wipes from
-  // `color` (the project's own brand color) to `hoverColor` (the sitewide
-  // "focused" accent color, matching the same convention used elsewhere — the
-  // model's hand/foot/head, ZoneNav — for "this one is selected") — the wipe
-  // itself (radiating outward from the card's own center through the glow
-  // ring) is computed in the shader from `hoverProgress`, smoothed here so it
-  // animates rather than cutting instantly. Cleared on unmount so a stale
-  // glow doesn't linger after this pane hides.
+  // Hover glow — the same dithered halo the Playground cards and the About Me
+  // photo use, from playgroundGlowStore's small dynamic pool (see that file),
+  // drawn in the sitewide focus accent by PostProcessing's WebGL pass rather
+  // than in CSS. Anchor is rootRef's UNROTATED rect: rotation lives on a
+  // deeper child, so this element's own box is exactly the pre-rotation
+  // position, and reading springX/springY's live values avoids having to
+  // reverse-engineer the applied CSS matrix. Released on unmount so a stale
+  // glow can't outlive the pane.
+  const glowSlotRef = useRef<number | null>(null)
   useEffect(() => {
     let rafId: number
     let lastTime = performance.now()
     const hoverProgress = { current: 0 }
+    const releaseSlot = () => {
+      if (glowSlotRef.current !== null) {
+        playgroundGlowStore.entries[glowSlotRef.current] = null
+        glowSlotRef.current = null
+      }
+    }
     const tick = (now: number) => {
       const dt = Math.min((now - lastTime) / 1000, 0.1)
       lastTime = now
@@ -144,30 +236,59 @@ function ProjectCard({ index, direction, arcInset, onExpand, thumb, accentColor,
       const anchorEl = rootRef.current
       const w = thumbRef.current?.offsetWidth  ?? 0
       const h = thumbRef.current?.offsetHeight ?? 0
-      // isOpen: the detail portal has taken over and this card is hidden
-      // (opacity 0) at the same rect — publishing would glow an invisible card.
-      if (anchorEl && accentColor && w && h && !isOpen) {
-        const r  = anchorEl.getBoundingClientRect()
-        const cx = r.left + r.width  / 2
-        const cy = r.top  + r.height / 2
-        const corners = projectCardCorners(springX.get(), springY.get(), w, h, PROJECT_CARD_PERSPECTIVE, cx, cy)
-        cardGlowStore.entries[index] = {
-          corners,
-          color:      accentColor,
-          hoverColor: debugStore.accentFocusColor,
-          hoverProgress: hoverProgress.current,
+      // isOpen: the detail portal has taken over and this card is hidden at
+      // the same rect — glowing an invisible card.
+      if (anchorEl && w && h && !isOpen && hoverProgress.current > 0.001) {
+        if (glowSlotRef.current === null) {
+          glowSlotRef.current = playgroundGlowStore.entries.findIndex(e => e === null)
+        }
+        if (glowSlotRef.current !== -1 && glowSlotRef.current !== null) {
+          const r  = anchorEl.getBoundingClientRect()
+          const cx = r.left + r.width  / 2
+          const cy = r.top  + r.height / 2
+          const corners = projectCardCorners(springX.get(), springY.get(), w, h, PROJECT_CARD_PERSPECTIVE, cx, cy)
+          playgroundGlowStore.entries[glowSlotRef.current] = { corners, opacity: hoverProgress.current }
         }
       } else {
-        cardGlowStore.entries[index] = null
+        releaseSlot()
       }
       rafId = requestAnimationFrame(tick)
     }
     rafId = requestAnimationFrame(tick)
     return () => {
       cancelAnimationFrame(rafId)
-      cardGlowStore.entries[index] = null
+      releaseSlot()
     }
-  }, [index, accentColor, isOpen, rootRef, springX, springY, hoveredRef])
+  }, [isOpen, springX, springY, hoveredRef, rootRef])
+
+  // Drive each face's dithered highlight from the card's live tilt (see
+  // sheenLevel above). A rAF loop rather than CSS because the value depends on
+  // springX/springY, which are MotionValues that deliberately don't re-render
+  // React. Writes are skipped while the tilt is unchanged.
+  const faceRefs = useRef<(HTMLDivElement | null)[]>([])
+  useEffect(() => {
+    let rafId: number
+    // Infinity, not NaN — every comparison against NaN is false, which would
+    // stop the first write from ever happening.
+    let lastX = Infinity, lastY = Infinity
+    const tick = () => {
+      const degX = springX.get()
+      const degY = springY.get()
+      if (Math.abs(degX - lastX) > 0.05 || Math.abs(degY - lastY) > 0.05) {
+        lastX = degX
+        lastY = degY
+        CARD_FACE_NORMALS.forEach((n, i) => {
+          const el = faceRefs.current[i]
+          if (!el) return
+          el.style.setProperty('--sheen-level', `${sheenLevel(n, degX, degY).toFixed(1)}%`)
+          el.style.setProperty('--sheen-spot', `${sheenSpot(CARD_FACE_AXES[i], degX, degY).toFixed(1)}%`)
+        })
+      }
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(rafId)
+  }, [springX, springY])
 
   // Arc composition — top/bottom cards in each column pull horizontally toward
   // the model at screen-center (mirrors the deleted 3D cards' COL_X/ARC_RADIUS_Y
@@ -213,7 +334,28 @@ function ProjectCard({ index, direction, arcInset, onExpand, thumb, accentColor,
             className={styles.projectCardInner}
             style={{ rotateX: springX, rotateY: springY, transformPerspective: PROJECT_CARD_PERSPECTIVE, pointerEvents: 'none' }}
           >
-            <div className={styles.projectCardRow}>
+            {/* The slab's side faces take the project's OWN brand color (the
+                same per-project accent the outer glow used to carry), so each
+                card's depth reads as that project's color rather than one
+                uniform site accent. */}
+            <div
+              className={styles.projectCardRow}
+              style={accentColor ? ({ '--extrude-face': accentColor } as React.CSSProperties) : undefined}
+            >
+              {/* The slab's back and side faces — real elements standing in the
+                  same 3D space as the tilt above, see ContentPanel.module.css.
+                  Rendered before the thumb so the thumb (the front face) paints
+                  last. Order must match CARD_FACE_NORMALS, which is what the
+                  sheen loop above indexes them by. */}
+              {[styles.extrudeBack, styles.extrudeLeft, styles.extrudeRight, styles.extrudeTop, styles.extrudeBottom]
+                .map((faceClass, i) => (
+                  <div
+                    key={faceClass}
+                    ref={el => { faceRefs.current[i] = el }}
+                    className={`${styles.extrudeFace} ${faceClass}`}
+                    aria-hidden="true"
+                  />
+                ))}
               <div ref={thumbRef} className={styles.projectThumb}>
                 {thumb && <Image src={thumb} alt="" fill priority quality={90} style={{ objectFit: 'cover', transform: thumbScale !== 1 ? `scale(${thumbScale})` : undefined }} sizes="30vw" />}
               </div>
@@ -654,12 +796,12 @@ function ProjectsPane() {
       <div className={styles.projectsPane}>
         <ul ref={leftListRef} className={styles.projectsList}>
           {[0, 1, 2].map((i, pos) => (
-            <ProjectCard key={i} index={i} direction="left" arcInset={pos !== 1} onExpand={(r) => handleExpand(i, r)} thumb={projectsContent[i].thumb} accentColor={projectsContent[i].accentColor} isOpen={expandedIndex === i} thumbScale={projectsContent[i].thumbScale} />
+            <ProjectCard key={i} direction="left" arcInset={pos !== 1} onExpand={(r) => handleExpand(i, r)} thumb={projectsContent[i].thumb} accentColor={projectsContent[i].accentColor} isOpen={expandedIndex === i} thumbScale={projectsContent[i].thumbScale} />
           ))}
         </ul>
         <ul ref={rightListRef} className={styles.projectsList}>
           {[3, 4, 5].map((i, pos) => (
-            <ProjectCard key={i} index={i} direction="right" arcInset={pos !== 1} onExpand={(r) => handleExpand(i, r)} thumb={projectsContent[i].thumb} accentColor={projectsContent[i].accentColor} isOpen={expandedIndex === i} thumbScale={projectsContent[i].thumbScale} />
+            <ProjectCard key={i} direction="right" arcInset={pos !== 1} onExpand={(r) => handleExpand(i, r)} thumb={projectsContent[i].thumb} accentColor={projectsContent[i].accentColor} isOpen={expandedIndex === i} thumbScale={projectsContent[i].thumbScale} />
           ))}
         </ul>
       </div>
@@ -813,6 +955,19 @@ function AboutPane() {
         </div>
       </div>
 
+      {/* Social links live inside the About pane (rather than as their own
+          fixed element in page.tsx) so they inherit the pane layer's own
+          opacity/transform — they arrive and leave as part of About instead
+          of fading on a separate timeline of their own. */}
+      <div className={styles.aboutContact}>
+        {aboutContent.linkedin && (
+          <a href={aboutContent.linkedin} className={styles.aboutContactLink} target="_blank" rel="noopener noreferrer">LinkedIn</a>
+        )}
+        {aboutContent.instagram && (
+          <a href={aboutContent.instagram} className={styles.aboutContactLink} target="_blank" rel="noopener noreferrer">Instagram</a>
+        )}
+      </div>
+
       {/* ── Right: CV ── */}
       <div className={styles.aboutPanelRight}>
         <div className={styles.aboutPanelInner}>
@@ -889,17 +1044,29 @@ function AboutPane() {
 interface PlaygroundCardProps {
   index:       number
   cfg:         PlaygroundCardConfig
+  layoutKey:   number     // bumped whenever the layout is re-solved (resize)
   item:        PlaygroundItem
   isOpen:      boolean      // detail portal is showing this item — hide the card underneath
   onExpand:    (index: number, rect: CardRect) => void
   registerRef: (index: number, el: HTMLDivElement | null) => void
 }
 
-function PlaygroundCard({ index, cfg, item, isOpen, onExpand, registerRef }: PlaygroundCardProps) {
+function PlaygroundCard({ index, cfg, layoutKey, item, isOpen, onExpand, registerRef }: PlaygroundCardProps) {
   const videoRef     = useRef<HTMLVideoElement>(null)
   const thumbRef      = useRef<HTMLDivElement>(null)
   const dragBlockRef = useRef(false)
   const { hovered, hoveredRef, springX, springY, onTiltEnter, onTiltLeave, rootRef } = useCardTilt<HTMLDivElement>()
+
+  // The drag offset lives in motion values we own (rather than framer's
+  // internal ones) so a re-solved layout can clear it: cfg.x/cfg.y move the
+  // anchor to a new spot, and a stale drag offset on top of that would leave
+  // the card sitting wherever the old viewport put it.
+  const dragX = useMotionValue(0)
+  const dragY = useMotionValue(0)
+  useEffect(() => {
+    dragX.set(0)
+    dragY.set(0)
+  }, [layoutKey, dragX, dragY])
 
   // Register the thumb's element so the detail overlay can measure its live
   // rect for the FLIP-open animation and for the close animation (which needs
@@ -980,7 +1147,7 @@ function PlaygroundCard({ index, cfg, item, isOpen, onExpand, registerRef }: Pla
         <motion.div
           ref={rootRef}
           className={styles.playgroundCard}
-          style={{ width: cfg.thumbW, cursor: 'grab' }}
+          style={{ width: cfg.thumbW, x: dragX, y: dragY, cursor: 'grab' }}
           drag
           dragElastic={0}
           dragMomentum={false}
@@ -1200,7 +1367,7 @@ function PlaygroundDetail({
 
 // ─── Playground pane ──────────────────────────────────────────────────────────
 
-function PlaygroundPane({ configs }: { configs: PlaygroundCardConfig[] }) {
+function PlaygroundPane({ configs, layoutKey }: { configs: PlaygroundCardConfig[]; layoutKey: number }) {
   const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
   const [expandedRect,  setExpandedRect]  = useState<CardRect | null>(null)
   const cardElRefs = useRef<Map<number, HTMLDivElement>>(new Map())
@@ -1233,6 +1400,7 @@ function PlaygroundPane({ configs }: { configs: PlaygroundCardConfig[] }) {
               key={i}
               index={i}
               cfg={cfg}
+              layoutKey={layoutKey}
               item={playgroundContent[i]}
               isOpen={expandedIndex === i}
               onExpand={handleExpand}
@@ -1347,14 +1515,44 @@ export default function ContentPanel({ activeZone, isContentMode }: ContentPanel
     projectsContent.forEach(p => { if (p.thumb) new window.Image().src = p.thumb })
   }, [])
 
-  // Configs computed once after all aspect ratios are known — prevents overlap
-  // that would occur if layout ran before the real card shapes were resolved.
+  // Configs computed once all aspect ratios are known — prevents overlap that
+  // would occur if layout ran before the real card shapes were resolved. The
+  // resolved items are kept in a ref so resizes can re-solve the layout
+  // immediately (buildConfigs is deterministic in viewport size, so re-running
+  // it is stable — same input, same placement) without re-probing every
+  // poster/video for its dimensions again.
   const [playgroundConfigs, setMiscConfigs] = useState<PlaygroundCardConfig[]>([])
+  const [playgroundLayoutKey, setPlaygroundLayoutKey] = useState(0)
+  const resolvedItemsRef = useRef<PlaygroundItem[] | null>(null)
   useLayoutEffect(() => {
+    let cancelled = false
+
     Promise.all(playgroundContent.map(resolveAspectRatio)).then(aspectRatios => {
+      if (cancelled) return
       const resolved = playgroundContent.map((item, i) => ({ ...item, aspectRatio: aspectRatios[i] }))
+      resolvedItemsRef.current = resolved
       setMiscConfigs(buildConfigs(window.innerWidth, window.innerHeight, resolved))
     })
+
+    // Re-solve on resize, coalesced to one run per frame — resize fires far
+    // faster than the solver needs to run, and each run touches every card.
+    let raf = 0
+    const onResize = () => {
+      const resolved = resolvedItemsRef.current
+      if (!resolved) return
+      cancelAnimationFrame(raf)
+      raf = requestAnimationFrame(() => {
+        setMiscConfigs(buildConfigs(window.innerWidth, window.innerHeight, resolved))
+        setPlaygroundLayoutKey(k => k + 1)
+      })
+    }
+    window.addEventListener('resize', onResize)
+
+    return () => {
+      cancelled = true
+      cancelAnimationFrame(raf)
+      window.removeEventListener('resize', onResize)
+    }
   }, [])
 
   // Drive scale + opacity from live camera Z so DOM content moves in lockstep with
@@ -1474,7 +1672,7 @@ export default function ContentPanel({ activeZone, isContentMode }: ContentPanel
         {isVisible && <AboutPane />}
       </div>
       <div ref={el => { paneRefs.current[2] = el }} className={styles.paneLayer} aria-hidden={activeZone !== 2}>
-        {isVisible && <PlaygroundPane configs={playgroundConfigs} />}
+        {isVisible && <PlaygroundPane configs={playgroundConfigs} layoutKey={playgroundLayoutKey} />}
       </div>
     </div>
   )

@@ -22,7 +22,7 @@ const TOTAL  = PLAIN.length + ACCENT.length
 const CYCLE  = 0.5
 const STEP   = CYCLE / 4
 
-export default function Byline() {
+export default function Byline({ isContentMode = false }: { isContentMode?: boolean }) {
   const rootRef     = useRef<HTMLDivElement>(null)
   const rollTimers  = useRef<number[]>([])
   const [, forceRender] = useReducer((n: number) => n + 1, 0)
@@ -62,10 +62,14 @@ export default function Byline() {
 
   useEffect(() => () => { rollTimers.current.forEach(clearTimeout) }, [])
 
+  // The color-cycle preview/reroll is a landing-page-only affordance: away
+  // from the landing view the byline is just a way home, so a click only
+  // resets and leaves the theme alone (matching the hover cycle, which is
+  // suppressed via .inert below).
   const handleClick = useCallback(() => {
     zoneStore.resetToLanding?.()
-    rerollPalette()
-  }, [])
+    if (!isContentMode) rerollPalette()
+  }, [isContentMode])
 
   // Negative animation-delay per letter, offset by one quarter-step (of the
   // animation's 4 color stops) per letter — NOT spread evenly across all 13
@@ -87,7 +91,12 @@ export default function Byline() {
   }
 
   return (
-    <div ref={rootRef} className={styles.byline} onClick={handleClick} aria-label="THELIFEOFPITA — click to change theme colors">
+    <div
+      ref={rootRef}
+      className={`${styles.byline}${isContentMode ? ` ${styles.inert}` : ''}`}
+      onClick={handleClick}
+      aria-label={isContentMode ? 'THELIFEOFPITA — click to return to the landing view' : 'THELIFEOFPITA — click to change theme colors'}
+    >
       <span className={styles.bylineText} aria-hidden="true">
         {PLAIN.split('').map((ch, i) => (
           <span key={`p${i}`} className={styles.letterWrap} style={kernAfter(i)}>

@@ -186,6 +186,24 @@ export function applyCssVars() {
 // inline styles) and trigger a hydration mismatch. DebugMenu applies persisted state
 // once, from a mount effect, after hydration has settled.
 
+// Palette-derived accent colors (see lib/paletteStore.ts's adoptPalette).
+// Deliberately NOT persisted: these four fields are a property of whichever
+// random palette this visit drew, not a user setting, so saving them meant the
+// next visit replayed the previous visit's accents on mount before the fresh
+// palette landed — a visible color snap during loading.
+// `applyToDom: false` is for the SSR-inlined palette, whose values <html>
+// already carries — writing them again here would mutate the DOM during module
+// evaluation, i.e. mid-hydration, which is exactly what applyCssVars is
+// documented to stay out of. DebugMenu's mount effect flushes them afterward.
+export function applyPaletteColors(
+  colors: Pick<DebugState, 'accentFocusColor' | 'accentBaseColor' | 'hoverColor' | 'textHighlightColor'>,
+  applyToDom = true,
+) {
+  Object.assign(debugStore, colors)
+  if (applyToDom) applyCssVars()
+  listeners.forEach(fn => fn())
+}
+
 export function updateDebug<K extends keyof DebugState>(key: K, value: DebugState[K]) {
   debugStore[key] = value
   applyCssVars()

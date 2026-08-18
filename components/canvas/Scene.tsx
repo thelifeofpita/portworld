@@ -325,6 +325,28 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
     window.location.reload()
   }, [])
 
+  // R3F only creates its renderer once react-use-measure reports a non-zero
+  // size for the canvas container — and Chrome does not deliver that first
+  // ResizeObserver callback while the tab is HIDDEN. Open the site in a
+  // background tab (cmd-clicked link, restored session, a window opened
+  // behind another) and the renderer is never built, nothing inside the
+  // Canvas's Suspense boundary ever mounts, so OnLoad never fires and the
+  // loading screen sits on "Behold." indefinitely — verified in a hidden tab,
+  // where the canvas stayed at its default 300x150 with no model/env request
+  // ever issued. A synthetic resize forces the measurement immediately, even
+  // while hidden (also verified), so this nudges once on mount and again on
+  // any visibility change. Timers rather than rAF, which is itself throttled
+  // to a standstill in hidden tabs.
+  useEffect(() => {
+    const kick = () => window.dispatchEvent(new Event('resize'))
+    const t = setTimeout(kick, 0)
+    document.addEventListener('visibilitychange', kick)
+    return () => {
+      clearTimeout(t)
+      document.removeEventListener('visibilitychange', kick)
+    }
+  }, [])
+
   const onAsciiToggle    = useCallback(() => {
     const next = ((shaderMode + 1) % 3) as 0|1|2
     setShaderMode(next)
@@ -361,7 +383,13 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
       <directionalLight position={[-4, 2, -4]} intensity={0.4} />
 
       <Suspense fallback={null}>
-        <Environment preset="studio" />
+        {/* Self-hosted rather than preset="studio": drei's presets are fetched
+            from raw.githack.com, a third-party CDN whose latency is out of our
+            hands — and since this sits inside the same Suspense boundary as
+            OnLoad below, every slow CDN response held the loading screen open
+            for as long as it took. Same asset, served from our own origin
+            (and preloaded in layout.tsx alongside the model). */}
+        <Environment files="/env/studio_small_03_1k.hdr" />
         <EnvironmentTracker />
         <CameraFov isMobile={isMobile} />
         <CameraZoom isContentMode={isContentMode} />

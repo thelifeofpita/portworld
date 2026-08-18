@@ -77,3 +77,14 @@
   75%  { color: var(--pc3, var(--hover-color)); }
   100% { color: var(--pc0, var(--fg-color)); }
 }
+
+/* Off the landing page the byline is only a way back home — no palette
+   preview on hover (and no reroll on click, see Byline.tsx), so the cycle
+   layer stays hidden and the base color stays put. */
+.byline.inert:hover .letterBase {
+  opacity: 1;
+}
+
+.byline.inert:hover .letterCycle {
+  opacity: 0;
+}

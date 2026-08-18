@@ -99,8 +99,14 @@
 }
 
 /* Futura PT — seven static weights, each with a matching oblique/italic file.
-   Not preloaded — same reasoning as New Rodin Pro/Ranade above, only loaded
-   on demand if picked in the debug menu.
+   This is the site's DEFAULT family (see :root below), so the two faces the
+   defaults actually resolve to — Demi (500, --font-primary) and Bold (700,
+   --font-display) — are preloaded in layout.tsx and marked font-display:block
+   rather than swap. Swap is the wrong trade here: it paints the text in a
+   fallback first and then re-lays it out when the real face arrives, a
+   visible restyle on a preloaded local font that is only ever milliseconds
+   behind. The remaining weights stay `swap` — they only appear via the debug
+   menu, where a fallback beats invisible text.
    Weight values below are each file's own embedded OS/2.usWeightClass (read
    with fontTools), NOT a guessed Light..Heavy → 300..900 ramp — this
    foundry's "Heavy" is embedded as weight 600, LOWER than Bold (700) and
@@ -157,7 +163,7 @@
   src: url('/fonts/FuturaPT-Demi.ttf') format('truetype');
   font-weight: 500;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 @font-face {
   font-family: 'Futura PT';
@@ -185,7 +191,7 @@
   src: url('/fonts/FuturaPT-Bold.ttf') format('truetype');
   font-weight: 700;
   font-style: normal;
-  font-display: swap;
+  font-display: block;
 }
 @font-face {
   font-family: 'Futura PT';
@@ -286,11 +292,16 @@
      palette slot, just a subtle mix of the two already-themed extremes. */
   --placeholder-color:        color-mix(in srgb, var(--fg-color) 7%,  var(--bg-color));
   --placeholder-color-strong: color-mix(in srgb, var(--fg-color) 11%, var(--bg-color));
-  --font-primary: 'Inter', sans-serif;
-  --font-display: 'Alt Gothic ATF Black', sans-serif;
-  --font-primary-weight: 700;
+  /* MUST stay in sync with lib/debugStore.ts's DEFAULTS. debugStore's values
+     are re-applied to <html> from DebugMenu's mount effect, so any difference
+     here shows up as text visibly changing family/weight/size a beat after
+     first paint — which is exactly what these used to do (Inter 700 → Futura
+     PT 500 at 1.15×) on every single load. */
+  --font-primary: 'Futura PT', sans-serif;
+  --font-display: 'Futura PT', sans-serif;
+  --font-primary-weight: 500;
   --font-display-weight: 700;
-  --font-primary-scale: 1; /* multiplies the root font-size, so every rem-based size scales with it */
+  --font-primary-scale: 1.15; /* multiplies the root font-size, so every rem-based size scales with it */
   --font-display-scale: 1; /* additional multiplier applied on top, only to headings using --font-display */
   --tracking: 0em; /* added on top of each element's own letter-spacing, via calc() at each site */
 }

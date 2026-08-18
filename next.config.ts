@@ -16,6 +16,11 @@ const nextConfig: NextConfig = {
   // for a marginal responsive-sizing win.
   images: {
     unoptimized: true,
+    // Next 16 warns for any quality not listed here, even with unoptimized:true
+    // (where quality is inert — the .webp files are served as authored). The
+    // <Image quality={90}> call sites are left as-is rather than stripped, so
+    // that turning the optimizer back on keeps the intended quality.
+    qualities: [75, 90],
   },
   async headers() {
     return [
@@ -29,6 +34,13 @@ const nextConfig: NextConfig = {
       },
       {
         source: '/:file*.ttf',
+        headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
+      },
+      {
+        // Self-hosted environment map for the 3D scene (see Scene.tsx) — a
+        // content-stable ~1.6MB asset, so it gets the same immutable cache as
+        // the model rather than being re-fetched on every visit.
+        source: '/env/:path*',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],
       },
       {

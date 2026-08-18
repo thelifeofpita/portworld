@@ -10,7 +10,6 @@ import Byline from '@/components/ui/Byline'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { zoneStore } from '@/lib/zoneStore'
 import { loadPalette } from '@/lib/paletteStore'
-import { aboutContent } from '@/content/aboutContent'
 import type { Zone } from '@/types'
 import styles from './page.module.css'
 
@@ -181,15 +180,7 @@ export default function Home() {
       {/* Visual reference zone over the small model — entry detection is via global mousemove */}
       {activeZone !== null && <div className={styles.centerNav} />}
 
-      <Byline />
-      <div className={styles.contactFooter}>
-        {aboutContent.linkedin && (
-          <a href={aboutContent.linkedin} className={styles.contactLink} target="_blank" rel="noopener noreferrer">LinkedIn</a>
-        )}
-        {aboutContent.instagram && (
-          <a href={aboutContent.instagram} className={styles.contactLink} target="_blank" rel="noopener noreferrer">Instagram</a>
-        )}
-      </div>
+      <Byline isContentMode={isContentMode} />
       <CursorHint visible={loaded && !isContentMode} />
       <Loader visible={!loaded || !paletteReady} />
     </main>

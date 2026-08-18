@@ -15,17 +15,10 @@
 // accent color (see debugStore.ts's DebugColors comment — those fields have
 // no separate "natural" source to layer under, so setting them IS the
 // natural source now).
-import { updateDebug, hexToRgb255 } from './debugStore'
+import { applyPaletteColors } from './debugStore'
+import { mixHex, MUTED_RATIO, type Palette } from './paletteVars'
 
-export interface Palette {
-  white:  string
-  yellow: string
-  red:    string
-  black:  string
-  bright: string // objectively the brightest of the 4 — see app/api/palette/route.ts's Palette.bright
-  title:  string
-  slug:   string
-}
+export type { Palette }
 
 // `preview` is the NEXT palette, already fetched ahead of time so a click can
 // apply it instantly (no fetch-then-flash delay) — see rerollPalette below.
@@ -46,18 +39,6 @@ export function subscribePreview(fn: () => void): () => void {
 }
 
 interface BgColorSet { bg: string; fg: string; fgMuted: string }
-
-// Ratio the original hardcoded muted grays sat between fg and bg (both the
-// white-mode #999999 and black-mode #666666 land ~58% of the way from fg to
-// bg) — reused so any palette produces a muted tone with the same relationship.
-const MUTED_RATIO = 0.58
-
-function mixHex(fromHex: string, toHex: string, t: number): string {
-  const [fr, fg, fb] = hexToRgb255(fromHex)
-  const [tr, tg, tb] = hexToRgb255(toHex)
-  const mix = (a: number, b: number) => Math.round(a + (b - a) * t)
-  return '#' + [mix(fr, tr), mix(fg, tg), mix(fb, tb)].map(n => n.toString(16).padStart(2, '0')).join('')
-}
 
 const DEFAULT_THEME_COLORS: BgColorSet = { bg: '#ffffff', fg: '#0d0d0d', fgMuted: '#999999' }
 
@@ -122,22 +103,41 @@ function fetchPalette(): Promise<Palette | null> {
 }
 
 // Actually re-themes the site: paletteStore.palette updates, the accent CSS
-// vars update via updateDebug, and every subscriber (Scene.tsx's
+// vars update, and every subscriber (Scene.tsx's
 // BackgroundSync, for the bg/fg lerp target) re-runs — so this can be called
 // after initial load too, to smoothly re-theme everything already on screen.
 function applyPalette(palette: Palette) {
-  paletteStore.palette = palette
-  updateDebug('accentFocusColor',   palette.yellow)
-  updateDebug('accentBaseColor',    palette.red)
-  updateDebug('hoverColor',         palette.red)
-  updateDebug('textHighlightColor', palette.yellow)
-  // The objectively brightest of the 4 colors — NOT the `white` role, which
-  // can land on any of the 4 regardless of lightness (see the module comment
-  // above). Needed by the handful of spots (a forced-light backdrop, a
-  // specular card "shine") that must stay genuinely bright no matter which
-  // color ended up in which role.
-  document.documentElement.style.setProperty('--palette-white', palette.bright)
+  adoptPalette(palette)
   listeners.forEach(fn => fn())
+}
+
+// Writes the palette into the stores WITHOUT touching the DOM — used both by
+// applyPalette (reroll) and, at module load, by the SSR-inlined palette, where
+// <html> already carries the right values from app/layout.tsx's inline <style>
+// and mutating it here would race React hydration.
+function adoptPalette(palette: Palette) {
+  const isSsr = palette === ssrPalette
+  paletteStore.palette = palette
+  if (typeof document !== 'undefined' && !isSsr) {
+    // The objectively brightest of the 4 colors — NOT the `white` role, which
+    // can land on any of the 4 regardless of lightness (see the module comment
+    // above). Needed by the handful of spots (a forced-light backdrop, a
+    // specular card "shine") that must stay genuinely bright no matter which
+    // color ended up in which role. Skipped for the SSR palette, whose value
+    // is already inlined in the document (see paletteVars.paletteCssVars).
+    document.documentElement.style.setProperty('--palette-white', palette.bright)
+  }
+  // Not updateDebug(): that persists to localStorage, and these four fields
+  // are palette-derived, not user settings — persisting them meant the NEXT
+  // visit briefly applied the PREVIOUS visit's accents (DebugMenu replays
+  // persisted state on mount) before the new palette landed, which read as a
+  // color snap during loading.
+  applyPaletteColors({
+    accentFocusColor:   palette.yellow,
+    accentBaseColor:    palette.red,
+    hoverColor:         palette.red,
+    textHighlightColor: palette.yellow,
+  }, !isSsr)
 }
 
 // Fetches the NEXT palette in the background and stashes it as `preview`
@@ -152,6 +152,17 @@ function prefetchPreview() {
   })
 }
 
+// app/layout.tsx inlines the palette it picked during SSR here, so the first
+// paint is already correctly themed and the client never has to fetch a
+// palette it was handed. Adopted at module load (before any component renders)
+// so getThemeColors() below already returns the real colors the first time
+// Scene.tsx's BackgroundSync asks — otherwise it would start its fade from the
+// placeholder defaults and visibly cross into the palette.
+declare global { interface Window { __PALETTE__?: Palette } }
+const ssrPalette: Palette | null =
+  typeof window !== 'undefined' ? (window.__PALETTE__ ?? null) : null
+if (ssrPalette) adoptPalette(ssrPalette)
+
 let loadPromise: Promise<Palette | null> | null = null
 
 // Called once, on initial page load — memoized so concurrent callers (e.g.
@@ -159,6 +170,13 @@ let loadPromise: Promise<Palette | null> | null = null
 // double-fetching.
 export function loadPalette(): Promise<Palette | null> {
   if (loadPromise) return loadPromise
+  // Already themed by SSR — nothing to wait for, just warm the next palette
+  // so a byline click/hover has one ready.
+  if (ssrPalette) {
+    prefetchPreview()
+    loadPromise = Promise.resolve(ssrPalette)
+    return loadPromise
+  }
   loadPromise = fetchPalette().then(palette => {
     if (palette) applyPalette(palette)
     prefetchPreview()

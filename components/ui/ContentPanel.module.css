@@ -82,10 +82,34 @@
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  /* Keeps the extrusion's side faces in 3D rather than flattening them into
+     this element's own plane — without it they'd collapse to zero-width
+     slivers the moment the card tilts. */
+  transform-style: preserve-3d;
+}
+
+/* Real geometric extrusion: the thumb is the front face of a slab whose four
+   side faces are actual elements standing in 3D space (see .extrudeFace
+   below), inside the same preserve-3d context the cursor-follow tilt rotates.
+   So the sides genuinely come into and out of view as the card turns — tilt
+   right and the left face shows, tilt down and the top face shows — rather
+   than a painted-on shadow that stays put no matter how the card moves. */
+@property --extrude {
+  syntax: '<length>';
+  inherits: true;
+  initial-value: 48px;
 }
 
 .projectCardRow {
   position: relative;
+  transform-style: preserve-3d;
+  --extrude: 48px;
+  /* Dither cell size, matched to the 3D model's. PostProcessing.tsx's 1-bit
+     pass blocks at floor(coord / 2.0) and Scene.tsx renders the canvas at
+     dpr={1}, so one model dither cell is 2 CSS px. The tiled threshold texture
+     is 8x8 cells, hence 8 * 2px. The card's highlight then reads at the same
+     grain as the model rather than inventing its own. */
+  --dither-tile: 16px;
 }
 
 .projectThumb {
@@ -99,7 +123,156 @@
 
 
 
+
+
+/* Side + back faces. Each is anchored flush to one edge of the front face and
+   hinged 90 degrees about that edge, so it extends straight back along -Z for
+   exactly --extrude. All four exist (not just the two facing the default
+   viewing angle) so the slab stays solid through the full tilt range instead
+   of opening a hole on whichever side happens to swing toward the camera. */
+.extrudeFace {
+  position: absolute;
+  /* --extrude-face is set per card from the project's own accentColor (see
+     ProjectCard); --fg-color only covers a project that has none. */
+  background-color: var(--extrude-face, var(--fg-color));
+  pointer-events: none;
+  /* Contains ::after's blending so one face's highlight can't composite
+     against the face behind it. */
+  isolation: isolate;
+}
+
+/* ─── Dithered specular highlight ─────────────────────────────────────────
+   The highlight doesn't ramp off smoothly — it breaks into an ordered
+   (Bayer) dither and thins out, matching how the 3D model itself is drawn.
+   Doing a real per-pixel threshold in CSS takes one trick: the tiled PNG is
+   the INVERTED 8x8 threshold matrix stored at alpha 0.5, so compositing it
+   over the value gradient yields their average, 0.5 + (value - threshold)/2.
+   A hard contrast() then binarizes that around 0.5, which is exactly
+   step(value - threshold) — an ordered dither, evaluated by the compositor.
+   screen blending finally drops the black half and keeps the lit dots.
+
+   The ramp is deliberately pure GREYSCALE (#fff mixed toward #000), never a
+   palette colour. contrast() binarizes each RGB channel independently around
+   its own pivot, so feeding it a saturated colour at a partial level pushed
+   the channels to different corners — a 50%-lit mix of a yellow palette
+   colour came out dark red, a blue one came out something else again. The
+   highlight's hue then changed with the palette AND with how lit each
+   individual face happened to be, which is why no two cards agreed. Grey in
+   means pure white out, every time: one light source, one highlight colour,
+   whatever the palette.
+
+   Two values are written per frame from the card's live tilt (see
+   ContentPanel.tsx): --sheen-level, how hot the highlight burns, and
+   --sheen-spot, where along the face it sits. The gradient runs LENGTHWISE,
+   which matters — a face is the full card long but only --extrude deep, so
+   the long axis is the only one with room for a dithered falloff to be seen
+   at all. Earlier attempts ran it across the depth, where the entire ramp
+   spanned about one dither cell and read as a flat static texture. */
+.extrudeFace::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image:
+    url('data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAQAAABuBnYAAAAAjklEQVR42gXBEXACABQA0A9BEARBd4MgCIIgGASDQbC7IBgEQTAIgiAIujcYDIIgGAwGQRDsLggGgyAIBkEQBN0FQRAMkt6Lq4GdpouejWfx4EfOp3tzWWOxVnPSsVR18CLShkpmkt4UTMRZ15+6f31bDVH2LWOkYuHOh/j1aK9l5clRWyS8yvuS8q5o6gZtxj/h/NzynQAAAABJRU5ErkJggg=='),
+    linear-gradient(var(--sheen-axis, to right),
+      #000 calc(var(--sheen-spot, 50%) - 30%),
+      color-mix(in srgb, #fff var(--sheen-level, 0%), #000) var(--sheen-spot, 50%),
+      #000 calc(var(--sheen-spot, 50%) + 30%));
+  background-size: var(--dither-tile) var(--dither-tile), 100% 100%;
+  background-repeat: repeat, no-repeat;
+  /* Cells are the model's own 2px grain (see --dither-tile) and kept hard by
+     pixelated rendering, so a card's highlight and the model's ink read as the
+     same material. These faces do stand near-edge-on, so the tile lands
+     foreshortened and the grid squashes along one axis — accepted on purpose:
+     matching the model's grain matters more than a perfectly square cell on a
+     surface that is itself perspective-compressed. */
+  image-rendering: pixelated;
+  /* Must exceed ~6500%: the averaging trick puts adjacent Bayer thresholds
+     only ~0.008 apart around the 0.5 pivot, so a gentler contrast leaves the
+     near-threshold cells as mid-grey instead of resolving them to black or
+     white — which screen-blends into a permanent dot grid over the artwork
+     rather than a highlight that actually goes away. */
+  filter: contrast(12000%);
+  mix-blend-mode: screen;
+  pointer-events: none;
+}
+
+
+/* Each face's long axis: the side faces stand vertically, the top/bottom and
+   back run horizontally. */
+.extrudeRight::after  { --sheen-axis: to bottom; }
+.extrudeLeft::after   { --sheen-axis: to bottom; }
+.extrudeTop::after    { --sheen-axis: to right; }
+.extrudeBottom::after { --sheen-axis: to right; }
+.extrudeBack::after   { --sheen-axis: to right; }
+
+.extrudeRight {
+  left: 100%;
+  top: 0;
+  width: var(--extrude);
+  height: 100%;
+  transform-origin: left center;
+  transform: rotateY(90deg);
+}
+
+.extrudeLeft {
+  right: 100%;
+  top: 0;
+  width: var(--extrude);
+  height: 100%;
+  transform-origin: right center;
+  transform: rotateY(-90deg);
+}
+
+.extrudeBottom {
+  top: 100%;
+  left: 0;
+  width: 100%;
+  height: var(--extrude);
+  transform-origin: center top;
+  transform: rotateX(-90deg);
+}
+
+.extrudeTop {
+  bottom: 100%;
+  left: 0;
+  width: 100%;
+  height: var(--extrude);
+  transform-origin: center bottom;
+  transform: rotateX(90deg);
+}
+
+/* Caps the back of the slab, so a steep tilt never looks into a hollow box. */
+.extrudeBack {
+  inset: 0;
+  transform: translateZ(calc(-1 * var(--extrude)));
+}
+
 /* ─── About — full-viewport side panels ──────────────────────────── */
+
+/* Social links, pinned to the bottom of the viewport but rendered inside the
+   About pane so the pane layer's own fade/parallax carries them. */
+.aboutContact {
+  position: fixed;
+  bottom: 4rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 1.5rem;
+  pointer-events: auto;
+}
+
+.aboutContactLink {
+  font-size: calc(1rem * var(--font-primary-scale, 1));
+  letter-spacing: calc(-0.01em + var(--tracking));
+  color: var(--fg-color);
+  white-space: nowrap;
+  transition: color 0.2s ease-out;
+}
+
+.aboutContactLink:hover {
+  color: var(--accent-color);
+}
 
 .aboutPane {
   position: absolute;
