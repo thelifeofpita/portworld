@@ -17,7 +17,7 @@ import { projectCardCorners } from '@/lib/cardGlowStore'
 import { playgroundGlowStore } from '@/lib/playgroundGlowStore'
 import { cursorStore, ensureCursorTracking } from '@/lib/cursorStore'
 import { buildConfigs, resolveAspectRatio, type PlaygroundCardConfig } from '@/lib/playgroundLayout'
-import BackInSmoothlyDetail from './BackInSmoothly'
+import { CUSTOM_LAYOUTS } from './customLayouts'
 import styles from './ContentPanel.module.css'
 
 // Snappy panel open/close — same feel as the accent color snap
@@ -459,7 +459,8 @@ function ProjectDetail({
   onClose:    () => void
   onNavigate: (newIndex: number) => void
 }) {
-  const isCustomLayout = item.customLayout === 'backInSmoothly'
+  const CustomLayout  = item.customLayout ? CUSTOM_LAYOUTS[item.customLayout] : null
+  const isCustomLayout = CustomLayout != null
 
   const defaultVIdx = item.defaultFeatured ? ALL_SLOTS.indexOf(item.defaultFeatured) : 0
 
@@ -661,16 +662,16 @@ function ProjectDetail({
             THELIFEOF<span className={styles.detailHomePita}>PITA</span>
           </button>
 
-          {isCustomLayout ? (
+          {CustomLayout ? (
             // scrollbarGutter reserves equal space on both edges regardless of
             // whether the scrollbar is actually showing, so this scrolling
-            // container's own centered content (BackInSmoothly's nav/hero/etc.)
+            // container's own centered content (the custom page's nav/hero/etc.)
             // stays centered on the true viewport width — otherwise a
             // right-only scrollbar shifts its visual center a few px left of
             // the fixed THELIFEOFPITA logo above (which isn't inside this
             // scroll container), reading as "off-center."
             <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', paddingTop: '2.4rem', scrollbarGutter: 'stable both-edges' }}>
-              <BackInSmoothlyDetail onPrev={() => onNavigate(prevIndex)} onNext={() => onNavigate(nextIndex)} onClose={onClose} />
+              <CustomLayout onPrev={() => onNavigate(prevIndex)} onNext={() => onNavigate(nextIndex)} onClose={onClose} />
             </div>
           ) : (
             <>

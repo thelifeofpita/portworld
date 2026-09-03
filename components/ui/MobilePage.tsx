@@ -15,7 +15,7 @@ import { projectCardCorners } from '@/lib/cardGlowStore'
 import { aboutContent } from '@/content/aboutContent'
 import { projectsContent, type ProjectItem } from '@/content/projectsContent'
 import { playgroundContent } from '@/content/playgroundContent'
-import BackInSmoothlyDetail from './BackInSmoothly'
+import { CUSTOM_LAYOUTS } from './customLayouts'
 import type { Zone } from '@/types'
 import styles from './MobilePage.module.css'
 
@@ -334,6 +334,7 @@ function MobilePlaygroundItem({ item, isSelected, onRef, onVideoRef }: Playgroun
 function MobileProjectCard({
   item, isOpen, onToggle, onPrev, onNext,
 }: { item: ProjectItem; isOpen: boolean; onToggle: () => void; onPrev: () => void; onNext: () => void }) {
+  const CustomLayout = item.customLayout ? CUSTOM_LAYOUTS[item.customLayout] : null
   return (
     <div className={`${styles.mobileProjectCard}${isOpen ? ` ${styles.mobileProjectCardOpen} ${styles.mobileProjectCardFullBleed}` : ''}`}>
 
@@ -373,8 +374,8 @@ function MobileProjectCard({
             transition={{ duration: 0.38, ease: EASE_OUT }}
             style={{ overflow: 'hidden' }}
           >
-            {item.customLayout === 'backInSmoothly' ? (
-              <BackInSmoothlyDetail onPrev={onPrev} onNext={onNext} onClose={onToggle} />
+            {CustomLayout ? (
+              <CustomLayout onPrev={onPrev} onNext={onNext} onClose={onToggle} />
             ) : (
               <>
                 <p className={styles.mobileProjectDesc}>{item.description}</p>

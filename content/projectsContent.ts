@@ -31,7 +31,7 @@ export interface ProjectItem {
   defaultFeatured?: 'video' | 'img0' | 'img1'
   thumbScale?:      number  // CSS scale applied to the thumbnail image, e.g. 1.2 for 20% zoom
   accentColor?:     string  // brand color for the 3D card mode's extruded frame (debug menu)
-  customLayout?:    'backInSmoothly'  // bypasses the generic carousel detail view entirely
+  customLayout?:    'backInSmoothly' | 'surfTheSpike'  // bypasses the generic carousel detail view entirely (see CUSTOM_LAYOUTS in ContentPanel.tsx)
 }
 
 export const projectsContent: ProjectItem[] = [
@@ -43,7 +43,8 @@ export const projectsContent: ProjectItem[] = [
     images:      ['/projects/proj1/image1.webp', '/projects/proj1/image2.webp'],
     icon:        '/icons/oneShowShortlist.png',
     iconLabel:   'One Show Young Ones Merit Winner',
-    accentColor: '#4285F4',
+    accentColor: '#4285F4', // matches SurfTheSpike.module.css's page background exactly
+    customLayout: 'surfTheSpike',
   },
   {
     title:       'Duolingo: Your Coolest Lesson Yet.',

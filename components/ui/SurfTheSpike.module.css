@@ -1,0 +1,182 @@
+/* ─── Google Gemini: Surf the Spike — custom case-study layout ───────────── */
+/* Forced brand blue, independent of the site's light/dark toggle — this page
+   recreates the campaign's own artwork (same as BackInSmoothly does for its
+   forced yellow). Content order mirrors the Surf the Spike case on
+   ideasfor.sale; nav + fonts are identical to BackInSmoothly. */
+
+.page {
+  width: 100%;
+  background: #4285F4;
+  padding: 1.5rem 0 2.5rem;
+}
+
+.inner {
+  container-type: inline-size;
+  max-width: min(94vw, 1500px);
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* ─── Prev / next project nav (top + bottom) ──────────────────────────── */
+
+.projectNav {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.navClose {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-primary);
+  font-weight: var(--font-primary-weight);
+  letter-spacing: calc(-0.01em + var(--tracking));
+  font-size: max(0.7rem, 1.5cqw);
+  text-transform: uppercase;
+  color: #ffffff;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.navClose:hover {
+  color: #EA4335;
+}
+
+.navBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-family: var(--font-primary);
+  font-weight: var(--font-primary-weight);
+  letter-spacing: calc(-0.01em + var(--tracking));
+  font-size: max(0.7rem, 1.5cqw);
+  text-transform: uppercase;
+  color: #ffffff;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.navBtn:hover {
+  color: #EA4335;
+}
+
+.navArrow {
+  font-size: 1.1em;
+  line-height: 1;
+}
+
+/* ─── Hero ─────────────────────────────────────────────────────────────── */
+
+.hero {
+  text-align: center;
+  padding-bottom: 0.25rem;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: var(--font-display-weight);
+  letter-spacing: calc(0em + var(--tracking));
+  text-transform: uppercase;
+  font-size: max(2.1rem, 8.5cqw);
+  line-height: 0.95;
+  color: #ffffff;
+}
+
+.subtitle {
+  margin: 1rem auto 0;
+  max-width: 58cqw;
+  font-family: var(--font-primary);
+  font-weight: var(--font-primary-weight);
+  letter-spacing: calc(-0.01em + var(--tracking));
+  font-size: max(0.7rem, 1.5cqw);
+  line-height: 1.2;
+  color: #ffffff;
+}
+
+/* ─── Section = its subtitle + its media ──────────────────────────────────
+   Every section is introduced by a line in the same style as the hero
+   .subtitle (BackInSmoothly only has the one hero subtitle; here that
+   treatment repeats per section). The subtitle sits tight to its own media
+   (.section gap), while .inner's larger gap separates whole sections. */
+
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.sectionSubtitle {
+  max-width: 58cqw;
+  margin: 0 auto;
+  font-family: var(--font-primary);
+  font-weight: var(--font-primary-weight);
+  letter-spacing: calc(-0.01em + var(--tracking));
+  font-size: max(0.7rem, 1.5cqw);
+  line-height: 1.2;
+  color: #ffffff;
+  text-align: center;
+}
+
+/* ─── Media blocks ───────────────────────────────────────────────────── */
+
+.videoBanner {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000;
+}
+
+.mediaBlock {
+  display: block;
+  width: 100%;
+}
+
+.scanImg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.uiVideo {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  display: block;
+  background: #000;
+}
+
+.photoGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.photoCell {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  object-fit: cover;
+  display: block;
+  background: #111;
+}
+
+/* ─── Wider viewports ────────────────────────────────────────────────── */
+
+@media (min-width: 700px) {
+  .inner { padding: 0 3rem; gap: 2.25rem; }
+
+  .photoGrid { grid-template-columns: 1fr 1fr; }
+}
