@@ -60,15 +60,15 @@ export const aboutContent: AboutContent = {
 
   cv: {
     experience: [
-      { title: 'Creative Designer', meta: 'FutureBrand · Oct. 2025 – Mar. 2026' },
-      { title: '3D Visualization Artist', meta: 'Freelance · Sep. 2022 – Sep. 2025' },
+      { title: 'Creative Designer', meta: 'FutureBrand · Oct. 2025 — Mar. 2026' },
+      { title: '3D Visualization Artist', meta: 'Freelance · Sep. 2022 — Sep. 2025' },
     ],
     education: [
-      { title: 'Art Direction Portfolio Program', meta: 'Miami Ad School Madrid · Sep. 2025 - Present' },
-      { title: 'Advertising and Public Relations Degree', meta: 'Universidad Rey Juan Carlos · Sep. 2022 - May. 2026' },
+      { title: 'Art Direction Portfolio Program', meta: 'Miami Ad School Madrid · Oct. 2025 — Sep. 2026' },
+      { title: 'Advertising and Public Relations Degree', meta: 'Universidad Rey Juan Carlos · Sep. 2022 — May. 2026' },
     ],
     languages:      ['Native Spanish', 'Bilingual English', 'Basic French'],
-    awards: ['One Show Young Ones Merit Winner', 'D&AD New Blood Wood Pencil Winner'],
+    awards: ['One Show Young Ones Merit', 'D&AD New Blood Wood Pencil'],
     skills: ['Adobe Suite', 'Affinity', 'Figma', 'DaVinci Resolve', 'Blender 3D', 'TouchDesigner', 'Vibe coding', 'Image generation', 'Having fun'],
   },
 }
