@@ -105,30 +105,6 @@
   color: #ffffff;
 }
 
-/* ─── Section = its subtitle + its media ──────────────────────────────────
-   Every section is introduced by a line in the same style as the hero
-   .subtitle (BackInSmoothly only has the one hero subtitle; here that
-   treatment repeats per section). The subtitle sits tight to its own media
-   (.section gap), while .inner's larger gap separates whole sections. */
-
-.section {
-  display: flex;
-  flex-direction: column;
-  gap: 0.9rem;
-}
-
-.sectionSubtitle {
-  max-width: 58cqw;
-  margin: 0 auto;
-  font-family: var(--font-primary);
-  font-weight: var(--font-primary-weight);
-  letter-spacing: calc(-0.01em + var(--tracking));
-  font-size: max(0.7rem, 1.5cqw);
-  line-height: 1.2;
-  color: #ffffff;
-  text-align: center;
-}
-
 /* ─── Media blocks ───────────────────────────────────────────────────── */
 
 .videoBanner {
@@ -159,16 +135,23 @@
   background: #000;
 }
 
-.photoGrid {
+/* ─── Environmental photos — one row of four tall crops ──────────────────
+   Source frames are portrait (~900x1012). Each cell is a taller 3:4 crop so
+   four sit in a row; per-image object-position (set inline in SurfTheSpike.tsx)
+   keeps the campaign artwork — the window poster / the machine branding —
+   centred in the crop. Two columns on narrow viewports so they stay legible. */
+
+.photoRow {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, 1fr);
   gap: 1rem;
 }
 
 .photoCell {
   width: 100%;
-  aspect-ratio: 4 / 3;
+  aspect-ratio: 3 / 4;
   object-fit: cover;
+  object-position: center;
   display: block;
   background: #111;
 }
@@ -178,5 +161,5 @@
 @media (min-width: 700px) {
   .inner { padding: 0 3rem; gap: 2.25rem; }
 
-  .photoGrid { grid-template-columns: 1fr 1fr; }
+  .photoRow { grid-template-columns: repeat(4, 1fr); gap: 0.75rem; }
 }

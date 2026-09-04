@@ -5,9 +5,8 @@ import styles from './SurfTheSpike.module.css'
 
 // Content order mirrors the "Surf the Spike" case on ideasfor.sale
 // (#c/surf-the-spike). The in-project nav + typography are the same as
-// BackInSmoothly, and — like its hero — every section is introduced by a
-// subtitle in the same style. Brand-locked to Gemini blue (#4285F4) with
-// white text, independent of the site's light/dark toggle.
+// BackInSmoothly. Brand-locked to Gemini blue (#4285F4) with white text,
+// independent of the site's light/dark toggle.
 const YOUTUBE_ID = 'nf5xLDfsp5k'
 const PAGE_COLOR = '#4285F4'
 
@@ -16,6 +15,15 @@ interface SurfTheSpikeDetailProps {
   onNext:  () => void
   onClose: () => void
 }
+
+// Each environmental photo is a tall crop in a 4-up row; object-position keeps
+// the campaign artwork (the window poster / the machine branding) in frame.
+const PHOTOS = [
+  { src: '/projects/proj1/shop1.webp', pos: '40% 60%', alt: 'Gas station shop front, the campaign poster in the window' },
+  { src: '/projects/proj1/shop2.webp', pos: '68% 40%', alt: 'Behind a shop counter, the same campaign poster over the drinks fridge' },
+  { src: '/projects/proj1/vend1.webp', pos: '45% 50%', alt: 'Campus vending machine wrapped with the campaign' },
+  { src: '/projects/proj1/vend2.webp', pos: '46% 50%', alt: 'A row of campus vending machines carrying the same wrap' },
+]
 
 // Both the top and bottom instance carry their own [X] — this page has no
 // separate fixed close button (ContentPanel.tsx skips its usual fixed
@@ -49,59 +57,48 @@ export default function SurfTheSpikeDetail({ onPrev, onNext, onClose }: SurfTheS
           </p>
         </header>
 
-        <section className={styles.section}>
-          <p className={styles.sectionSubtitle}>Video case.</p>
-          <DitherReveal overlayColor={PAGE_COLOR} className={styles.videoBanner}>
-            <iframe
-              src={`https://www.youtube.com/embed/${YOUTUBE_ID}`}
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              allowFullScreen
-              title="Surf the Spike"
-              style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
-            />
-          </DitherReveal>
-        </section>
+        <DitherReveal overlayColor={PAGE_COLOR} className={styles.videoBanner}>
+          <iframe
+            src={`https://www.youtube.com/embed/${YOUTUBE_ID}`}
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            title="Surf the Spike"
+            style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
+          />
+        </DitherReveal>
 
-        <section className={styles.section}>
-          <p className={styles.sectionSubtitle}>Scan your caffeine intake.</p>
-          <DitherReveal overlayColor={PAGE_COLOR} className={styles.mediaBlock}>
+        <DitherReveal overlayColor={PAGE_COLOR} className={styles.mediaBlock}>
+          <img
+            className={styles.scanImg}
+            src="/projects/proj1/scan.webp"
+            alt="Three phones scanning a coffee, a tea and an energy shot, each labelled with the caffeine it holds"
+          />
+        </DitherReveal>
+
+        <DitherReveal overlayColor={PAGE_COLOR} className={styles.mediaBlock}>
+          <video
+            className={styles.uiVideo}
+            autoPlay
+            loop
+            muted
+            playsInline
+            poster="/projects/proj1/ui-poster.webp"
+          >
+            <source src="/projects/proj1/ui.mp4" type="video/mp4" />
+          </video>
+        </DitherReveal>
+
+        <DitherReveal overlayColor={PAGE_COLOR} className={styles.photoRow}>
+          {PHOTOS.map(p => (
             <img
-              className={styles.scanImg}
-              src="/projects/proj1/scan.webp"
-              alt="Three phones scanning a coffee, a tea and an energy shot, each labelled with the caffeine it holds"
+              key={p.src}
+              className={styles.photoCell}
+              src={p.src}
+              alt={p.alt}
+              style={{ objectPosition: p.pos }}
             />
-          </DitherReveal>
-        </section>
-
-        <section className={styles.section}>
-          <p className={styles.sectionSubtitle}>
-            Get your specific energy curve tracked, and a study plan that benefits from it.
-          </p>
-          <DitherReveal overlayColor={PAGE_COLOR} className={styles.mediaBlock}>
-            <video
-              className={styles.uiVideo}
-              autoPlay
-              loop
-              muted
-              playsInline
-              poster="/projects/proj1/ui-poster.webp"
-            >
-              <source src="/projects/proj1/ui.mp4" type="video/mp4" />
-            </video>
-          </DitherReveal>
-        </section>
-
-        <section className={styles.section}>
-          <p className={styles.sectionSubtitle}>
-            Reached students in gas stations near residences, and in vending machines inside campus.
-          </p>
-          <DitherReveal overlayColor={PAGE_COLOR} className={styles.photoGrid}>
-            <img className={styles.photoCell} src="/projects/proj1/shop1.webp" alt="Gas station shop front, the campaign running on a screen in the window" />
-            <img className={styles.photoCell} src="/projects/proj1/shop2.webp" alt="Behind a shop counter, the same campaign on a screen over the drinks fridge" />
-            <img className={styles.photoCell} src="/projects/proj1/vend1.webp" alt="Campus vending machine wrapped with the campaign" />
-            <img className={styles.photoCell} src="/projects/proj1/vend2.webp" alt="A row of campus vending machines carrying the same wrap" />
-          </DitherReveal>
-        </section>
+          ))}
+        </DitherReveal>
 
         <ProjectNav onPrev={onPrev} onNext={onNext} onClose={onClose} />
 
