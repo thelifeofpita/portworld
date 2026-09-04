@@ -1,0 +1,147 @@
+/* ─── McDonald's: Pick a Side — custom case-study layout ────────────────── */
+/* Forced brand yellow, independent of the site's light/dark toggle — this
+   page recreates the campaign's own artwork (same as BackInSmoothly /
+   SurfTheSpike do for their forced colours). Yellow rather than McDonald's
+   red because one of the mockups is a red fries box that disappears against
+   a red field. Content order mirrors the Pick a Side case on pita-salva.com;
+   nav + fonts are identical to BackInSmoothly. */
+
+.page {
+  width: 100%;
+  background: #FFC72C;
+  padding: 1.5rem 0 2.5rem;
+}
+
+.inner {
+  container-type: inline-size;
+  max-width: min(94vw, 1500px);
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+
+/* ─── Prev / next project nav (top + bottom) ──────────────────────────── */
+
+.projectNav {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.navClose {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  font-family: var(--font-primary);
+  font-weight: var(--font-primary-weight);
+  letter-spacing: calc(-0.01em + var(--tracking));
+  font-size: max(0.7rem, 1.5cqw);
+  text-transform: uppercase;
+  color: #0d0d0d;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.navClose:hover {
+  color: #DA291C;
+}
+
+.navBtn {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-family: var(--font-primary);
+  font-weight: var(--font-primary-weight);
+  letter-spacing: calc(-0.01em + var(--tracking));
+  font-size: max(0.7rem, 1.5cqw);
+  text-transform: uppercase;
+  color: #0d0d0d;
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.navBtn:hover {
+  color: #DA291C;
+}
+
+.navArrow {
+  font-size: 1.1em;
+  line-height: 1;
+}
+
+/* ─── Hero ─────────────────────────────────────────────────────────────── */
+
+.hero {
+  text-align: center;
+  padding-bottom: 0.25rem;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-weight: var(--font-display-weight);
+  letter-spacing: calc(0em + var(--tracking));
+  text-transform: uppercase;
+  font-size: max(2.1rem, 8.5cqw);
+  line-height: 0.95;
+  color: #0d0d0d;
+}
+
+.subtitle {
+  margin: 1rem auto 0;
+  max-width: 58cqw;
+  font-family: var(--font-primary);
+  font-weight: var(--font-primary-weight);
+  letter-spacing: calc(-0.01em + var(--tracking));
+  font-size: max(0.7rem, 1.5cqw);
+  line-height: 1.2;
+  color: #0d0d0d;
+}
+
+/* ─── Media blocks ───────────────────────────────────────────────────── */
+
+.videoBanner {
+  position: relative;
+  display: block;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: #000;
+}
+
+/* ─── Device mockups — 2×2 grid of pre-framed animations ────────────────
+   The source webps are already framed device mockups on white and vary in
+   aspect ratio, so each cell fits the whole mockup (object-fit: contain),
+   centred, and the page yellow shows in the letterbox margins. One column on
+   narrow viewports so the phone screens stay legible. */
+
+.mockGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+}
+
+.mockCell {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+}
+
+/* ─── Wider viewports ────────────────────────────────────────────────── */
+
+@media (min-width: 700px) {
+  .inner { padding: 0 3rem; gap: 2.25rem; }
+
+  .mockGrid { grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+}

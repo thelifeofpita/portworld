@@ -1,5 +1,6 @@
 import BackInSmoothlyDetail from './BackInSmoothly'
 import SurfTheSpikeDetail from './SurfTheSpike'
+import PickASideDetail from './PickASide'
 
 // Projects whose entry sets `customLayout` (content/projectsContent.ts) render
 // one of these bespoke full-page case studies instead of the generic carousel
@@ -12,6 +13,7 @@ import SurfTheSpikeDetail from './SurfTheSpike'
 export const CUSTOM_LAYOUTS = {
   backInSmoothly: BackInSmoothlyDetail,
   surfTheSpike:   SurfTheSpikeDetail,
+  pickASide:      PickASideDetail,
 } as const
 
 export type CustomLayoutKey = keyof typeof CUSTOM_LAYOUTS

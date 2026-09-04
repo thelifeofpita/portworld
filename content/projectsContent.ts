@@ -31,7 +31,7 @@ export interface ProjectItem {
   defaultFeatured?: 'video' | 'img0' | 'img1'
   thumbScale?:      number  // CSS scale applied to the thumbnail image, e.g. 1.2 for 20% zoom
   accentColor?:     string  // brand color for the 3D card mode's extruded frame (debug menu)
-  customLayout?:    'backInSmoothly' | 'surfTheSpike'  // bypasses the generic carousel detail view entirely (see CUSTOM_LAYOUTS in ContentPanel.tsx)
+  customLayout?:    'backInSmoothly' | 'surfTheSpike' | 'pickASide'  // bypasses the generic carousel detail view entirely (see CUSTOM_LAYOUTS in components/ui/customLayouts.ts)
 }
 
 export const projectsContent: ProjectItem[] = [
@@ -75,13 +75,13 @@ export const projectsContent: ProjectItem[] = [
     accentColor: '#ED1C24', // Twix red
   },
   {
-    title:       'Canesten: Cottage Coocheese.',
-    description: 'Taboos stop society from talking about intimate health issues. Canesten used supermarkets, where bypassers look around everyday, as a platform to communicate. Through cottage cheese, known for looking like one of the most common symptoms of vaginal yeast infection.',
-    youtubeId:   'gXgjxnCaRxM',
+    title:       "McDonald's: Pick a Side.",
+    description: "For the US midterm elections, McDonald's turned its side menu into a ballot — every order a vote, tallied live, state by state.",
+    youtubeId:   'C9xKzRLujqs',
     thumb:       '/projects/proj6/thumb.webp',
-    images:      ['/projects/proj6/image1.webp', '/projects/proj6/image2.webp'],
-    thumbScale:  1.2,
-    accentColor: '#E6007E', // Canesten pink
+    images:      ['/projects/proj6/order.webp', '/projects/proj6/checkout.webp'],
+    accentColor: '#FFC72C', // matches PickASide.module.css's page background exactly
+    customLayout: 'pickASide',
   },
   {
     title:          'PlatanoMelón: Back in smoothly.',
