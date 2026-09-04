@@ -72,12 +72,14 @@ const section = (heading, body) => `
 // Contact details. Handles/URLs are derived from the same fields the About
 // panel links to (aboutContent.email / .instagram / .linkedin); the phone
 // number is CV-only (no repo field for it) and is carried over verbatim from
-// the previous PDF.
+// the previous PDF. Each line is a live link — Chrome's print-to-PDF keeps
+// <a href> as a clickable annotation in the output PDF, same as the About
+// panel's own contact links on the site.
 const CONTACT = [
-  'thelifeofpita.com',
-  aboutContent.email,
-  'linkedin.com/in/josedph',
-  '(+34) 698 91 61 16',
+  { text: 'thelifeofpita.com', href: 'https://thelifeofpita.com' },
+  { text: aboutContent.email, href: `mailto:${aboutContent.email}` },
+  { text: 'linkedin.com/in/josedph', href: aboutContent.linkedin },
+  { text: '(+34) 698 91 61 16', href: 'tel:+34698916116' },
 ]
 
 const html = `<!doctype html>
@@ -231,6 +233,13 @@ const html = `<!doctype html>
   .contact div + div {
     margin-top: var(--gap-item);
   }
+  /* Live links: same look as the plain text (site convention — a { color:
+     inherit; text-decoration: none }, restated here since this standalone
+     document doesn't inherit globals.css). */
+  .contact a {
+    color: inherit;
+    text-decoration: none;
+  }
 
   /* ── Body ─────────────────────────────────────────────────────────────
      One vertical stack, the exact shape of the site's CV panel: the
@@ -328,7 +337,7 @@ const html = `<!doctype html>
         <div class="name"><span class="plain">Jose</span> <span class="pita">Pita</span></div>
       </div>
       <div class="contact">
-        ${CONTACT.map((c) => `<div>${esc(c)}</div>`).join('\n        ')}
+        ${CONTACT.map((c) => `<div><a href="${esc(c.href)}">${esc(c.text)}</a></div>`).join('\n        ')}
       </div>
     </header>
 
