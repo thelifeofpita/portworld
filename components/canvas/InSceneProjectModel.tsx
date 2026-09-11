@@ -42,9 +42,10 @@ interface InSceneProjectModelProps {
   index: number
   src: string
   baseRotationYDeg?: number // fixed yaw added on top of the cursor-tilt rotation — see projectsContent.ts
+  sizeBoost?: number // multiplies the fitted scale — see the `scale` comment below for why this, not rotation, is the actual "make it bigger" lever
 }
 
-export default function InSceneProjectModel({ index, src, baseRotationYDeg = 0, onPrepared }: InSceneProjectModelProps) {
+export default function InSceneProjectModel({ index, src, baseRotationYDeg = 0, sizeBoost = 1, onPrepared }: InSceneProjectModelProps) {
   const paperNormal = useMemo(() => src.includes('verified-magazine') ? createPaperNormal() : null, [src])
   useEffect(() => () => paperNormal?.dispose(), [paperNormal])
   const { scene: source } = useGLTF(src, '/draco/')
@@ -351,11 +352,18 @@ export default function InSceneProjectModel({ index, src, baseRotationYDeg = 0, 
     const targetSize = cssSizeToWorld(slot.width, slot.height, 0, camera as THREE.PerspectiveCamera, size.width, size.height)
     // Equal visible area, with width/height safety limits for narrow props.
     // Cache the neutral footprint so pointer tilt never pumps the scale.
+    // NOTE: this is computed from fitArea/fitSize, which are measured ONCE
+    // on the model's first frame at its default (unrotated) pose (see
+    // fitRadius.current === null above) and then cached — baseRotationYDeg/
+    // slot.tiltYDeg only ever change inner's rotation afterward, never
+    // re-trigger this measurement. Rotating a model changes which silhouette
+    // it shows at this scale, not the scale itself — sizeBoost below is the
+    // actual "make it bigger" lever.
     const scale = Math.min(
       Math.sqrt(targetSize.width * targetSize.height * (src.includes('verified-magazine') || src.includes('back-in-smoothly-monitor') ? .62 : .48) / fitArea.current),
       targetSize.width / fitSize.current.x,
       targetSize.height * 1.30 / fitSize.current.y,
-    )
+    ) * sizeBoost
 
     outer.position.copy(pos)
     // A zero local tilt is not front-facing away from the viewport centre:
@@ -371,6 +379,11 @@ export default function InSceneProjectModel({ index, src, baseRotationYDeg = 0, 
 
     inner.rotation.y = THREE.MathUtils.degToRad(baseRotationYDeg + slot.tiltYDeg)
     inner.rotation.x = THREE.MathUtils.degToRad(-slot.tiltXDeg) // negated — visually confirmed correct (cursor below → bows down, cursor above → tilts back)
+    // Screen-plane roll — see the rollDeg comment in bigProjectSlotStore.ts
+    // for why this (not tiltYDeg) is what actually reads as "rotated" for a
+    // flat/small object. Applied on `inner`, after outer.lookAt above, so it
+    // rolls around the view axis the camera is already looking down.
+    inner.rotation.z = THREE.MathUtils.degToRad(slot.rollDeg ?? 0)
 
     // Keep a conservative sphere for hover broad-phase bounds only. Actual
     // outline pixels still come from the rendered per-object silhouette.

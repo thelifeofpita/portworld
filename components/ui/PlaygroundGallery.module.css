@@ -22,6 +22,38 @@
 .gameFrame { display: block; flex-shrink: 0; border: 0; background: #101010; }
 .gameFrame:fullscreen { width: 100vw !important; height: 100vh !important; transform: none !important; }
 .collection { position: absolute; inset: 76px clamp(12px, 3vw, 48px) 48px; }
-.mobile { position: relative; inset: auto; width: 100%; height: calc(100svh - 125px); min-height: 200px; }
+/* Two plain CSS-flex columns — always exactly two, always spanning the full
+   width (unlike fitOrbit/fitMasonry's search, which can land on a different
+   column count or narrower-than-full-width columns depending on content).
+   No JS-computed height either: each column is exactly as tall as its own
+   cards, so the section scrolls with the rest of the page like Projects/
+   About do, instead of needing the site's nav lines/canvas/footer hidden out
+   from under a fixed one-screen packing. */
+.mobile {
+  position: relative;
+  inset: auto;
+  display: flex;
+  gap: 0.85rem;
+  width: 100%;
+  min-height: 200px;
+}
+.mobileCol {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* .card is position:absolute + explicitly sized (rects[i]) on desktop; on
+   mobile it's a plain flex-column child instead, sized by its own
+   aspect-ratio (set inline per card). It stays `position: relative` (not
+   static) so .art's inset:0 and .caption's top:100% keep positioning against
+   THIS card rather than the page — margin-bottom reserves the flow space
+   .caption needs since .caption itself stays absolutely positioned (it
+   already sits in exactly the right spot; it just doesn't push layout). */
+.mobile .card {
+  position: relative;
+  width: 100%;
+  margin: 0 0 1.6rem;
+}
 @media (max-width: 760px) { .toolbar { gap: 4px; } .toolbar small { display: none; } }
 @media (max-width: 600px) { .toolbar .playLink, .toolbar button[aria-label="Fullscreen game"] { display: none; } }

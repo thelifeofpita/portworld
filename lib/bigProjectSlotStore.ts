@@ -11,6 +11,13 @@ export interface BigProjectSlot {
   height: number
   tiltXDeg: number
   tiltYDeg: number
+  // Screen-plane roll (rotation around the view axis, applied AFTER outer's
+  // lookAt) — optional, desktop never sets it. tiltYDeg turns the model to
+  // face a different direction in 3D (foreshortening only, easy to read as
+  // "not actually rotated" on a small/flat object); this is what actually
+  // reads as a tilted puzzle piece on screen, the same way rotating a flat
+  // photo does. See MobilePage.tsx's MOBILE_PROJECT_LAYOUT.
+  rollDeg?: number
 }
 
 export const bigProjectSlotStore: Record<number, BigProjectSlot | null> = {}

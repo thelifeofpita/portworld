@@ -3,13 +3,19 @@
 import { useState, useRef, useEffect, useCallback, RefObject } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
+import { createPortal } from 'react-dom'
 import { AnimatePresence, motion, useAnimationFrame } from 'framer-motion'
 import { posStore } from '@/lib/posStore'
 import { zoneStore } from '@/lib/zoneStore'
 import { zoneTransitionStore } from '@/lib/zoneTransitionStore'
-import { fgStore } from '@/lib/fgStore'
 import { rerollPalette } from '@/lib/paletteStore'
 import { debugStore, hexToRgb255 } from '@/lib/debugStore'
+import { observeLayout } from '@/lib/layoutMeasurement'
+import { subscribeFrame } from '@/lib/frameScheduler'
+import { bigProjectSlotStore } from '@/lib/bigProjectSlotStore'
+import { bigProjectGlowStore } from '@/lib/bigProjectGlowStore'
+import { bigProjectFootprintStore } from '@/lib/bigProjectFootprintStore'
+import { bigProjectExpandStore } from '@/lib/bigProjectExpandStore'
 import { aboutContent } from '@/content/aboutContent'
 import { projectsContent, type ProjectItem } from '@/content/projectsContent'
 const PlaygroundGallery = dynamic(() => import('./PlaygroundGallery'))
@@ -27,6 +33,10 @@ const ACCENT_SMOOTH = 0.16
 const CANVAS_VH = 0.45
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const
+
+// dt-normalized smoothing factor for the selected-card glow's fade in/out —
+// same shape/pace as desktop's hover-glow smoothing (see ContentPanel.tsx).
+const GLOW_SMOOTH = 0.14
 
 
 // ─── Zone Nav ────────────────────────────────────────────────────────────────
@@ -118,11 +128,14 @@ function MobileZoneNav({ activeZone, canvasAreaRef }: MobileZoneNavProps) {
       line.setAttribute('stroke', css)
       dot.setAttribute('fill',   css)
       if (ul) ul.setAttribute('fill', css)
-
-      // Sync nav label color with the live palette-driven fg color (not
-      // necessarily grayscale, so this reads fgStore directly rather than
-      // re-deriving a gray from luminance).
-      box.style.color = `rgb(${Math.round(fgStore.r * 255)},${Math.round(fgStore.g * 255)},${Math.round(fgStore.b * 255)})`
+      // Label color: plain CSS `color: var(--fg-color)` on .mobileZoneNavBox
+      // (same as desktop's ZoneNav .box) — no per-frame JS needed, and no
+      // risk of the mismatch that was here before: fgStore mirrors a
+      // THREE.Color, which Three's color management stores LINEAR, but this
+      // built the rgb() string straight from fgStore.r/g/b as if they were
+      // already sRGB 0-255 — same hex, visibly darker/desaturated than the
+      // CSS var every other piece of fg-colored UI (including desktop's
+      // nav) actually uses.
     })
   })
 
@@ -152,108 +165,250 @@ function MobileZoneNav({ activeZone, canvasAreaRef }: MobileZoneNavProps) {
 // ─── Playground ───────────────────────────────────────────────────────────────
 
 // ─── Projects ─────────────────────────────────────────────────────────────────
+//
+// Real in-scene 3D models — the same InSceneProjectModel every desktop
+// project uses (full studio lighting rig, per-project material tuning, real
+// shadows), not a boxed/cropped card thumbnail. Scene.tsx now warms and
+// mounts these on mobile too (it used to skip mobile project models
+// entirely, falling back to flat poster cards); this file only owns the DOM
+// layout — an invisible measurement box per project (MobileProjectSlot,
+// mirroring ContentPanel.tsx's BigProjectCardSlot) publishes its live rect
+// into bigProjectSlotStore every frame, and the actual model — rendered
+// inside Scene.tsx's shared canvas, not a canvas of its own — reads that to
+// position/scale/rotate itself, breaking out of its nominal box exactly like
+// desktop's cards do rather than being cropped to fit it.
+//
+// Scrolling still picks whichever slot is nearest the viewport center as
+// "focused" — that one gets the silhouette hover-glow (desktop's version of
+// this comes from a real cursor hover, which mobile doesn't have). A tap
+// opens the project's full detail, routed through bigProjectExpandStore —
+// the same plain-callback bridge desktop's ProjectsPane uses, since the
+// actual clickable surface is a mesh raycast inside the canvas now, not a
+// DOM element (the slot is pointer-events:none, same reasoning as
+// .bigProjectModelSlot on desktop).
 
-function MobileProjectCard({
-  item, isOpen, onToggle, onPrev, onNext,
-}: { item: ProjectItem; isOpen: boolean; onToggle: () => void; onPrev: () => void; onNext: () => void }) {
-  const CustomLayout = item.customLayout ? CUSTOM_LAYOUTS[item.customLayout] : null
-  return (
-    <div className={`${styles.mobileProjectCard}${isOpen ? ` ${styles.mobileProjectCardOpen} ${styles.mobileProjectCardFullBleed}` : ''}`}>
+// Two plain columns (even index left, odd right — see MobileProjects) —
+// each item flows in normal document order, no per-item position. rollDeg is
+// a static screen-plane roll (rotation.z, around the view axis — the same
+// effect as tilting a photo); yawDeg is a smaller 3D turn (rotation.y) on
+// top, for the objects with real depth where it still reads as one.
+const MOBILE_PROJECT_LAYOUT: Record<number, { yawDeg: number; rollDeg: number }> = {
+  0: { yawDeg:  8, rollDeg: -22 }, // Surf the Spike
+  1: { yawDeg: -6, rollDeg:  18 }, // Duolingo
+  2: { yawDeg:  6, rollDeg: -14 }, // Verified magazine
+  3: { yawDeg: -10, rollDeg:  26 }, // Hat Twix
+  4: { yawDeg:  8, rollDeg: -20 }, // Pick a Side fries
+  5: { yawDeg: -8, rollDeg:  16 }, // Back in Smoothly
+}
 
-      <div className={styles.mobileProjectHeader} onClick={onToggle}>
-        <AnimatePresence mode="wait" initial={false}>
-          {!isOpen ? (
-            <motion.div
-              key="thumb"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.18 }}
-              className={styles.mobileProjectThumbWrap}
-            >
-              {item.thumb && (
-                <Image src={item.thumb} alt={item.title} fill quality={90} loading="eager" style={{ objectFit: 'cover', transform: item.thumbScale && item.thumbScale !== 1 ? `scale(${item.thumbScale})` : undefined }} sizes="100vw" />
-              )}
-            </motion.div>
-          ) : (
-            <motion.div
-              key="title"
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              transition={{ duration: 0.18 }}
-              className={styles.mobileProjectTitleArea}
-            >
-              <h2 className={styles.mobileProjectTitle}>{item.title}</h2>
-            </motion.div>
+// A shared "look up → look down" pitch (rotation.x) as you scroll through
+// the whole grid — every model tilted up slightly at the top of the section,
+// tilted down slightly by the time you've scrolled past the last one. One
+// value for all 6 (not per-item), updated by MobileProjects' own scroll
+// listener (see mobileProjectScrollPitch's writer) and read every frame by
+// each MobileProjectSlot below — a plain mutable object rather than React
+// state so a continuous scroll gesture never re-renders the grid, same
+// cross-boundary-store pattern as bigProjectSlotStore itself.
+const mobileProjectScrollPitch = { deg: 0 }
+const MOBILE_PITCH_RANGE_DEG = 9 // "subtle" — +9° (looking up) at the top, -9° (looking down) by the bottom
+
+function MobileProjectSlot({
+  index, isFocused, onRef,
+}: {
+  index:      number
+  isFocused:  boolean
+  onRef:      (el: HTMLDivElement | null) => void
+}) {
+  const rootRef = useRef<HTMLDivElement>(null)
+  const isFocusedRef = useRef(isFocused)
+  useEffect(() => { isFocusedRef.current = isFocused }, [isFocused])
+
+  useEffect(() => {
+    if (!rootRef.current) return
+    const measurement = observeLayout(rootRef.current)
+    let lastTime = performance.now()
+    const glowProgress = { current: 0 }
+    const tick = (now: number) => {
+      if (!measurement.rect) return
+      const r = measurement.rect
+      const layout = MOBILE_PROJECT_LAYOUT[index]
+      bigProjectSlotStore[index] = {
+        top: r.top, left: r.left, width: r.width, height: r.height,
+        tiltXDeg: mobileProjectScrollPitch.deg, tiltYDeg: layout.yawDeg, rollDeg: layout.rollDeg,
+      }
+
+      // Same silhouette hover-glow desktop's cursor drives — mobile has no
+      // hover, so this publishes it for whichever slot is scroll-focused,
+      // reading the model's own live on-screen footprint (populated every
+      // frame it's visible, independent of hover — see bigProjectFootprintStore).
+      const dt = Math.min((now - lastTime) / 1000, 0.1)
+      lastTime = now
+      const f = 1 - Math.pow(1 - GLOW_SMOOTH, dt * 60)
+      glowProgress.current += ((isFocusedRef.current ? 1 : 0) - glowProgress.current) * f
+      const footprint = bigProjectFootprintStore.entries[index]
+      bigProjectGlowStore.entries[index] = footprint && glowProgress.current > 0.001
+        ? { ...footprint, opacity: glowProgress.current }
+        : null
+    }
+    const stop = subscribeFrame(tick, measurement.read)
+    return () => {
+      stop()
+      measurement.dispose()
+      bigProjectSlotStore[index] = null
+      bigProjectGlowStore.entries[index] = null
+    }
+  }, [index])
+
+  return <div ref={el => { rootRef.current = el; onRef(el) }} className={styles.mobileProjectSlot} />
+}
+
+function MobileProjectDetail({
+  item, onClose, onPrev, onNext,
+}: { item: ProjectItem; onClose: () => void; onPrev: () => void; onNext: () => void }) {
+  const CustomLayout  = item.customLayout ? CUSTOM_LAYOUTS[item.customLayout] : null
+  const closeRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    closeRef.current?.focus()
+    const overflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = overflow }
+  }, [])
+
+  return createPortal(
+    <motion.div
+      className={styles.mobileProjectDetailOverlay}
+      style={CustomLayout ? { backgroundColor: item.detailBackground ?? item.accentColor } : undefined}
+      initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 24 }}
+      transition={{ duration: 0.3, ease: EASE_OUT }}
+      role="dialog" aria-modal="true" aria-label={item.title}
+    >
+      {CustomLayout ? (
+        // Every CustomLayout renders its own prev/next/close nav internally
+        // (see CampaignCase.tsx, PickASide/BackInSmoothly/SurfTheSpike's own
+        // ProjectNav) — an outer header here would just duplicate it.
+        <CustomLayout onPrev={onPrev} onNext={onNext} onClose={onClose} />
+      ) : (
+        <>
+          <div className={styles.mobileProjectDetailHeader}>
+            <button className={styles.mobileProjectDetailNavBtn} onClick={onPrev} aria-label="Previous project">← Previous</button>
+            <button ref={closeRef} className={styles.mobileProjectDetailClose} onClick={onClose} aria-label="Close">[X]</button>
+            <button className={styles.mobileProjectDetailNavBtn} onClick={onNext} aria-label="Next project">Next →</button>
+          </div>
+          <h2 className={styles.mobileProjectDetailTitle}>{item.title}</h2>
+          <p className={styles.mobileProjectDesc}>{item.description}</p>
+
+          {item.youtubeId && (
+            <div className={styles.mobileProjectVideo}>
+              <iframe
+                src={`https://www.youtube.com/embed/${item.youtubeId}`}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                title={item.title}
+              />
+            </div>
           )}
-        </AnimatePresence>
-      </div>
 
-      <AnimatePresence initial={false}>
-        {isOpen && (
-          <motion.div
-            key="body"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: 'auto', opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.38, ease: EASE_OUT }}
-            style={{ overflow: 'hidden' }}
-          >
-            {CustomLayout ? (
-              <CustomLayout onPrev={onPrev} onNext={onNext} onClose={onToggle} />
-            ) : (
-              <>
-                <p className={styles.mobileProjectDesc}>{item.description}</p>
-
-                {item.youtubeId && (
-                  <div className={styles.mobileProjectVideo}>
-                    <iframe
-                      src={`https://www.youtube.com/embed/${item.youtubeId}`}
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
-                      title={item.title}
-                    />
-                  </div>
-                )}
-
-                {item.images[0] && (
-                  <div className={styles.mobileProjectImageWrap}>
-                    <Image src={item.images[0]} alt="" fill quality={90} style={{ objectFit: 'cover' }} sizes="100vw" />
-                  </div>
-                )}
-                {item.images[1] && (
-                  <div className={styles.mobileProjectImageWrap}>
-                    <Image src={item.images[1]} alt="" fill quality={90} style={{ objectFit: 'cover' }} sizes="100vw" />
-                  </div>
-                )}
-              </>
-            )}
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+          {item.images[0] && (
+            <div className={styles.mobileProjectImageWrap}>
+              <Image src={item.images[0]} alt="" fill quality={90} style={{ objectFit: 'cover' }} sizes="100vw" />
+            </div>
+          )}
+          {item.images[1] && (
+            <div className={styles.mobileProjectImageWrap}>
+              <Image src={item.images[1]} alt="" fill quality={90} style={{ objectFit: 'cover' }} sizes="100vw" />
+            </div>
+          )}
+        </>
+      )}
+    </motion.div>,
+    document.body
   )
 }
 
-function MobileProjects() {
+function MobileProjects({ active }: { active: boolean }) {
+  const itemRefs = useRef<(HTMLDivElement | null)[]>([])
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
   const [openIndex, setOpenIndex] = useState<number | null>(null)
 
-  const handleToggle = useCallback((i: number) => {
-    setOpenIndex(prev => (prev === i ? null : i))
+  // Only tracks scroll while Projects is the actual active zone — this
+  // component stays mounted (hidden) in the other zones (Scene.tsx keeps
+  // every model warmed regardless, same as desktop), and
+  // getBoundingClientRect() against a hidden, off-flow section wouldn't mean
+  // anything anyway.
+  useEffect(() => {
+    if (!active) return
+    const pick = () => {
+      const vpCenter = window.innerHeight / 2
+      let best: number | null = null, bestDist = Infinity
+      let maxBottom = 0
+      itemRefs.current.forEach((el, i) => {
+        if (!el) return
+        const r = el.getBoundingClientRect()
+        const d = Math.abs(r.top + r.height / 2 - vpCenter)
+        if (d < bestDist) { bestDist = d; best = i }
+        maxBottom = Math.max(maxBottom, r.bottom + window.scrollY)
+      })
+      setSelectedIndex(best)
+
+      // Global "look up → look down" pitch (see mobileProjectScrollPitch
+      // above) — 0 at the very top of the scroll (haven't scrolled at all),
+      // 1 once you've scrolled enough that the last piece's own bottom edge
+      // clears the bottom of the viewport (seen the whole grid).
+      const scrollRange = Math.max(1, maxBottom - window.innerHeight)
+      const progress = Math.max(0, Math.min(1, window.scrollY / scrollRange))
+      mobileProjectScrollPitch.deg = MOBILE_PITCH_RANGE_DEG * (1 - 2 * progress)
+    }
+    pick()
+    window.addEventListener('scroll', pick, { passive: true })
+    window.addEventListener('resize', pick)
+    // Deliberately no setSelectedIndex(null) here — Strict Mode's mount/
+    // cleanup/remount double-invoke in dev collapsed that reset together
+    // with the very pick() it was meant to follow, net result never
+    // settling. MobileProjectSlot's isFocused is gated on `active` directly
+    // below instead, which gets the same "stop glowing once hidden" result
+    // without a state reset racing the mount cycle.
+    return () => {
+      window.removeEventListener('scroll', pick)
+      window.removeEventListener('resize', pick)
+    }
+  }, [active])
+
+  // Bridge for the in-scene model's click-to-expand — it lives inside
+  // Scene.tsx's <Canvas>, a separate React reconciler root that can't
+  // receive a normal prop. Same plain-callback pattern desktop's
+  // ProjectsPane uses for the identical bridge.
+  useEffect(() => {
+    bigProjectExpandStore.onExpand = index => setOpenIndex(index)
+    return () => { bigProjectExpandStore.onExpand = null }
   }, [])
 
   const n = projectsContent.length
+  const leftIndices  = projectsContent.map((_, i) => i).filter(i => i % 2 === 0)
+  const rightIndices = projectsContent.map((_, i) => i).filter(i => i % 2 === 1)
+
+  const renderSlot = (i: number) => (
+    <MobileProjectSlot key={i} index={i} isFocused={active && selectedIndex === i} onRef={el => { itemRefs.current[i] = el }} />
+  )
 
   return (
-    <div className={styles.mobileProjects}>
-      {projectsContent.map((item, i) => (
-        <MobileProjectCard
-          key={i}
-          item={item}
-          isOpen={openIndex === i}
-          onToggle={() => handleToggle(i)}
-          onPrev={() => setOpenIndex((i - 1 + n) % n)}
-          onNext={() => setOpenIndex((i + 1) % n)}
-        />
-      ))}
-    </div>
+    <>
+      <div className={styles.mobileProjectGrid}>
+        <div className={styles.mobileProjectGridCol}>{leftIndices.map(renderSlot)}</div>
+        <div className={styles.mobileProjectGridCol}>{rightIndices.map(renderSlot)}</div>
+      </div>
+      <AnimatePresence>
+        {openIndex !== null && (
+          <MobileProjectDetail
+            key="detail"
+            item={projectsContent[openIndex]}
+            onClose={() => setOpenIndex(null)}
+            onPrev={() => setOpenIndex((openIndex - 1 + n) % n)}
+            onNext={() => setOpenIndex((openIndex + 1) % n)}
+          />
+        )}
+      </AnimatePresence>
+    </>
   )
 }
 
@@ -393,10 +548,14 @@ export default function MobilePage({ activeZone, onZoneChange, onZoneReset, onLo
   // doesn't mount on mobile. Without this, uPgGlowOpacity/uGlowOpacity stay
   // permanently 0 and no glow renders no matter what's published into
   // playgroundGlowStore. Mobile has no cross-fade choreography to match, so
-  // this just snaps blend to 1 the instant a zone is active.
+  // this just snaps blend to 1 the instant a zone is active. projectsOpacity
+  // additionally gates whether InSceneProjectModel shows itself at all
+  // (desktop derives it from the camera-pull overlay's own live opacity;
+  // mobile has no such overlay, so this just snaps it to 1/0 the same way).
   useEffect(() => {
     zoneTransitionStore.displayedZone = activeZone
     zoneTransitionStore.blend = activeZone !== null ? 1 : 0
+    zoneTransitionStore.projectsOpacity = activeZone === 0 ? 1 : 0
   }, [activeZone])
 
   return (
@@ -409,7 +568,7 @@ export default function MobilePage({ activeZone, onZoneChange, onZoneReset, onLo
         isMobile={true}
       />
 
-      <main className={`${styles.mobileMain} ${activeZone === 2 ? styles.playgroundMode : ''}`}>
+      <main className={styles.mobileMain}>
         {/* Spacer — height reference for ZoneNav SVG line calculations */}
         <div ref={canvasAreaRef} className={styles.mobileCanvasArea} />
 
@@ -425,9 +584,9 @@ export default function MobilePage({ activeZone, onZoneChange, onZoneReset, onLo
             aria-hidden={activeZone !== 0}
             initial={{ opacity: 0 }} animate={{ opacity: activeZone === 0 ? 1 : 0 }}
             transition={{ duration: 0.2 }}
-            className={styles.mobileSection}
+            className={`${styles.mobileSection} ${styles.mobileProjectsSection}`}
           >
-            <MobileProjects />
+            <MobileProjects active={activeZone === 0} />
           </motion.section>
         )}
         {activeZone === 1 && (

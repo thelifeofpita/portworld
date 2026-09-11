@@ -19,6 +19,36 @@ import type { Zone } from '@/types'
 
 const projectModels = projectsContent.map((project, index) => ({ project, index })).filter(({ project }) => project.bigModel && project.thumbModel)
 
+// Mobile's Projects grid (MobilePage.tsx) gives each model a bigger slot
+// than desktop's tighter ellipse composition — this multiplies
+// InSceneProjectModel's fitted scale so they fill that room instead of
+// leaving it empty. Desktop is untouched (passes the InSceneProjectModel
+// default of 1). Per-project, and necessarily so: the fit-scale formula
+// sizes to bounding-sphere AREA, not filled pixel coverage, so a sparse
+// silhouette (Hat Twix's candy bar strung between two balls, lots of empty
+// space inside its own bounding sphere) reads visibly smaller than a solid
+// blob (the owl, the magazine) at the identical boost value.
+//
+// These MUST be re-measured/re-judged any time the mobile grid's own box
+// width changes — they're tuned against a specific slot size, not the model
+// itself. bigProjectFootprintStore's radius (bounding CIRCLE of the whole
+// silhouette) turned out to be a bad proxy for perceived size on top of
+// that: Hat Twix (candy bar strung between two balls — a diagonal sliver,
+// mostly empty inside its own bounding circle) and Pick a Side's fries (a
+// narrow box with a few stray fry tips reaching wide) both measured
+// comparable-or-larger radius than their neighbors while still visibly
+// reading smaller, because so little of that bounding circle is actually
+// filled. Bumped both past what the radius numbers alone would suggest —
+// judged from actual screenshots, not the metric.
+const MOBILE_PROJECT_SIZE_BOOST_OVERRIDES: Record<number, number> = {
+  0: 1.00, // Surf the Spike
+  1: 1.00, // Duolingo
+  2: 1.25, // Verified magazine
+  3: 1.45, // Hat Twix — sparse diagonal silhouette, reads smaller than its radius suggests
+  4: 1.25, // Pick a Side fries — narrow/sparse, same reason; 1.15 read too small, 1.50 read way oversized/too tall — settled between
+  5: 1.20, // Back in Smoothly
+}
+
 class ProjectLoadBoundary extends React.Component<{ children: React.ReactNode; onPrepared: () => void }, { failed: boolean }> {
   state = { failed: false }
   static getDerivedStateFromError() { return { failed: true } }
@@ -332,29 +362,33 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
   // rather than waiting for all of them. The rest keep warming one-at-a-time in
   // the background (the projectCount effect below), so only a deliberately fast
   // rotate into Projects in the moment right after Behold lifts can still catch
-  // a model compiling — natural browsing never does.
+  // a model compiling — natural browsing never does. Mobile now goes through
+  // the exact same warm-and-reveal sequence as desktop — it used to skip
+  // project models entirely and fall back to flat card thumbnails, but mobile
+  // Projects now renders the same real in-scene models (see MobilePage.tsx's
+  // MobileProjectSlot), so it needs them warmed for the same reason.
   const firedLoadRef = useRef(false)
   useEffect(() => {
     if (firedLoadRef.current) return
-    if (navigationReady && (isMobile || projectModels.length === 0 || preparedProjects >= 1)) {
+    if (navigationReady && (projectModels.length === 0 || preparedProjects >= 1)) {
       firedLoadRef.current = true
       onLoad()
     }
-  }, [navigationReady, isMobile, preparedProjects, onLoad])
+  }, [navigationReady, preparedProjects, onLoad])
   // Once the first model is warm, pull the remaining GLBs in parallel so the
   // background warm-chain below is compile-bound (a few frames each) rather than
   // waiting on serial network fetches.
   useEffect(() => {
-    if (isMobile || preparedProjects < 1) return
+    if (preparedProjects < 1) return
     for (const { project } of projectModels.slice(1)) useGLTF.preload(project.thumbModel!, '/draco/')
-  }, [isMobile, preparedProjects])
+  }, [preparedProjects])
   useEffect(() => {
     const update = () => setTabVisible(!document.hidden)
     document.addEventListener('visibilitychange', update)
     return () => document.removeEventListener('visibilitychange', update)
   }, [])
   useEffect(() => {
-    if (!navigationReady || isMobile || !tabVisible) return
+    if (!navigationReady || !tabVisible) return
     // Complete one actual model render at a time while Behold is still covering the page.
     const frame = requestAnimationFrame(() => setProjectCount(Math.min(projectModels.length, preparedProjects + 1)))
     return () => cancelAnimationFrame(frame)
@@ -463,7 +497,7 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
         {projectModels.slice(0, projectCount).map(({ project: p, index: i }) => (
           <ProjectLoadBoundary key={i} onPrepared={projectReady}>
             <Suspense fallback={null}>
-              <InSceneProjectModel index={i} src={p.thumbModel!} baseRotationYDeg={p.bigModelBaseRotationYDeg} onPrepared={projectReady} />
+              <InSceneProjectModel index={i} src={p.thumbModel!} baseRotationYDeg={p.bigModelBaseRotationYDeg} sizeBoost={isMobile ? MOBILE_PROJECT_SIZE_BOOST_OVERRIDES[i] : 1} onPrepared={projectReady} />
             </Suspense>
           </ProjectLoadBoundary>
         ))}

@@ -47,7 +47,12 @@ interface ProjectThumbModelProps {
 // Drop-in replacement for a project card's flat thumbnail image — a small,
 // self-contained R3F canvas rendering a live-rotating .glb. Pointer events are
 // disabled so it stays purely decorative and never fights the card's own
-// drag/tap handling (see ProjectCard in ContentPanel.tsx).
+// drag/tap handling (see ProjectCard in ContentPanel.tsx — currently dead
+// there since every project now has a bigModel, but kept as the fallback for
+// a project that doesn't). Mobile Projects renders real in-scene models
+// instead (see MobilePage.tsx's MobileProjectSlot + InSceneProjectModel),
+// not this — that path needs the full studio lighting/materials this small
+// generic-lit canvas doesn't have.
 export default function ProjectThumbModel({ src }: ProjectThumbModelProps) {
   return (
     <Canvas
@@ -55,6 +60,12 @@ export default function ProjectThumbModel({ src }: ProjectThumbModelProps) {
       gl={{ antialias: true, alpha: true }}
       dpr={[1, 1.5]}
       style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}
+      onCreated={({ gl }) => {
+        // A lost context here must not throw or freeze the tab — this card
+        // simply reverts to nothing visible, unlike the main Scene canvas
+        // which reloads the page to recover.
+        gl.domElement.addEventListener('webglcontextlost', e => e.preventDefault())
+      }}
     >
       <ambientLight intensity={0.6} />
       <directionalLight position={[4, 6, 4]} intensity={1.1} />

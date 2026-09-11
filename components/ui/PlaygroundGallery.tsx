@@ -7,7 +7,6 @@ import { subscribeFrame } from '@/lib/frameScheduler'
 import { observeLayout } from '@/lib/layoutMeasurement'
 import { createPortal } from 'react-dom'
 import { playgroundContent, type PlaygroundItem, type PlaygroundMediaItem } from '@/content/playgroundContent'
-import { fitMasonry } from '@/lib/fitMasonry'
 import styles from './PlaygroundGallery.module.css'
 import projectNavStyles from './SurfTheSpike.module.css'
 import { motion, useMotionValue, useSpring } from 'framer-motion'
@@ -36,15 +35,20 @@ function useSize() {
   return { ref, ...size }
 }
 
-function Media({ piece, visible = true, active = visible, detail = false, onRatio, onReady, onDecoded }: {
-  piece: PlaygroundMediaItem; visible?: boolean; active?: boolean; detail?: boolean;
+function Media({ piece, visible = true, active = visible, load = active, detail = false, onRatio, onReady, onDecoded }: {
+  piece: PlaygroundMediaItem; visible?: boolean; active?: boolean; load?: boolean; detail?: boolean;
   onRatio: (src: string, ratio: number) => void; onReady?: () => void; onDecoded?: () => void
 }) {
   const ref = useRef<HTMLVideoElement>(null)
   useEffect(() => { if (piece.type === 'video') initializeMediaClock(piece.playbackId ?? piece.src) }, [piece.type, piece.playbackId, piece.src])
   const controller = useRef<ReturnType<typeof registerMedia> | null>(null)
-  const [requested, setRequested] = useState(active)
-  useEffect(() => { if (active) setRequested(true) }, [active])
+  // `load` (does this piece even get a src) and `active` (should it actually
+  // play/cycle) are deliberately separate — mobile's scroll-focus gating only
+  // pauses the non-focused cards, it must not un-load them back to nothing.
+  // Without the split, a card that's never been the focused one would never
+  // request its poster at all (the old single `active` flag latched both).
+  const [requested, setRequested] = useState(load)
+  useEffect(() => { if (load) setRequested(true) }, [load])
   const src = requested ? (detail ? piece.detailSrc : piece.previewSrc) ?? piece.src : undefined
   useEffect(() => {
     const video = ref.current
@@ -56,7 +60,7 @@ function Media({ piece, visible = true, active = visible, detail = false, onRati
   useEffect(() => controller.current?.setActive(active), [active])
   const style = { opacity: visible ? 1 : 0, ...(detail && piece.crop ? { objectFit: 'cover' as const, objectPosition: piece.crop.position } : {}) }
   return piece.type === 'video'
-    ? <video ref={ref} src={src} data-playback-id={piece.playbackId ?? piece.src} poster={piece.poster} muted loop playsInline preload={active ? 'auto' : 'none'} width={piece.width} height={piece.height} className={styles.media} style={style}
+    ? <video ref={ref} src={src} data-playback-id={piece.playbackId ?? piece.src} poster={piece.poster} muted loop playsInline preload={load ? 'auto' : 'none'} width={piece.width} height={piece.height} className={styles.media} style={style}
         onError={() => onReady?.()}
         onLoadedData={() => onDecoded?.()}
         onLoadedMetadata={e => { if (!piece.width) onRatio(piece.src, e.currentTarget.videoWidth / e.currentTarget.videoHeight) }}
@@ -90,18 +94,26 @@ function Preview({ item, covered, onRatio, warming = false, onPrepared }: { item
   }, [covered, warming, frame, indices, item.previewDuration, all])
   useEffect(() => { if (previous < 0) return; const timer = setTimeout(() => setPrevious(-1), 40); return () => clearTimeout(timer) }, [previous])
   return <>{all.map((piece, i) => <Media key={piece.src} piece={piece} visible={i === indices[frame]}
+    // Loaded regardless of `covered` — a "paused" (not focused, on mobile)
+    // card must still show its resting frame, not a never-requested blank.
+    // Only playback/cycling actually stops when covered (see `active`).
+    load={i === indices[frame] || i === previous || ((prepare || warming) && i === indices[(frame + 1) % indices.length])}
     active={!covered && (i === indices[frame] || i === previous || ((prepare || warming) && i === indices[(frame + 1) % indices.length]))}
     onDecoded={warming ? () => { ready.current.add(i); if (indices.slice(0, 2).every(index => ready.current.has(index))) onPrepared?.() } : undefined}
     onReady={() => { ready.current.add(i); if (indices.slice(0, 2).every(index => ready.current.has(index))) onPrepared?.() }} onRatio={onRatio} />)}</>
 }
 
-function Cover({ children, mobile, disabled }: { children: React.ReactNode; mobile: boolean; disabled: boolean }) {
+function Cover({ children, mobile, disabled, isFocused = false }: { children: React.ReactNode; mobile: boolean; disabled: boolean; isFocused?: boolean }) {
   const ref = useRef<HTMLDivElement>(null)
   const rx = useMotionValue(0), ry = useMotionValue(0)
   const x = useSpring(rx, { stiffness: 260, damping: 22 }), y = useSpring(ry, { stiffness: 260, damping: 22 })
+  // Mirrors isFocused for the rAF loop below without restarting it on every
+  // scroll-driven focus change (same pattern as MobilePage's card glows).
+  const isFocusedRef = useRef(isFocused)
+  useEffect(() => { isFocusedRef.current = isFocused }, [isFocused])
   useEffect(() => {
-    if (mobile || disabled) return
-    ensureCursorTracking()
+    if (disabled) return
+    if (!mobile) ensureCursorTracking()
     let slot = -1, progress = 0, last = performance.now()
     const anchor = ref.current?.parentElement
     if (!anchor) return
@@ -111,11 +123,13 @@ function Cover({ children, mobile, disabled }: { children: React.ReactNode; mobi
       const el = ref.current, anchor = el?.parentElement
       if (el && anchor && measurement.rect) {
         const r = measurement.rect, cx = r.left+r.width/2, cy = r.top+r.height/2
-        if (cursorStore.hasMoved) {
+        // No ambient cursor to look toward on mobile — the card stays flat;
+        // only the glow ring below responds, driven by scroll focus instead.
+        if (!mobile && cursorStore.hasMoved) {
           ry.set((cursorStore.x-cx)/(innerWidth/2)*1.15*16)
           rx.set(-(cursorStore.y-cy)/(innerHeight/2)*1.15*16)
         }
-        const hovered = !disabled && (anchor.matches(':hover') || anchor.matches(':focus-visible'))
+        const hovered = mobile ? isFocusedRef.current : (!disabled && (anchor.matches(':hover') || anchor.matches(':focus-visible')))
         progress += ((hovered ? 1 : 0)-progress)*(1-Math.pow(.86,Math.min(now-last,100)/1000*60))
         if (progress > .001) {
           if (slot < 0) slot = playgroundGlowStore.entries.findIndex(e => e === null)
@@ -198,6 +212,40 @@ export default function PlaygroundGallery({ mobile = false, active = true, warmi
     return () => cancelAnimationFrame(frame)
   }, [warming, width, height, preparedCount, onPrepared])
 
+  // Mobile: only the card nearest the viewport center is "in motion" (its
+  // multi-piece preview cycles, its video plays) and carries the highlight
+  // ring — the pre-PlaygroundGallery mobile behavior (see the deleted
+  // MobilePlaygroundItem), restored here rather than every card animating
+  // at once. Desktop is untouched: every visible card always animates,
+  // hover alone drives the glow.
+  const itemRefs = useRef<(HTMLButtonElement | null)[]>([])
+  const [focusedIndex, setFocusedIndex] = useState<number | null>(null)
+  useEffect(() => {
+    if (!mobile || !active) return
+    const pick = () => {
+      const vpCenter = window.innerHeight / 2
+      let best: number | null = null, bestDist = Infinity
+      itemRefs.current.forEach((el, i) => {
+        if (!el) return
+        const r  = el.getBoundingClientRect()
+        const d  = Math.abs(r.top + r.height / 2 - vpCenter)
+        if (d < bestDist) { bestDist = d; best = i }
+      })
+      setFocusedIndex(best)
+    }
+    pick()
+    window.addEventListener('scroll', pick, { passive: true })
+    window.addEventListener('resize', pick)
+    return () => {
+      window.removeEventListener('scroll', pick)
+      window.removeEventListener('resize', pick)
+      // Fires when `active` goes false too (zone switched away) — without
+      // this the last-focused card would keep animating/glowing forever
+      // while the whole gallery sits hidden off-screen.
+      setFocusedIndex(null)
+    }
+  }, [mobile, active])
+
   const [ratios, setRatios] = useState<Record<string, number>>({})
   const [open, setOpen] = useState<number | null>(null)
   const [games, setGames] = useState<Set<number>>(new Set())
@@ -207,24 +255,105 @@ export default function PlaygroundGallery({ mobile = false, active = true, warmi
     setRatios(previous => previous[src] === ratio ? previous : { ...previous, [src]: ratio })
   }, [])
   const close = useCallback(() => setOpen(null), [])
-  const navigate = useCallback((dir: number) => setOpen(i => i === null ? null : (i + dir + playgroundContent.length) % playgroundContent.length), [])
   // One fresh layout seed per mount: the orbit arrangement is scrambled (shape-
   // aware) on every visit, but stays put for the life of this view.
   const [seed] = useState(() => 1 + Math.floor(Math.random() * 2_000_000_000))
-  // These cover ratios are the geometric mean of the preview assets' native
-  // ratios, recorded in content. Loading or cutting to a piece cannot resize
-  // a card; only a viewport resize can reflow the surrounding layout.
+  // Reading/DOM order of the cards themselves — independent of the desktop
+  // scatter (that's already randomized per mount via `seed`, but purely as
+  // absolute-position `rects[i]`, so its underlying array order never
+  // actually showed). This is what mobile's two-column list renders in, and
+  // what Collection's prev/next arrows step through, so both stay in sync
+  // with whatever order the user is actually looking at. Same "fresh per
+  // mount, stays put for the life of this view" convention as `seed`.
+  const [order] = useState<number[]>(() => {
+    const indices = playgroundContent.map((_, i) => i)
+    for (let i = indices.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[indices[i], indices[j]] = [indices[j], indices[i]]
+    }
+    return indices
+  })
+  // Steps through `order` (the on-screen sequence), not raw content index —
+  // otherwise Next/Previous would jump around relative to what's displayed.
+  const navigate = useCallback((dir: number) => setOpen(i => {
+    if (i === null) return null
+    const pos = order.indexOf(i)
+    return order[(pos + dir + order.length) % order.length]
+  }), [order])
+  // Mobile's two columns share one width, so each card's rendered height is
+  // proportional to 1/aspectRatio (+ a rough constant for the caption line
+  // and .card's own margin-bottom, which don't scale with aspect ratio).
+  // Splitting `order` by position parity assumed a roughly even mix of
+  // tall/wide cards landing in alternating slots — true for the old fixed
+  // order, but a random run of several tall cards in a row (now possible)
+  // stacks them all in the same column and leaves the other short.
+  //
+  // Deciding column membership by walking `order` greedily (drop each card
+  // into whichever column is currently shorter, in shuffle order) still left
+  // a visible gap fairly often: a couple of tall cards can land back-to-back
+  // before the running totals correct for it. Deciding in tallest-first (LPT)
+  // order instead keeps both columns close no matter what — the big pieces
+  // get first pick of columns, and small ones settle the remainder. The
+  // *visual* order within each column still follows the original shuffle
+  // (filtering `order`, not the tallest-first list), so it doesn't read as
+  // "sorted by size" top-to-bottom — only which side each card lands on.
+  const [mobileCol1, mobileCol2] = useMemo(() => {
+    const heights = order.map(i => 1 / (playgroundContent[i].aspectRatio ?? 1) + 0.15)
+    const tallestFirst = order.map((i, pos) => pos).sort((a, b) => heights[b] - heights[a])
+    let h1 = 0, h2 = 0
+    const side = new Map<number, 1 | 2>()
+    for (const pos of tallestFirst) {
+      if (h1 <= h2) { side.set(order[pos], 1); h1 += heights[pos] }
+      else { side.set(order[pos], 2); h2 += heights[pos] }
+    }
+    return [order.filter(i => side.get(i) === 1), order.filter(i => side.get(i) === 2)]
+  }, [order])
+  // Desktop only — a free scatter absolutely positioned via fitOrbit. Mobile
+  // renders two plain CSS-flex columns instead (below): always exactly two,
+  // always spanning the full width, each card sized by its own authored
+  // aspectRatio — fitMasonry's "pick whatever column count maximizes area
+  // under a height ceiling" search could land on 1, 3, or narrower-than-full-
+  // width columns depending on content, which isn't what a fixed two-column
+  // wall wants. This also drops the need to size the container in JS: two
+  // flex columns are exactly as tall as their own content, same as
+  // Projects/About, so the page just scrolls past them.
   const rects = useMemo(() => {
     const coverRatios = playgroundContent.map(item => item.aspectRatio ?? 1)
-    return mobile ? fitMasonry(coverRatios,width,Math.max(0,height-24),28) : fitOrbit(coverRatios,width,height,false,seed)
-  }, [mobile,width,height,seed])
-  return <>
-    <div ref={ref} className={`${styles.gallery} ${mobile ? styles.mobile : ''}`} aria-label="Playground">
-      {playgroundContent.map((item, i) => <button key={item.title} className={styles.card} style={rects[i]} onClick={() => setOpen(i)} aria-label={`Open ${item.title}`}>
-        <Cover mobile={mobile} disabled={!active || open !== null}><Preview item={item} covered={!active || open !== null} warming={warming} onPrepared={() => prepareCard(i)} onRatio={onRatio} /></Cover>
+    return fitOrbit(coverRatios, width, height, false, seed)
+  }, [width, height, seed])
+
+  const renderCard = (item: PlaygroundItem, i: number) => {
+    // Warming must still bring every card's own preview through its
+    // decode/ready cycle (that's what releases Behold) — the focus gate
+    // only applies once the gallery is actually being viewed.
+    const isFocused = mobile && !warming && focusedIndex === i
+    const covered    = !active || open !== null || (mobile && !warming && focusedIndex !== i)
+    return (
+      <button
+        key={item.title}
+        ref={el => { if (mobile) itemRefs.current[i] = el }}
+        className={styles.card}
+        style={mobile ? { aspectRatio: String(item.aspectRatio ?? 1) } : rects[i]}
+        onClick={() => setOpen(i)}
+        aria-label={`Open ${item.title}`}
+      >
+        <Cover mobile={mobile} disabled={!active || open !== null} isFocused={isFocused}><Preview item={item} covered={covered} warming={warming} onPrepared={() => prepareCard(i)} onRatio={onRatio} /></Cover>
         <span className={styles.caption}>{item.title}</span>
-      </button>)}
-    </div>
+      </button>
+    )
+  }
+
+  return <>
+    {mobile ? (
+      <div ref={ref} className={`${styles.gallery} ${styles.mobile}`} aria-label="Playground">
+        <div className={styles.mobileCol}>{mobileCol1.map(i => renderCard(playgroundContent[i], i))}</div>
+        <div className={styles.mobileCol}>{mobileCol2.map(i => renderCard(playgroundContent[i], i))}</div>
+      </div>
+    ) : (
+      <div ref={ref} className={styles.gallery} aria-label="Playground">
+        {order.map(i => renderCard(playgroundContent[i], i))}
+      </div>
+    )}
     {[...games].map(index => <Collection key={index} visible={active && open === index} item={playgroundContent[index]} ratios={ratios} onRatio={onRatio} close={close} navigate={navigate} />)}
     {open !== null && !playgroundContent[open].gameUrl && <Collection key={playgroundContent[open].title} visible={active} item={playgroundContent[open]} ratios={ratios} onRatio={onRatio} close={close} navigate={navigate} />}
   </>

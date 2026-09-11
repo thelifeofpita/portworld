@@ -6,12 +6,6 @@
   pointer-events: none;
 }
 
-.playgroundMode { background: var(--bg-color); min-height: 100svh; }
-.playgroundMode .mobileCanvasArea { height: 32px; }
-.playgroundMode .mobileZoneNavSvg { display: none; }
-.playgroundMode .mobileSection { padding: 16px 12px 0; }
-.playgroundMode .mobileFooter { display: none; }
-
 /* ─── Canvas area — scrolls with the page ───────────────────────────────── */
 
 .mobileCanvasArea {
@@ -64,74 +58,89 @@
   padding: 2rem 1.25rem 3rem;
 }
 
+/* Projects has nothing left inside .mobileSection that needs to catch its
+   own taps — the whole grid is pointer-events:none (see .mobileProjectGrid)
+   and the detail overlay lives outside it (portaled to body) — so the
+   section itself must ALSO stop intercepting, or its own solid box (not any
+   particular child) swallows every tap before it reaches the canvas below,
+   where the model's real mesh raycast lives. About/Playground keep the
+   shared .mobileSection default: they still have real DOM controls (links,
+   Playground's own cards) that need it. */
+.mobileProjectsSection {
+  pointer-events: none;
+}
 
-/* ─── Projects — spaced cards ────────────────────────────────────────────── */
 
-.mobileProjects {
+/* ─── Projects — two columns ──────────────────────────────────────────────── */
+
+.mobileProjectGrid {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  /* pointer-events is inherited — none here cascades through every
+     descendant (columns, slots) with no per-element overrides needed. The
+     whole grid is a layout/visual anchor only; every real tap is a mesh
+     raycast on the canvas underneath (see bigProjectExpandStore in
+     MobilePage.tsx), same as desktop. */
+  pointer-events: none;
+}
+
+.mobileProjectGridCol {
+  flex: 1;
+  min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 5rem;
 }
 
-.mobileProjectCard {
-  transition: box-shadow 0.3s ease;
+/* Pure invisible layout anchor — no background, no overflow clipping. The
+   actual model renders inside Scene.tsx's shared canvas (not here), sized
+   larger than this box so it visibly breaks out of it — same as desktop's
+   .bigProjectModelSlot. pointer-events:none for the same reason desktop's
+   has it: taps land on the model's own mesh raycast in the canvas, not this
+   DOM box (see bigProjectExpandStore in MobilePage.tsx). */
+.mobileProjectSlot {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  pointer-events: none;
 }
 
-.mobileProjectCardOpen {
-  box-shadow: 0 16px 48px color-mix(in srgb, var(--fg-color) 10%, transparent);
+/* ─── Projects — full-screen tap-to-open detail ──────────────────────────── */
+
+.mobileProjectDetailOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: var(--bg-color);
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
-/* Breaks the open card out of .mobileSection's 1.25rem side padding so it
-   (and anything inside it, e.g. BackInSmoothlyDetail's own width:100% page)
-   spans the full device width — matching desktop's fullscreen detail
-   overlay instead of staying inset like the closed card grid. */
-.mobileProjectCardFullBleed {
-  margin-left: -1.25rem;
-  margin-right: -1.25rem;
+.mobileProjectDetailHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 1rem 1.25rem 0;
 }
 
-.mobileProjectHeader {
+.mobileProjectDetailClose,
+.mobileProjectDetailNavBtn {
+  font-family: var(--font-primary);
+  font-weight: var(--font-primary-weight);
+  letter-spacing: calc(-0.01em + var(--tracking));
+  font-size: calc(0.75rem * var(--font-primary-scale, 1));
+  text-transform: uppercase;
+  color: var(--fg-color);
+  background: none;
+  border: none;
+  padding: 0.4rem;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
-.mobileProjectThumbWrap {
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  background: var(--placeholder-color);
-  overflow: hidden;
-  position: relative;
-}
-
-.mobileProjectThumb {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-
-/* Icon positioned inside the thumbnail — fully visible, clean margin */
-.mobileProjectIconOverlay {
-  position: absolute;
-  top: 0.6rem;
-  right: 0.6rem;
-  width: 2rem;
-  height: 2rem;
-  object-fit: contain;
-  pointer-events: none;
-  z-index: 2;
-}
-
-
-/* Title area (card open state) — normal block, height = content */
-.mobileProjectTitleArea {
-  padding: 1rem 1.25rem;
-  min-height: calc(9 / 16 * 100%);
-  display: flex;
-  align-items: center;
-}
-
-.mobileProjectTitle {
+.mobileProjectDetailTitle {
   font-family: var(--font-display);
   font-weight: var(--font-display-weight);
   font-size: calc(clamp(1.1rem, 5.5vw, 1.8rem) * var(--font-display-scale, 1));
@@ -140,9 +149,10 @@
   text-transform: uppercase;
   color: var(--fg-color);
   word-break: break-word;
+  padding: 1rem 1.25rem 0;
 }
 
-/* Expanded body */
+/* Detail body — video/images */
 .mobileProjectVideo {
   width: 100%;
 }
@@ -169,32 +179,6 @@
   font-weight: 400;
   line-height: 1.5;
   color: var(--fg-color);
-}
-
-.mobileProjectIconGroup {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.75rem 1.25rem 1.25rem;
-  text-align: center;
-}
-
-.mobileProjectIconDetail {
-  height: 2rem;
-  width: auto;
-  object-fit: contain;
-}
-
-.mobileProjectIconDetail[src$="MAS.png"] {
-  filter: invert(var(--icon-invert, 0));
-}
-
-.mobileProjectIconLabel {
-  font-size: calc(0.75rem * var(--font-primary-scale, 1));
-  font-weight: 400;
-  color: var(--fg-muted);
-  line-height: 1.3;
 }
 
 /* ─── About ──────────────────────────────────────────────────────────────── */
