@@ -1,13 +1,17 @@
 'use client'
 
-import { useMemo, useEffect, useRef, useState } from 'react'
+import { useMemo, useEffect, useRef } from 'react'
+import { startupWarmup } from '@/lib/startupWarmup'
 import { useThree, useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
+import { RenderQuality } from '@/lib/renderQuality'
 import { bgStore } from '@/lib/bgStore'
 import { fgStore } from '@/lib/fgStore'
 import { accentStore } from '@/lib/accentStore'
 import { cardGlowStore } from '@/lib/cardGlowStore'
 import { playgroundGlowStore } from '@/lib/playgroundGlowStore'
+import { bigProjectGlowStore } from '@/lib/bigProjectGlowStore'
+import { bigProjectFootprintStore } from '@/lib/bigProjectFootprintStore'
 import { zoneTransitionStore } from '@/lib/zoneTransitionStore'
 import { debugStore, hexToRgb01 } from '@/lib/debugStore'
 
@@ -15,6 +19,9 @@ import { debugStore, hexToRgb01 } from '@/lib/debugStore'
 const MAX_GLOW_CARDS = 6
 // Matches playgroundGlowStore's small dynamic-pool size (see that file).
 const MAX_PLAYGROUND_GLOW = 4
+// Headroom beyond today's 2 (Duolingo + Surf the Spike's phone) for how many
+// "big" in-scene project models can be simultaneously visible.
+const MAX_BIG_MODELS = 6
 
 // ─── ASCII atlas ──────────────────────────────────────────────────────────────
 
@@ -57,6 +64,17 @@ void main() {
 
 const FRAG = /* glsl */`
 uniform sampler2D uScene;
+// Depth companion for uScene (see PostProcessing.tsx's sceneDepth) — the
+// big-model fill needs this INSTEAD of the sitewide ink test (a luminance-
+// contrast check against the background), which silently fails wherever a
+// model's own lit color happens to be close to the current random palette's
+// background luminance — confirmed: a mostly-black-materialed phone against
+// a black background read as almost entirely "not ink," leaving it nearly
+// invisible (only its rare high-contrast edges scattered through). Depth is
+// immune to that coincidence: the background clear always writes the far
+// plane, and any real geometry always writes something nearer, regardless of
+// what color either happens to be.
+uniform sampler2D uSceneDepth;
 uniform sampler2D uAsciiAtlas;
 // R/G = weighted accent (model hand/foot/head): unfocused/focused blend.
 // A = ~0 normal, or ~1 empty background (forced by Three's Color-background
@@ -106,6 +124,27 @@ uniform float     uPgCardActive[4];
 uniform vec3      uPgGlowColor;    // single shared color — sitewide focus accent, same as Projects' hover color
 uniform float     uPgGlowOpacity;  // 0..1 — whole layer's fade, follows the Playground zone blend
 
+// "Big" in-scene project model's hover glow — see bigProjectGlowStore.ts.
+// Circular (center + radius), not a box — these models are positioned via a
+// world-space bounding-SPHERE fit, which projects to a circle on screen, not
+// a rectangle matching the (possibly very different) DOM slot's aspect ratio.
+uniform vec2      uBigGlowCenter[6]; // DOM-space (top-left origin) CSS px
+uniform float     uBigGlowRadius[6]; // DOM-space, CSS px
+uniform float     uBigGlowOpacity[6];  // 0..1, smoothed hover progress
+uniform float     uBigGlowActive[6];   // 0/1 — whether any big-model slot is hovered
+uniform float     uBigGlowId[6];
+
+// Every active "big" in-scene project model's REAL on-screen footprint (see
+// bigProjectFootprintStore.ts) — published regardless of hover, unlike
+// uBigGlow* above. Lets these models show their own true rendered color
+// instead of the sitewide monochrome ink dithering every other pixel gets:
+// they're meant to read as photographic "hero" pieces, distinct from the
+// humanoid nav model's abstract dot aesthetic, not as more of that aesthetic.
+uniform vec2      uBigModelCenter[6];
+uniform float     uBigModelRadius[6];
+uniform float     uBigModelActive[6];
+uniform float     uProjectOpacity;
+
 const vec3 LUMA = vec3(0.299, 0.587, 0.114);
 const float GLOW_RADIUS    = 14.0; // CSS px — outer glow falloff distance from a card's own edge (Projects) — matches Playground/About's size
 const float PG_GLOW_RADIUS = 14.0; // CSS px — same, Playground's hover-only glow
@@ -150,6 +189,11 @@ const float GLOW_HALFTONE_SCALE = 1.1;
 // against bgColorCorrected/inkColorCorrected below. This function is the
 // missing re-encode, applied only at that read.
 vec3 linearToSRGB(vec3 c) {
+  // The legacy dither thresholds expect display-range light, as supplied
+  // by the original 8-bit target. HDR values above white otherwise wrap
+  // back into "ink" through the absolute background-contrast calculation.
+  // Full-color projects tone-map their HDR samples before calling this.
+  c = clamp(c, 0.0, 1.0);
   vec3 lo = c * 12.92;
   vec3 hi = 1.055 * pow(max(c, vec3(0.0)), vec3(1.0 / 2.4)) - 0.055;
   return mix(hi, lo, step(c, vec3(0.0031308)));
@@ -222,6 +266,62 @@ float hash21(vec2 p) {
 // below, factored out so per-cell centers can be converted too.
 vec2 toDomSpace(vec2 p) {
   return vec2(p.x, uResolution.y - p.y);
+}
+
+// Same background-contrast test the main 1-bit/ASCII/halftone passes already
+// use (gap1/density8/hdens above) — "ink" here just means "this rendered
+// pixel differs from the known flat background," which is why ANY geometry
+// added to the scene gets picked up automatically with no shader change.
+// Factored out so bigModelSilhouetteDist() below can probe arbitrary points,
+// not just the 3 fixed per-mode cell centers main() already samples.
+float inkAt(vec2 uv, float bgLum) {
+  float lum = dot(linearToSRGB(texture2D(uScene, uv).rgb), LUMA);
+  float ceiling = max(bgLum, 1.0 - bgLum);
+  return step(0.05, abs(lum - bgLum) / max(ceiling, 0.0001));
+}
+
+// See uSceneDepth's comment above — a color-independent "is there real
+// geometry here" test for the big-model fill, immune to a model's lit color
+// coincidentally matching the current background's luminance.
+float hasGeometryAt(vec2 uv) {
+  return step(texture2D(uSceneDepth, uv).x, 0.9999);
+}
+
+const int BIG_GLOW_RINGS   = 4;
+const int BIG_GLOW_SAMPLES = 8;
+
+// True per-pixel silhouette distance for the "big" in-scene project models
+// (see bigProjectGlowStore.ts) — these are real irregular 3D shapes, not
+// rectangles, so quadExteriorDist's analytic quad test would draw a box
+// around them instead of hugging their actual rendered silhouette. There's
+// no distance-field texture to sample (would need a separate JFA/precompute
+// pass), so this is a manual "dilate": walk outward ring by ring from
+// cellCenterDom (DOM-space, same convention as cellCenter1/8/H) until the
+// existing ink test hits, and return that radius — mirroring
+// quadExteriorDist's own "0 inside, increasing distance outward" semantics,
+// so it plugs into the exact same density/smoothstep formula unchanged.
+// Per-cell hash-rotated sample angles avoid visible ring/starburst artifacts
+// that a fixed sampling pattern would show at this sample count.
+float bigModelSilhouetteDist(vec2 cellCenterDom, float bgLum, vec2 modelCenter, float modelRadius, float modelId) {
+  vec2 uvSelf = toDomSpace(cellCenterDom) / uResolution; // toDomSpace is its own inverse
+  if (abs(texture2D(uAccentMask, uvSelf).b - modelId) < 0.01) return 0.0;
+  float angleOffset = hash21(cellCenterDom) * 6.28318;
+  for (int ring = 1; ring <= BIG_GLOW_RINGS; ring++) {
+    float r = GLOW_RADIUS * float(ring) / float(BIG_GLOW_RINGS);
+    for (int s = 0; s < BIG_GLOW_SAMPLES; s++) {
+      float ang = angleOffset + 6.28318 * float(s) / float(BIG_GLOW_SAMPLES);
+      vec2 sampleDom = cellCenterDom + vec2(cos(ang), sin(ang)) * r;
+      // Reject samples landing outside the HOVERED model's own footprint
+      // (+ this glow's own reach past its edge) — without this, a sample
+      // point can land on a DIFFERENT, nearby model's ink instead (two
+      // big-model cards can sit within GLOW_RADIUS of each other), bleeding
+      // this model's hover glow onto whatever shape happens to be there
+      // (reported: "the dithered silhouette leaks into the other model").
+      vec2 uv = toDomSpace(sampleDom) / uResolution;
+      if (abs(texture2D(uAccentMask, uv).b - modelId) < 0.01) return r;
+    }
+  }
+  return GLOW_RADIUS;
 }
 
 // Renders one project card's outer glow ring — a live tilted quad hugging
@@ -322,7 +422,9 @@ void main() {
   // making gap1 nonzero everywhere and dithering the whole background.
   float lum1   = dot(linearToSRGB(texture2D(uScene, uv1).rgb), LUMA);
   float bayer1 = (bayer4(bp1) + 0.5) / 16.0;
-  float gap1   = abs(lum1 - uBgLum);
+  // Contrast is directional: on a light palette, highlights brighter than
+  // the background stay clear rather than turning back into dark ink.
+  float gap1   = max(0.0, mix(lum1 - uBgLum, uBgLum - lum1, bgPolarity));
   // Rescale the raw gap against the max gap actually achievable for this
   // background's luminance — e.g. a bg at 0.75 can never be more than 0.75
   // away from a black pixel (lum1=0), or 0.25 away from a white one (lum1=1).
@@ -353,7 +455,7 @@ void main() {
   vec2  uv8  = (bp8 * cs + cs * 0.5) / uResolution;
   float lum8 = dot(linearToSRGB(texture2D(uScene, uv8).rgb), LUMA);
 
-  float density = abs(lum8 - uBgLum);
+  float density = max(0.0, mix(lum8 - uBgLum, uBgLum - lum8, bgPolarity));
   float smMax   = mix(0.35, 1.0, uBgLum);
   density = smoothstep(0.01, smMax, density);
 
@@ -374,13 +476,20 @@ void main() {
   vec2  hbp   = floor(coord / hcs);
   vec2  hctr  = hbp * hcs + hcs * 0.5;
   float hlum  = dot(linearToSRGB(texture2D(uScene, hctr / uResolution).rgb), LUMA);
-  float hdens = abs(hlum - uBgLum);
+  float hdens = max(0.0, mix(hlum - uBgLum, uBgLum - hlum, bgPolarity));
   hdens = smoothstep(0.01, mix(0.35, 1.0, uBgLum), hdens);
   float radius   = hdens * hcs * 0.55;
   float circle   = 1.0 - smoothstep(radius - 0.5, radius + 0.5, length(coord - hctr));
   float inkAmtH  = abs(mix(circle, 1.0 - circle, bgPolarity) - bgPolarity);
   vec3  inkH     = accentInk(hctr / uResolution, inkColorCorrected, 1.0);
   vec3  halftone = mix(bgColorCorrected, inkH, inkAmtH);
+
+  // These objects are full-color, not part of the dithered scene. Exclude
+  // them at each effect's sampling position: otherwise a coarse cell that
+  // straddles the silhouette leaves stray ink outside the full-color fill.
+  if (texture2D(uAccentMask, uv1).b > 0.01) oneBit = bgColorCorrected;
+  if (texture2D(uAccentMask, uv8).b > 0.01) ascii = bgColorCorrected;
+  if (texture2D(uAccentMask, hctr / uResolution).b > 0.01) halftone = bgColorCorrected;
 
   // ── Blend: cycle 0→1→2 with wrap segment 2→3 = halftone→1-bit ────────────
   float t = uTransition;
@@ -452,18 +561,117 @@ void main() {
     result = mix(result, uPgGlowColor, pgMask * uPgGlowOpacity);
   }
 
+  // ── "Big" in-scene project models — flat, undithered fill ─────────────────
+  // The hover glow below is the ONLY part of these models meant to carry the
+  // sitewide dithered look (matching the other cards' own hover halo, which
+  // is exactly what was asked for — the cards' own thumbnail images are
+  // never dithered, only their glow is). This block is their REST-state fill,
+  // and went through two wrong turns before landing here: first, a single
+  // flat sitewide ink color for the whole silhouette (reported "it was all
+  // one color"); then recoloring the SAME graded 1-bit/ASCII/halftone
+  // coverage test (isInk1/inkAmt8/inkAmtH) from real per-cell color instead
+  // of flat ink — but that coverage test is a smoothstep against the LIT
+  // render's local contrast, which dips wherever the model's own shading
+  // happens to sit close to the current background's luminance, scattering
+  // background-colored gaps through the middle of the shape, not just its
+  // edge (reported "background-colored dots all around... should be flat").
+  // It also samples at coarse per-cell block centers (uv1/uv8/hctr — 2-8px
+  // blocks), too coarse to read as an actual phone/can rather than a blurred
+  // color patch (reported "still can't see the textures"). Fixed by dropping
+  // the coverage grading and per-cell quantization entirely: hasGeometryAt
+  // (depth-based, not the luminance-contrast inkAt — see its own comment for
+  // why: a mostly-black-materialed phone against a black background is
+  // exactly the case inkAt cannot tell apart) decides solid coverage, and
+  // every fragment samples its own full-resolution position.
+  //
+  // Color source is uScene (the real LIT beauty-pass render)
+  // (the unlit pass added earlier) — asked for explicitly: the model's own
+  // scene lighting is what made it read as vibrant, and stripping that out
+  // in favor of a flat unlit texture lost that quality. The lit render stays wired
+  // up (still cheap — only rendered when a big model is active) in case a
+  // future request wants it again.
+  vec2 coordDom = toDomSpace(coord);
+  vec2 uvFull = coord / uResolution;
+  // Resolve four high-resolution geometry samples, tone-mapping foreground
+  // separately from the background. This gives fractional edge coverage
+  // without blurring textures or baking a dark/light fringe into the edge.
+  float projectPixel = 0.0;
+  vec3 projectColor = vec3(0.0);
+  for (int sy = 0; sy < 2; sy++) {
+    for (int sx = 0; sx < 2; sx++) {
+      vec2 sampleUv = uvFull + (vec2(float(sx), float(sy)) - 0.5) * 0.5 / uResolution;
+      float id = texture2D(uAccentMask, sampleUv).b;
+      if (id < 0.01) continue;
+      float exposure = abs(id - 0.125) < 0.01 ? 0.85 : 0.75;
+      vec3 lit = texture2D(uScene, sampleUv).rgb * exposure;
+      vec3 mapped = clamp((lit * (2.51 * lit + 0.03)) / (lit * (2.43 * lit + 0.59) + 0.14), 0.0, 1.0);
+      projectColor += linearToSRGB(mapped) * 0.25;
+      projectPixel += 0.25;
+    }
+  }
+  // Fade resolved model colour, not individual transparent mesh surfaces
+  // (which would reveal backs/interiors and introduce sorting artefacts).
+  result = result * (1.0 - projectPixel)
+    + projectColor * uProjectOpacity
+    + bgColorCorrected * projectPixel * (1.0 - uProjectOpacity);
+
+  // ── "Big" in-scene project model's hover-only glow — same technique as
+  // the Playground loop above, but the source of "distance to the shape's
+  // edge" is bigModelSilhouetteDist() (a real per-pixel silhouette probe)
+  // instead of quadExteriorDist's analytic quad test, since this model is an
+  // actual irregular 3D shape, not a rectangle. Gated by an explicit
+  // distance check — unlike the pure-algebra quad test above, this does real
+  // texture fetches per ring/sample, so it must not run full-screen.
+  for (int i = 0; i < 6; i++) {
+  if (uBigGlowActive[i] > 0.5 && projectPixel < 0.01) {
+    // uBigGlowCenter[i] is DOM-space (top-left origin, matching
+    // getBoundingClientRect() — same convention as uCardP0..3/cellCenter1/8/H
+    // above); coordDom (computed above) is coord flipped into that same space.
+    vec2 bigD = coordDom - uBigGlowCenter[i];
+    if (max(abs(bigD.x), abs(bigD.y)) < uBigGlowRadius[i] * 1.5 + GLOW_RADIUS) {
+      float bigDist1 = bigModelSilhouetteDist(cellCenter1, uBgLum, uBigGlowCenter[i], uBigGlowRadius[i], uBigGlowId[i]);
+      float bigDensity1 = GLOW_PEAK_DENSITY * uBigGlowOpacity[i] * (1.0 - smoothstep(0.0, GLOW_RADIUS, bigDist1));
+      float bigBayer1 = (bayer4(bp1) + 0.5) / 16.0;
+      float bigOneBit = step(bigBayer1, bigDensity1);
+
+      float bigDist8 = bigModelSilhouetteDist(cellCenter8, uBgLum, uBigGlowCenter[i], uBigGlowRadius[i], uBigGlowId[i]);
+      float bigDensity8 = GLOW_PEAK_DENSITY * uBigGlowOpacity[i] * (1.0 - smoothstep(0.0, GLOW_RADIUS, bigDist8));
+      float bigNoiseWeight = smoothstep(0.02, 0.08, bigDensity8);
+      float bigIdx     = bigDensity8 * (uCharCount - 1.0) + (bayerBlock - 0.5) * 5.0 * bigNoiseWeight;
+      float bigCharIdx = floor(clamp(bigIdx, 0.0, uCharCount - 1.0));
+      float bigAtlasU  = (bigCharIdx + bf.x) / uCharCount;
+      float bigAscii   = texture2D(uAsciiAtlas, vec2(bigAtlasU, bf.y)).r;
+
+      float bigDistH = bigModelSilhouetteDist(cellCenterH, uBgLum, uBigGlowCenter[i], uBigGlowRadius[i], uBigGlowId[i]);
+      float bigDensityH = GLOW_PEAK_DENSITY * uBigGlowOpacity[i] * (1.0 - smoothstep(0.0, GLOW_RADIUS, bigDistH));
+      float bigHalftoneRadius = bigDensityH * hcs * GLOW_HALFTONE_SCALE;
+      float bigHalftone = 1.0 - smoothstep(bigHalftoneRadius - 0.6, bigHalftoneRadius + 0.6, length(coord - hctr));
+
+      if (max(bigDensity1, max(bigDensity8, bigDensityH)) > 0.0) {
+        float bigMask;
+        if (t <= 1.0)      bigMask = mix(bigOneBit, bigAscii, t);
+        else if (t <= 2.0) bigMask = mix(bigAscii, bigHalftone, t - 1.0);
+        else               bigMask = mix(bigHalftone, bigOneBit, t - 2.0);
+
+        result = mix(result, uPgGlowColor, bigMask * uBigGlowOpacity[i]);
+      }
+    }
+  }
+  }
+
   gl_FragColor = vec4(result, 1.0);
 }
 `
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function PostProcessing({ mode = 0 }: { mode?: 0|1|2 }) {
+export default function PostProcessing({ mode = 0, isMobile = false }: { mode?: 0|1|2; isMobile?: boolean }) {
+  const quality = useMemo(() => new RenderQuality(isMobile), [isMobile])
+  const shadowState = useRef(new Map<THREE.Object3D, string>())
   const { gl, scene, camera, size } = useThree()
   const transition  = useRef(0)
   const transTarget = useRef(0)
   const prevMode    = useRef<0|1|2>(0)
-  const [atlasTexture, setAtlasTexture] = useState<THREE.CanvasTexture | null>(null)
 
   // ── Render targets ───────────────────────────────────────────────────────
   // Sized in CSS pixels (not physical) — the shader normalises gl_FragCoord
@@ -473,11 +681,24 @@ export default function PostProcessing({ mode = 0 }: { mode?: 0|1|2 }) {
   // (uv1/uv8/hctr), never in between texels, so bilinear filtering here
   // bought nothing but a smearing/bleed radius of a texel or so around any
   // high-contrast edge.
-  const { target, maskTarget } = useMemo(() => ({
-    target:     new THREE.WebGLRenderTarget(size.width, size.height, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, stencilBuffer: false }),
-    maskTarget: new THREE.WebGLRenderTarget(size.width, size.height, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, stencilBuffer: false }),
+  // Depth companion for `target` — see uSceneDepth's comment in FRAG for why
+  // the big-model fill needs this instead of the sitewide luminance-contrast
+  // ink test.
+  const sceneDepth = useMemo(() => {
+    const tex = new THREE.DepthTexture(size.width, size.height)
+    tex.minFilter = THREE.NearestFilter
+    tex.magFilter = THREE.NearestFilter
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [])
+    return tex
+  }, [])
+
+  const { target, maskTarget } = useMemo(() => {
+    const target = new THREE.WebGLRenderTarget(size.width, size.height, { type: THREE.HalfFloatType, minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, stencilBuffer: false })
+    target.depthTexture = sceneDepth
+    const maskTarget = new THREE.WebGLRenderTarget(size.width, size.height, { minFilter: THREE.NearestFilter, magFilter: THREE.NearestFilter, stencilBuffer: false })
+    return { target, maskTarget }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // Per-mesh materials: color encodes blend (R=unfocused weight, G=focused weight).
   // Created lazily in useFrame and lerped toward 0/1 each frame. Opacity is
@@ -495,6 +716,7 @@ export default function PostProcessing({ mode = 0 }: { mode?: 0|1|2 }) {
   // these pixels are meant to carry as data, not visible translucency).
   const accentMats   = useRef<Map<THREE.Mesh, { mat: THREE.MeshBasicMaterial; blend: number }>>(new Map())
   const maskBlackMat = useMemo(() => new THREE.MeshBasicMaterial({ color: 0x000000, opacity: 0, blending: THREE.NoBlending }), [])
+  const projectMaskMats = useRef(new Map<number, THREE.MeshBasicMaterial>())
   // Pre-allocated black background for mask renders — prevents scene.background
   // (which lerps during bg transitions) from leaking into the mask clear color.
   const maskBg       = useMemo(() => new THREE.Color(0, 0, 0), [])
@@ -518,6 +740,8 @@ export default function PostProcessing({ mode = 0 }: { mode?: 0|1|2 }) {
       fragmentShader: FRAG,
       uniforms: {
         uScene:      { value: null },
+        uBigGlowId:  { value: Array.from({ length: 6 }, (_, i) => (i + 1) / 16) },
+        uSceneDepth: { value: null },
         uAsciiAtlas: { value: placeholder },
         uAccentMask: { value: null },
         uResolution: { value: new THREE.Vector2(size.width, size.height) },
@@ -545,6 +769,23 @@ export default function PostProcessing({ mode = 0 }: { mode?: 0|1|2 }) {
         uPgCardActive:  { value: new Array(MAX_PLAYGROUND_GLOW).fill(0) },
         uPgGlowColor:   { value: new THREE.Vector3(...hexToRgb01(debugStore.accentFocusColor)) },
         uPgGlowOpacity: { value: 0 },
+        // "Big" in-scene project models (see bigProjectGlowStore.ts) — true
+        // per-pixel silhouette glow for whichever one is hovered. Center/
+        // radius gate the expensive radial ink-sampling in
+        // bigModelSilhouetteDist() to a small screen region instead of
+        // running it full-screen, AND clip that ring-search to this model's
+        // own footprint so it can't bleed onto a different nearby model.
+        uBigGlowCenter:   { value: Array.from({ length: 6 }, () => new THREE.Vector2()) },
+        uBigGlowRadius: { value: new Array(6).fill(0) },
+        uBigGlowOpacity: { value: new Array(6).fill(0) },
+        uBigGlowActive: { value: new Array(6).fill(0) },
+        // Every active big-model's own real footprint, regardless of hover —
+        // see bigProjectFootprintStore.ts and the texture-passthrough block
+        // in FRAG.
+        uBigModelCenter: { value: Array.from({ length: MAX_BIG_MODELS }, () => new THREE.Vector2()) },
+        uBigModelRadius: { value: new Array(MAX_BIG_MODELS).fill(0) },
+        uBigModelActive: { value: new Array(MAX_BIG_MODELS).fill(0) },
+        uProjectOpacity: { value: 0 },
       },
       depthTest:  false,
       depthWrite: false,
@@ -560,10 +801,10 @@ export default function PostProcessing({ mode = 0 }: { mode?: 0|1|2 }) {
     let cancelled = false
     buildAsciiAtlas().then((tex) => {
       if (!cancelled) {
+        material.uniforms.uAsciiAtlas.value.dispose()
         material.uniforms.uAsciiAtlas.value = tex
-        setAtlasTexture(tex)
-      }
-    })
+      } else tex.dispose()
+    }).catch(() => { /* The placeholder remains valid if this optional font fails. */ })
     return () => { cancelled = true }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [material])
@@ -579,23 +820,36 @@ export default function PostProcessing({ mode = 0 }: { mode?: 0|1|2 }) {
   }, [mode])
 
   useEffect(() => {
-    target.setSize(size.width, size.height)
-    maskTarget.setSize(size.width, size.height)
+    // Supersample beauty and object IDs together; the intentionally coarse
+    // site effects still use CSS-pixel coordinates and retain their look.
+    target.setSize(Math.round(size.width * quality.scale), Math.round(size.height * quality.scale))
+    maskTarget.setSize(Math.round(size.width * quality.scale), Math.round(size.height * quality.scale))
     material.uniforms.uResolution.value.set(size.width, size.height)
     material.uniforms.uDpr.value = gl.getPixelRatio()
-  }, [size, gl, target, maskTarget, material])
+  }, [size, gl, target, maskTarget, material, quality])
 
   useEffect(() => () => {
     target.dispose()
+    sceneDepth.dispose()
     maskTarget.dispose()
     accentMats.current.forEach(({ mat }) => mat.dispose())
     maskBlackMat.dispose()
+    projectMaskMats.current.forEach(mat => mat.dispose())
     material.dispose()
-    atlasTexture?.dispose()
+    material.uniforms.uAsciiAtlas.value.dispose()
+    quadScene.traverse(object => { if (object instanceof THREE.Mesh) object.geometry.dispose() })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target, material])
 
   useFrame((_, delta) => {
+    if (document.hidden) return
+    if (quality.sample(delta)) {
+      target.setSize(Math.round(size.width * quality.scale), Math.round(size.height * quality.scale))
+      maskTarget.setSize(Math.round(size.width * quality.scale), Math.round(size.height * quality.scale))
+      shadowState.current.clear()
+    }
+    gl.domElement.dataset.renderScale = String(quality.scale)
+
     const dt      = Math.min(delta, 0.1)
     const tTrans  = 1 - Math.pow(1 - 0.14, dt * 60)
     const tAccent = 1 - Math.pow(1 - 0.16, dt * 60)
@@ -610,7 +864,50 @@ export default function PostProcessing({ mode = 0 }: { mode?: 0|1|2 }) {
     // Render scene to RT
     gl.setRenderTarget(target)
     gl.clear()
+    const originalLayers = camera.layers.mask
+    camera.layers.set(0)
     gl.render(scene, camera)
+    if (startupWarmup.projects.size > 0 || Object.values(bigProjectFootprintStore.entries).some(Boolean)) {
+      // Layer 1 has only the project meshes and their key/fill/rim rig.
+      // Preserve the background and depth from the navigation pass.
+      const background = scene.background
+      const autoClear = gl.autoClear
+      scene.background = null
+      gl.autoClear = false
+      camera.layers.set(1)
+      const shadowsEnabled = gl.shadowMap.enabled
+      gl.shadowMap.enabled = true
+      // Three r183 maps the deprecated PCFSoft value to PCF only while
+      // rendering a shadow map. A cached map skips that conversion, leaving
+      // incompatible sampler types if PCFSoft is reassigned every frame.
+      gl.shadowMap.type = THREE.PCFShadowMap
+      // Reuse the map until a caster or light changes. Moving props still
+      // invalidate every frame; static views no longer redraw their shadows.
+      scene.updateMatrixWorld(true)
+      let dirty = false
+      const live = new Set<THREE.Object3D>()
+      scene.traverse(object => {
+        if (!(object instanceof THREE.Mesh && object.castShadow) && !(object instanceof THREE.Light)) return
+        live.add(object)
+        const state = object.matrixWorld.elements.join(',') + object.visible +
+          (object instanceof THREE.Light ? `${object.intensity},${object.color.getHex()}` : '') +
+          (object instanceof THREE.DirectionalLight ? object.target.matrixWorld.elements.join(',') + object.shadow.camera.projectionMatrix.elements.join(',') : '')
+        if (shadowState.current.get(object) !== state) { dirty = true; shadowState.current.set(object, state) }
+        if (object instanceof THREE.DirectionalLight && object.castShadow && object.name === 'Project key' && object.shadow.mapSize.x !== quality.shadowSize) {
+          object.shadow.mapSize.setScalar(quality.shadowSize)
+          object.shadow.map?.dispose(); object.shadow.map = null
+          dirty = true
+        }
+      })
+      for (const object of shadowState.current.keys()) if (!live.has(object)) { shadowState.current.delete(object); dirty = true }
+      gl.shadowMap.autoUpdate = false
+      gl.shadowMap.needsUpdate = dirty
+      gl.render(scene, camera)
+      gl.shadowMap.enabled = shadowsEnabled
+      gl.autoClear = autoClear
+      scene.background = background
+    }
+    camera.layers.mask = originalLayers
 
     // Lerp per-mesh blend toward focused (1) or unfocused (0) each frame.
     // R channel = unfocused weight, G channel = focused weight.
@@ -631,6 +928,8 @@ export default function PostProcessing({ mode = 0 }: { mode?: 0|1|2 }) {
     if (!meshesScanned.current || scannedVersion.current !== accentStore.sceneVersion) {
       sceneMeshes.current = []
       scene.traverse(obj => { if (obj instanceof THREE.Mesh) sceneMeshes.current.push(obj) })
+      const liveMeshes = new Set(sceneMeshes.current)
+      for (const [mesh, entry] of accentMats.current) if (!liveMeshes.has(mesh)) { entry.mat.dispose(); accentMats.current.delete(mesh) }
       origMats.current.length = sceneMeshes.current.length
       meshesScanned.current  = true
       scannedVersion.current = accentStore.sceneVersion
@@ -647,7 +946,17 @@ export default function PostProcessing({ mode = 0 }: { mode?: 0|1|2 }) {
       const mesh = meshList[i]
       matList[i] = mesh.material
       const accentEntry = accentMats.current.get(mesh)
-      mesh.material = accentEntry ? accentEntry.mat : maskBlackMat
+      const projectId = mesh.userData.projectMaskId as number | undefined
+      if (projectId !== undefined) {
+        let mask = projectMaskMats.current.get(projectId)
+        if (!mask) {
+          mask = new THREE.MeshBasicMaterial({ color: new THREE.Color(0, 0, projectId), toneMapped: false, blending: THREE.NoBlending, side: THREE.DoubleSide })
+          projectMaskMats.current.set(projectId, mask)
+        }
+        mesh.material = mask
+      } else {
+        mesh.material = accentEntry ? accentEntry.mat : maskBlackMat
+      }
     }
     const savedBg   = scene.background
     scene.background = maskBg
@@ -660,6 +969,8 @@ export default function PostProcessing({ mode = 0 }: { mode?: 0|1|2 }) {
 
     // Apply post-processing
     material.uniforms.uScene.value      = target.texture
+    material.uniforms.uProjectOpacity.value = zoneTransitionStore.projectsOpacity
+    material.uniforms.uSceneDepth.value = sceneDepth
     material.uniforms.uAccentMask.value = maskTarget.texture
     material.uniforms.uTransition.value = transition.current
 
@@ -746,6 +1057,43 @@ export default function PostProcessing({ mode = 0 }: { mode?: 0|1|2 }) {
       || zoneTransitionStore.displayedZone === 1
       || zoneTransitionStore.displayedZone === 2
     material.uniforms.uPgGlowOpacity.value = pgZoneActive ? zoneTransitionStore.blend : 0
+
+    // "Big" in-scene project model's hover-only glow — see
+    // bigProjectGlowStore.ts. Keyed by the model's real projectsContent index
+    // (e.g. Duolingo is index 1, not 0), so look up whichever slot is
+    // active, including models whose highlights are still fading out.
+    // Reuses uPgGlowColor (already the sitewide focus accent) — no separate
+    // color uniform needed, this glow has no rest state either.
+    // Keep independent fade values: leaving one model must not evict its glow.
+    const glowCenters = material.uniforms.uBigGlowCenter.value as THREE.Vector2[]
+    for (let i = 0; i < 6; i++) {
+      const entry = bigProjectGlowStore.entries[i]
+      material.uniforms.uBigGlowActive.value[i] = entry ? 1 : 0
+      material.uniforms.uBigGlowOpacity.value[i] = (entry?.opacity ?? 0) * zoneTransitionStore.projectsOpacity
+      if (entry) {
+        glowCenters[i].set(entry.screenCx, entry.screenCy)
+        material.uniforms.uBigGlowRadius.value[i] = entry.radius
+      }
+    }
+
+    // Every active big-model's own real footprint (see
+    // bigProjectFootprintStore.ts), independent of hover — drives the
+    // texture-passthrough block in FRAG that lets these models show their
+    // real rendered color instead of the sitewide ink dithering.
+    const bigModelCenterUniforms = material.uniforms.uBigModelCenter.value as THREE.Vector2[]
+    const bigModelRadiusUniforms = material.uniforms.uBigModelRadius.value as number[]
+    const bigModelActiveUniforms = material.uniforms.uBigModelActive.value as number[]
+    const footprintEntries = Object.values(bigProjectFootprintStore.entries).filter((e): e is NonNullable<typeof e> => !!e)
+    for (let i = 0; i < MAX_BIG_MODELS; i++) {
+      const entry = footprintEntries[i]
+      if (entry) {
+        bigModelCenterUniforms[i].set(entry.screenCx, entry.screenCy)
+        bigModelRadiusUniforms[i] = entry.radius
+        bigModelActiveUniforms[i] = 1
+      } else {
+        bigModelActiveUniforms[i] = 0
+      }
+    }
 
     gl.render(quadScene, quadCamera)
   }, 1)

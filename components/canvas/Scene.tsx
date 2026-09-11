@@ -2,10 +2,12 @@
 
 import React, { Suspense, useEffect, useRef, useCallback, useState, useReducer } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Environment, Preload } from '@react-three/drei'
+import { Environment, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
 import Model from './Model'
+const InSceneProjectModel = React.lazy(() => import('./InSceneProjectModel'))
 import PostProcessing from './PostProcessing'
+import { projectsContent } from '@/content/projectsContent'
 import { bgStore } from '@/lib/bgStore'
 import { fgStore } from '@/lib/fgStore'
 import { shaderStore } from '@/lib/shaderStore'
@@ -14,6 +16,18 @@ import { cameraStore } from '@/lib/cameraStore'
 import { debugStore } from '@/lib/debugStore'
 import { getThemeColors, subscribePalette } from '@/lib/paletteStore'
 import type { Zone } from '@/types'
+
+const projectModels = projectsContent.map((project, index) => ({ project, index })).filter(({ project }) => project.bigModel && project.thumbModel)
+
+class ProjectLoadBoundary extends React.Component<{ children: React.ReactNode; onPrepared: () => void }, { failed: boolean }> {
+  state = { failed: false }
+  static getDerivedStateFromError() { return { failed: true } }
+  componentDidCatch(error: Error) {
+    console.warn('Project model could not be prepared', error)
+    this.props.onPrepared()
+  }
+  render() { return this.state.failed ? null : this.props.children }
+}
 
 // Mounts only after Suspense resolves — signals that the model is loaded
 function OnLoad({ onLoad }: { onLoad: () => void }) {
@@ -308,6 +322,43 @@ interface SceneProps {
 }
 
 export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad, isMobile = false, canvasStyle, isContentMode = false }: SceneProps) {
+  const [projectCount, setProjectCount] = useState(0)
+  const [navigationReady, setNavigationReady] = useState(false)
+  const [tabVisible, setTabVisible] = useState(true)
+  const [preparedProjects, setPreparedProjects] = useState(0)
+  const ready = useCallback(() => { setNavigationReady(true) }, [])
+  const projectReady = useCallback(() => setPreparedProjects(n => n + 1), [])
+  // Reveal the site as soon as navigation + the FIRST project model are warm,
+  // rather than waiting for all of them. The rest keep warming one-at-a-time in
+  // the background (the projectCount effect below), so only a deliberately fast
+  // rotate into Projects in the moment right after Behold lifts can still catch
+  // a model compiling — natural browsing never does.
+  const firedLoadRef = useRef(false)
+  useEffect(() => {
+    if (firedLoadRef.current) return
+    if (navigationReady && (isMobile || projectModels.length === 0 || preparedProjects >= 1)) {
+      firedLoadRef.current = true
+      onLoad()
+    }
+  }, [navigationReady, isMobile, preparedProjects, onLoad])
+  // Once the first model is warm, pull the remaining GLBs in parallel so the
+  // background warm-chain below is compile-bound (a few frames each) rather than
+  // waiting on serial network fetches.
+  useEffect(() => {
+    if (isMobile || preparedProjects < 1) return
+    for (const { project } of projectModels.slice(1)) useGLTF.preload(project.thumbModel!, '/draco/')
+  }, [isMobile, preparedProjects])
+  useEffect(() => {
+    const update = () => setTabVisible(!document.hidden)
+    document.addEventListener('visibilitychange', update)
+    return () => document.removeEventListener('visibilitychange', update)
+  }, [])
+  useEffect(() => {
+    if (!navigationReady || isMobile || !tabVisible) return
+    // Complete one actual model render at a time while Behold is still covering the page.
+    const frame = requestAnimationFrame(() => setProjectCount(Math.min(projectModels.length, preparedProjects + 1)))
+    return () => cancelAnimationFrame(frame)
+  }, [navigationReady, isMobile, tabVisible, preparedProjects])
   const [shaderMode, setShaderMode] = useState<0|1|2>(0)
   const [initialFov]   = useState(() => getBaseFov(window.innerWidth, window.innerHeight, isMobile))
   const [modelYOffset] = useState(() => getMobileModelYOffset(isMobile))
@@ -371,6 +422,7 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
       camera={{ position: [0, 0, 5], fov: initialFov }}
       gl={{ antialias: true, alpha: false }}
       dpr={1}
+      frameloop={tabVisible ? 'always' : 'never'}
       style={canvasStyle ?? defaultStyle}
       onCreated={(state) => {
         state.gl.domElement.addEventListener('webglcontextlost', onContextLost)
@@ -381,6 +433,16 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
       <ambientLight intensity={0.4} />
       <directionalLight position={[4, 6, 4]} intensity={1.2} castShadow />
       <directionalLight position={[-4, 2, -4]} intensity={0.4} />
+
+      {/* Project-only studio rig. A separate layer keeps the navigation's
+          lighting unchanged; the compositor renders these models separately. */}
+      <directionalLight name="Project key" position={[-5, 3, 2]} intensity={3} color="#fff4e8"
+        castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0001} shadow-normalBias={0.005}
+        shadow-camera-left={-6} shadow-camera-right={6} shadow-camera-top={6} shadow-camera-bottom={-6}
+        shadow-camera-near={0.1} shadow-camera-far={24}
+        onUpdate={light => { light.layers.set(1); light.shadow.camera.layers.set(1) }} />
+      <directionalLight name="Project fill" position={[4, 1, 3]} intensity={0.05} color="#dbe8ff" onUpdate={light => light.layers.set(1)} />
+      <directionalLight name="Project rim" position={[2, 3, -4]} intensity={0.8} color="#e8f2ff" onUpdate={light => light.layers.set(1)} />
 
       <Suspense fallback={null}>
         {/* Self-hosted rather than preset="studio": drei's presets are fetched
@@ -396,9 +458,17 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
         <ScrollingGroup baseY={modelYOffset} isMobile={isMobile}>
           <Model onZoneChange={onZoneChange} onZoneReset={onZoneReset} onAsciiToggle={onAsciiToggle} onModelClick={onModelClick} isContentMode={isContentMode} yOffset={modelYOffset} />
         </ScrollingGroup>
-        <OnLoad onLoad={onLoad} />
-        <Preload all />
-        <PostProcessing mode={shaderMode} />
+        {/* Prepare actual model, texture and shadow rendering behind Behold.
+            A broken optional model must not block the rest of the site. */}
+        {projectModels.slice(0, projectCount).map(({ project: p, index: i }) => (
+          <ProjectLoadBoundary key={i} onPrepared={projectReady}>
+            <Suspense fallback={null}>
+              <InSceneProjectModel index={i} src={p.thumbModel!} baseRotationYDeg={p.bigModelBaseRotationYDeg} onPrepared={projectReady} />
+            </Suspense>
+          </ProjectLoadBoundary>
+        ))}
+        <OnLoad onLoad={ready} />
+        <PostProcessing mode={shaderMode} isMobile={isMobile} />
       </Suspense>
     </Canvas>
   )

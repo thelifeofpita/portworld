@@ -10,11 +10,9 @@ import { zoneTransitionStore } from '@/lib/zoneTransitionStore'
 import { fgStore } from '@/lib/fgStore'
 import { rerollPalette } from '@/lib/paletteStore'
 import { debugStore, hexToRgb255 } from '@/lib/debugStore'
-import { playgroundGlowStore } from '@/lib/playgroundGlowStore'
-import { projectCardCorners } from '@/lib/cardGlowStore'
 import { aboutContent } from '@/content/aboutContent'
 import { projectsContent, type ProjectItem } from '@/content/projectsContent'
-import { playgroundContent } from '@/content/playgroundContent'
+const PlaygroundGallery = dynamic(() => import('./PlaygroundGallery'))
 import { CUSTOM_LAYOUTS } from './customLayouts'
 import type { Zone } from '@/types'
 import styles from './MobilePage.module.css'
@@ -30,9 +28,6 @@ const CANVAS_VH = 0.45
 
 const EASE_OUT = [0.22, 1, 0.36, 1] as const
 
-// dt-normalized smoothing factor for the selected-card glow's fade in/out —
-// same shape/pace as desktop's hover-glow smoothing (see ContentPanel.tsx).
-const GLOW_SMOOTH = 0.14
 
 // ─── Zone Nav ────────────────────────────────────────────────────────────────
 
@@ -156,179 +151,6 @@ function MobileZoneNav({ activeZone, canvasAreaRef }: MobileZoneNavProps) {
 
 // ─── Playground ───────────────────────────────────────────────────────────────
 
-function MobilePlayground() {
-  const itemRefs  = useRef<(HTMLDivElement | null)[]>([])
-  const videoRefs = useRef<(HTMLVideoElement | null)[]>([])
-  const [selectedIndex, setSelectedIndex] = useState<number | null>(null)
-
-  useEffect(() => {
-    const pick = () => {
-      const vpCY = window.innerHeight / 2
-      let best = 0, bestDist = Infinity
-      itemRefs.current.forEach((el, i) => {
-        if (!el) return
-        const r    = el.getBoundingClientRect()
-        const dist = Math.abs(r.top + r.height / 2 - vpCY)
-        if (dist < bestDist) { bestDist = dist; best = i }
-      })
-      setSelectedIndex(best)
-    }
-    pick()
-    window.addEventListener('scroll', pick, { passive: true })
-    return () => window.removeEventListener('scroll', pick)
-  }, [])
-
-  useEffect(() => {
-    videoRefs.current.forEach((v, i) => {
-      if (!v) return
-      if (i === selectedIndex) v.play().catch(() => {})
-      else { v.pause(); v.currentTime = 0 }
-    })
-  }, [selectedIndex])
-
-  // Two separate column arrays for seamless masonry — no row-height equalization
-  const leftItems  = playgroundContent.filter((_, i) => i % 2 === 0)
-  const rightItems = playgroundContent.filter((_, i) => i % 2 === 1)
-
-  return (
-    <div className={styles.mobilePlaygroundGrid}>
-      <div className={styles.mobilePlaygroundCol}>
-        {leftItems.map((item, col) => {
-          const idx = col * 2
-          return (
-            <MobilePlaygroundItem
-              key={idx}
-              index={idx}
-              item={item}
-              isSelected={idx === selectedIndex}
-              onRef={el  => { itemRefs.current[idx]  = el }}
-              onVideoRef={el => { videoRefs.current[idx] = el }}
-            />
-          )
-        })}
-      </div>
-      <div className={styles.mobilePlaygroundCol}>
-        {rightItems.map((item, col) => {
-          const idx = col * 2 + 1
-          return (
-            <MobilePlaygroundItem
-              key={idx}
-              index={idx}
-              item={item}
-              isSelected={idx === selectedIndex}
-              onRef={el  => { itemRefs.current[idx]  = el }}
-              onVideoRef={el => { videoRefs.current[idx] = el }}
-            />
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-interface PlaygroundItemProps {
-  index:      number
-  item:       typeof playgroundContent[number]
-  isSelected: boolean
-  onRef:      (el: HTMLDivElement | null) => void
-  onVideoRef: (el: HTMLVideoElement | null) => void
-}
-
-function MobilePlaygroundItem({ item, isSelected, onRef, onVideoRef }: PlaygroundItemProps) {
-  const [ar, setAr] = useState(item.aspectRatio ?? 1)
-  const thumbRef = useRef<HTMLDivElement>(null)
-  const isSelectedRef = useRef(false)
-  useEffect(() => { isSelectedRef.current = isSelected }, [isSelected])
-
-  // Same WebGL dithered-ring glow as desktop's PlaygroundCard (via the
-  // shared playgroundGlowStore pool + PostProcessing's outer-glow pass) —
-  // not a CSS box-shadow approximation. No tilt on mobile (no ambient
-  // cursor to look toward), so the published quad is a plain axis-aligned
-  // rect: projectCardCorners(0, 0, ...) reduces to exactly that.
-  const glowSlotRef = useRef<number | null>(null)
-  useEffect(() => {
-    let rafId: number
-    let lastTime = performance.now()
-    const glowProgress = { current: 0 }
-    const releaseSlot = () => {
-      if (glowSlotRef.current !== null) {
-        playgroundGlowStore.entries[glowSlotRef.current] = null
-        glowSlotRef.current = null
-      }
-    }
-    const tick = (now: number) => {
-      const dt = Math.min((now - lastTime) / 1000, 0.1)
-      lastTime = now
-      const f = 1 - Math.pow(1 - GLOW_SMOOTH, dt * 60)
-      glowProgress.current += ((isSelectedRef.current ? 1 : 0) - glowProgress.current) * f
-
-      const el = thumbRef.current
-      const w  = el?.offsetWidth  ?? 0
-      const h  = el?.offsetHeight ?? 0
-      if (el && w && h && glowProgress.current > 0.001) {
-        if (glowSlotRef.current === null) {
-          glowSlotRef.current = playgroundGlowStore.entries.findIndex(e => e === null)
-        }
-        if (glowSlotRef.current !== -1 && glowSlotRef.current !== null) {
-          const r  = el.getBoundingClientRect()
-          const cx = r.left + r.width  / 2
-          const cy = r.top  + r.height / 2
-          const corners = projectCardCorners(0, 0, w, h, 900, cx, cy)
-          playgroundGlowStore.entries[glowSlotRef.current] = { corners, opacity: glowProgress.current }
-        }
-      } else {
-        releaseSlot()
-      }
-      rafId = requestAnimationFrame(tick)
-    }
-    rafId = requestAnimationFrame(tick)
-    return () => {
-      cancelAnimationFrame(rafId)
-      releaseSlot()
-    }
-  }, [])
-
-  return (
-    <div ref={onRef} className={styles.mobilePlaygroundItem}>
-      <div style={{ pointerEvents: 'none' }}>
-        <div
-          ref={thumbRef}
-          className={styles.mobilePlaygroundThumb}
-          style={{ aspectRatio: String(ar) }}
-        >
-          {(item.mp4 || item.webm) && (
-            <video
-              ref={onVideoRef}
-              muted loop playsInline preload="metadata"
-              onLoadedMetadata={e => {
-                const v = e.currentTarget
-                if (v.videoWidth && v.videoHeight) setAr(v.videoWidth / v.videoHeight)
-              }}
-              style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-            >
-              {item.webm && <source src={item.webm} type="video/webm" />}
-              {item.mp4  && <source src={item.mp4}  type="video/mp4"  />}
-            </video>
-          )}
-          {item.poster && (
-            <img
-              src={item.poster} alt=""
-              className={styles.mobilePlaygroundPoster}
-              style={{ opacity: isSelected && (item.mp4 || item.webm) ? 0 : 1 }}
-              onLoad={e => {
-                if (item.mp4 || item.webm) return
-                const img = e.currentTarget
-                if (img.naturalWidth && img.naturalHeight) setAr(img.naturalWidth / img.naturalHeight)
-              }}
-            />
-          )}
-        </div>
-        <p className={styles.mobilePlaygroundTitle}>{item.title}</p>
-      </div>
-    </div>
-  )
-}
-
 // ─── Projects ─────────────────────────────────────────────────────────────────
 
 function MobileProjectCard({
@@ -348,7 +170,7 @@ function MobileProjectCard({
               className={styles.mobileProjectThumbWrap}
             >
               {item.thumb && (
-                <Image src={item.thumb} alt={item.title} fill quality={90} style={{ objectFit: 'cover', transform: item.thumbScale && item.thumbScale !== 1 ? `scale(${item.thumbScale})` : undefined }} sizes="100vw" />
+                <Image src={item.thumb} alt={item.title} fill quality={90} loading="eager" style={{ objectFit: 'cover', transform: item.thumbScale && item.thumbScale !== 1 ? `scale(${item.thumbScale})` : undefined }} sizes="100vw" />
               )}
             </motion.div>
           ) : (
@@ -551,11 +373,19 @@ interface MobilePageProps {
   activeZone:   Zone | null
   onZoneChange: (zone: Zone) => void
   onZoneReset:  () => void
+  onPrepared?: () => void
+  warming?: boolean
   onLoad:       () => void
 }
 
-export default function MobilePage({ activeZone, onZoneChange, onZoneReset, onLoad }: MobilePageProps) {
+export default function MobilePage({ activeZone, onZoneChange, onZoneReset, onLoad, onPrepared, warming = false }: MobilePageProps) {
   const canvasAreaRef = useRef<HTMLDivElement>(null)
+  const projectsRef = useRef<HTMLElement>(null)
+  const prepared = useCallback(() => {
+    const images = [...(projectsRef.current?.querySelectorAll('img') ?? [])]
+    void Promise.all(images.map(img => img.decode().catch(() => {}))).then(() => onPrepared?.())
+  }, [onPrepared])
+  const hiddenSection = { position: 'absolute' as const, visibility: 'hidden' as const, pointerEvents: 'none' as const, width: '100%', top: 0, left: 0 }
 
   // PostProcessing.tsx's outer-glow passes (Projects' always-on glow, and
   // Playground/About's hover-only glow) are gated on zoneTransitionStore —
@@ -579,19 +409,21 @@ export default function MobilePage({ activeZone, onZoneChange, onZoneReset, onLo
         isMobile={true}
       />
 
-      <main className={styles.mobileMain}>
+      <main className={`${styles.mobileMain} ${activeZone === 2 ? styles.playgroundMode : ''}`}>
         {/* Spacer — height reference for ZoneNav SVG line calculations */}
         <div ref={canvasAreaRef} className={styles.mobileCanvasArea} />
 
         {/* Zone nav — right below canvas, SVG lines overflow upward */}
         <MobileZoneNav activeZone={activeZone} canvasAreaRef={canvasAreaRef} />
 
-      {/* Only the active section is rendered — no long scroll */}
+      {/* Keep prepared sections mounted; only the active one occupies scroll space. */}
       <AnimatePresence mode="wait">
-        {activeZone === 0 && (
+        {(
           <motion.section
-            key="projects"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            key="projects" ref={projectsRef}
+            style={activeZone === 0 ? undefined : hiddenSection}
+            aria-hidden={activeZone !== 0}
+            initial={{ opacity: 0 }} animate={{ opacity: activeZone === 0 ? 1 : 0 }}
             transition={{ duration: 0.2 }}
             className={styles.mobileSection}
           >
@@ -608,14 +440,16 @@ export default function MobilePage({ activeZone, onZoneChange, onZoneReset, onLo
             <MobileAbout />
           </motion.section>
         )}
-        {activeZone === 2 && (
+        {(
           <motion.section
             key="playground"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            style={activeZone === 2 ? undefined : hiddenSection}
+            aria-hidden={activeZone !== 2}
+            initial={{ opacity: 0 }} animate={{ opacity: activeZone === 2 ? 1 : 0 }}
             transition={{ duration: 0.2 }}
             className={styles.mobileSection}
           >
-            <MobilePlayground />
+            <PlaygroundGallery mobile active={warming || activeZone === 2} warming={warming} onPrepared={prepared} />
           </motion.section>
         )}
       </AnimatePresence>

@@ -1,0 +1,13 @@
+import { chromium } from 'playwright'
+const browser=await chromium.launch({channel:'chrome',headless:true})
+const page=await browser.newPage({viewport:{width:1440,height:900}})
+page.on('pageerror',e=>console.log('ERROR',e.message))
+page.on('console',e=>{if(e.type()==='error')console.log(e.text().slice(0,500))})
+await page.goto('http://localhost:3001/?materialAudit=1')
+await page.getByRole('status',{name:'Loading'}).waitFor({state:'hidden',timeout:90000})
+await page.waitForTimeout(3000)
+await page.getByText('Projects',{exact:true}).dispatchEvent('click')
+await page.waitForTimeout(12000)
+console.log(await page.evaluate(()=>({panes:[...document.querySelectorAll('[class*="paneLayer"]')].map(e=>({html:e.innerHTML.slice(0,200),style:e.getAttribute('style')})),audit:!!window.__duoAudit,body:document.body.innerText.slice(-500)})))
+await page.screenshot({path:'/tmp/perf-inspect.png'})
+await browser.close()

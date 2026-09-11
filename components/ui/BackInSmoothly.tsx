@@ -1,11 +1,11 @@
 'use client'
 
-import Image from 'next/image'
+import media from '@/content/back-in-smoothly-media.json'
 import DitherReveal from './DitherReveal'
 import styles from './BackInSmoothly.module.css'
 
 const YOUTUBE_ID = 'ZOVg5GCUxqs'
-const PLAY_URL = 'https://backinsmoothly.netlify.app/'
+const PLAY_URL = 'https://thelifeofpita.github.io/backingame/'
 
 interface BackInSmoothlyDetailProps {
   onPrev:  () => void
@@ -71,7 +71,8 @@ export default function BackInSmoothlyDetail({ onPrev, onNext, onClose }: BackIn
         </DitherReveal>
 
         <DitherReveal overlayColor="#FFE500" className={styles.ctaRow}>
-          <img className={styles.phoneBox} src="/projects/proj5/gif3.webp" alt="" />
+          <img className={styles.phoneBox} src={media['gif3.transparent'].src} width={608} height={1080}
+            alt="Back in smoothly — updated mobile game demo 1" />
 
           <div className={styles.ctaCenter}>
             <a className={styles.ctaBadge} href={PLAY_URL} target="_blank" rel="noopener noreferrer">
@@ -79,14 +80,18 @@ export default function BackInSmoothlyDetail({ onPrev, onNext, onClose }: BackIn
               <span className={styles.ctaBadgeLine}>Play now!</span>
             </a>
             <p className={styles.ctaCaption}>Best played on mobile.</p>
-            <img className={styles.qr} src="/projects/proj5/qr.svg" alt="Scan to play Back in smoothly on your phone" />
+            <img className={styles.qr} src={media['qr.svg'].src} alt="Scan to play Back in smoothly on your phone" />
           </div>
 
-          <img className={styles.phoneBox} src="/projects/proj5/gif4.webp" alt="" />
+          <img className={styles.phoneBox} src={media['gif4.transparent'].src} width={608} height={1080}
+            alt="Back in smoothly — updated mobile game demo 2" />
         </DitherReveal>
 
-        <DitherReveal overlayColor="#FFE500" className={styles.carPhotoWrap}>
-          <Image src="/projects/proj5/car-camera.webp" alt="PlatanoMelón's ad shown inside a car's rear-view backup camera" fill quality={90} style={{ objectFit: 'cover' }} sizes="(min-width: 900px) 900px, 100vw" />
+        <DitherReveal overlayColor="#FFE500" className={styles.mockupRow}>
+          {(['park1.webp', 'park2.webp', 'park3.webp'] as const).map((name, i) => (
+            <img key={name} src={media[name].src} width={media[name].width} height={media[name].height}
+              alt={`Back in smoothly — ${['star', 'flower', 'burst'][i]} sticker seen through a parking garage rear-view camera`} />
+          ))}
         </DitherReveal>
 
         <ProjectNav onPrev={onPrev} onNext={onNext} onClose={onClose} />

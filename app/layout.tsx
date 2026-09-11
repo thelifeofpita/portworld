@@ -1,7 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
-import { projectsContent } from '@/content/projectsContent'
-import DebugMenu from '@/components/ui/DebugMenu'
+import LazyDebugMenu from '@/components/ui/LazyDebugMenu'
 import { pickPalette } from '@/lib/paletteSource'
 import { paletteCssVars } from '@/lib/paletteVars'
 
@@ -39,11 +38,6 @@ export default async function RootLayout({
         <link rel="preload" href="/env/studio_small_03_1k.hdr" as="fetch" crossOrigin="anonymous" />
         <link rel="preload" href="/fonts/FuturaPT-Demi.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
         <link rel="preload" href="/fonts/FuturaPT-Bold.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
-        {/* Preload project thumbnails so they're ready before the user rotates to zone 0 */}
-        {projectsContent.map(p => p.thumb
-          ? <link key={p.thumb} rel="preload" as="image" href={p.thumb} />
-          : null
-        )}
         {/* This session's colors, before any JS runs. */}
         <style>{`:root{${paletteCssVars(palette)}}`}</style>
         {/* Same palette handed to the client so paletteStore can adopt it
@@ -54,7 +48,7 @@ export default async function RootLayout({
       </head>
       <body suppressHydrationWarning>
         {children}
-        <DebugMenu />
+        <LazyDebugMenu />
       </body>
     </html>
   )

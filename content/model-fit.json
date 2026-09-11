@@ -1,0 +1,26 @@
+{
+  "/generated/surfthespike-phone-3f870e359f6d.glb": {
+    "coverage": 0.6023921592562389,
+    "sha256": "3f870e359f6d76c7add5702ee3fce62be969675977e02ef4c5c89213eebddf83"
+  },
+  "/models/duolingo.glb": {
+    "coverage": 0.5277678246591165,
+    "sha256": "f2e40489fb7cbc0f38e1bf8f60e8e7d0de0f4bd75d276be57756c47dc2a2046d"
+  },
+  "/models/verified-magazine-c39b9a5102.glb": {
+    "coverage": 0.9902131323720427,
+    "sha256": "c39b9a5102ad800d8a4653cac63d28b51c1d671ef5dfe2be1c056f6168996fd7"
+  },
+  "/models/hat-twix.glb": {
+    "coverage": 0.2769194958256492,
+    "sha256": "32d5aca288ec5ab69b0a7616988a48c61c1481bcfc5cfaef31c839c2cb120e15"
+  },
+  "/models/pick-a-side-fries-50656e5e9f.glb": {
+    "coverage": 0.4305549172794069,
+    "sha256": "50656e5e9fc88b7363cbc2ab36c3e9145714a9efbc07067c7c0dd02087cda5dd"
+  },
+  "/models/back-in-smoothly-monitor.glb?v=3": {
+    "coverage": 0.9043606028837222,
+    "sha256": "d05342b8e7054e467006bc903e044671cec6ceb09c731dd67f6a21a661bf24f1"
+  }
+}

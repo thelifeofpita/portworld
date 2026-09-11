@@ -1,0 +1,101 @@
+.page {
+  width: 100%;
+  background: var(--case-color);
+  color: var(--case-ink);
+  padding: 1.5rem 0 2.5rem;
+}
+.inner {
+  container-type: inline-size;
+  max-width: min(94vw, 1500px);
+  margin: 0 auto;
+  padding: 0 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+.navigation { position: relative; display: flex; align-items: center; justify-content: space-between; }
+.navigation button {
+  font-family: var(--font-primary);
+  font-weight: var(--font-primary-weight);
+  letter-spacing: calc(-0.01em + var(--tracking));
+  font-size: max(0.7rem, 1.5cqw);
+  text-transform: uppercase;
+  color: var(--case-ink);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+.navigation button:hover { color: var(--case-accent); }
+.navigation button:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+.navBtn { display: flex; align-items: center; gap: 0.4em; }
+.navArrow { font-size: 1.1em; line-height: 1; }
+.close { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+.hero { text-align: center; padding-bottom: 0.25rem; }
+.title {
+  font-family: var(--font-display);
+  font-weight: var(--font-display-weight);
+  letter-spacing: var(--tracking);
+  text-transform: uppercase;
+  font-size: max(2.1rem, 8.5cqw);
+  line-height: 0.95;
+  text-wrap: balance;
+}
+.subtitle {
+  font-family: var(--font-primary);
+  font-weight: var(--font-primary-weight);
+  letter-spacing: calc(-0.01em + var(--tracking));
+  font-size: max(0.875rem, 1.5cqw);
+  line-height: 1.35;
+}
+.subtitle { margin: 1rem auto 0; max-width: 58cqw; text-wrap: pretty; }
+.film { width: 100%; aspect-ratio: 16 / 9; overflow: hidden; background: #000; }
+.film iframe { width: 100%; height: 100%; border: 0; display: block; }
+.image { display: block; width: 100%; height: auto; min-width: 0; }
+.pair, .vendors, .executionPair, .socials, .posters, .stills {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  align-items: center;
+}
+.posters { grid-template-columns: 1fr 1.98fr 1fr; align-items: stretch; }
+.posters .image { height: 100%; object-fit: cover; }
+.logo { max-width: min(40%, 400px); margin: auto; }
+.vendors .image { aspect-ratio: 4 / 5; object-fit: cover; object-position: 60% 50%; }
+.vendors .image:first-child { object-position: 59% 50%; }
+.vendors .image:last-child { object-position: 52% 50%; }
+.executionPair .image { aspect-ratio: 4 / 3; object-fit: cover; object-position: center; }
+.tweets { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+.socials > .image:last-child { max-width: 240px; justify-self: center; }
+.stills { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* Individual focal points keep the engraved message, rather than empty space. */
+.stillCrop { position: relative; aspect-ratio: 8 / 9; overflow: hidden; }
+.stillCrop .image {
+  position: absolute; left: 50%; top: 50%; width: var(--crop-width, 200%);
+  max-width: none; height: auto;
+  transform: translate(var(--crop-x, -50%), var(--crop-y, -50%));
+}
+.stillCrop[data-duo-crop="duoReminder"],
+.stillCrop[data-duo-crop="duoItalian"] { --crop-width: 430%; --crop-x: -41.7%; }
+.stillCrop[data-duo-crop="duoFrench"] { --crop-width: 300%; --crop-x: -50.5%; --crop-y: -59%; }
+.stillCrop[data-duo-crop="duoSpanish"] { --crop-width: 300%; }
+.stillCrop[data-duo-crop="duoWinner"] { --crop-width: 300%; --crop-y: -55%; }
+.loop { position: relative; min-width: 0; aspect-ratio: 16 / 9; background: #fff; }
+.loop video { display: block; width: 100%; height: 100%; }
+@media (min-width: 700px) {
+  .inner { padding: 0 3rem; gap: 2.25rem; }
+  .pair, .executionPair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .vendors { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .socials { grid-template-columns: 1.5fr 1.2fr 0.523fr; }
+  .stills { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+  .pair, .executionPair, .vendors, .socials, .posters, .stills, .tweets { gap: 1.25rem; }
+  .socials > .image:last-child { max-width: 100%; }
+}
+@media (max-width: 699px) {
+  .subtitle { max-width: 100%; }
+  .logo { max-width: 65%; }
+  .vendors { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
+  .posters { gap: 0.5rem; }
+}
+@media (prefers-reduced-motion: reduce) { .navigation button { transition: none; } }

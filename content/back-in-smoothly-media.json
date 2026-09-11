@@ -1,0 +1,56 @@
+{
+  "gif3.mp4": {
+    "src": "/generated/back-in-smoothly-gif3-5dca76f8e3ed.mp4",
+    "width": 608,
+    "height": 1080
+  },
+  "gif4.mp4": {
+    "src": "/generated/back-in-smoothly-gif4-d50d4ba0cafd.mp4",
+    "width": 608,
+    "height": 1080
+  },
+  "gif3.jpg": {
+    "src": "/generated/back-in-smoothly-gif3-1bc151a85a85.jpg",
+    "width": 608,
+    "height": 1080
+  },
+  "gif4.jpg": {
+    "src": "/generated/back-in-smoothly-gif4-ded7141976d0.jpg",
+    "width": 608,
+    "height": 1080
+  },
+  "qr.svg": {
+    "src": "/generated/back-in-smoothly-qr-3166e307aef6.svg",
+    "width": 99,
+    "height": 99
+  },
+  "park1.webp": {
+    "src": "/generated/back-in-smoothly-park1-4bd1230f03df.webp",
+    "width": 1000,
+    "height": 1000
+  },
+  "park2.webp": {
+    "src": "/generated/back-in-smoothly-park2-babaaa4ada23.webp",
+    "width": 1000,
+    "height": 1000
+  },
+  "park3.webp": {
+    "src": "/generated/back-in-smoothly-park3-44a9b50f5f37.webp",
+    "width": 1000,
+    "height": 1000
+  },
+  "gif3.transparent": {
+    "src": "/generated/back-in-smoothly-game-3-alpha-a4d6b2674b01.webp",
+    "width": 608,
+    "height": 1080,
+    "frames": 202,
+    "duration": 8.08
+  },
+  "gif4.transparent": {
+    "src": "/generated/back-in-smoothly-game-4-alpha-464ba5fd410e.webp",
+    "width": 608,
+    "height": 1080,
+    "frames": 194,
+    "duration": 7.76
+  }
+}

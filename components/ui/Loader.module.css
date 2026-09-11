@@ -3,6 +3,7 @@
   inset: 0;
   z-index: 100;
   background-color: var(--bg-color);
+  transition: background-color var(--palette-step, 0ms) ease-in-out;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -17,6 +18,7 @@
 .textBase,
 .textFill {
   font-size: calc(1rem * var(--font-primary-scale, 1));
+  transition: color var(--palette-step, 0ms) ease-in-out;
   white-space: nowrap;
   display: block;
 }
@@ -38,4 +40,8 @@
 @keyframes fill {
   from { width: 0% }
   to   { width: 100% }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .loader, .textBase, .textFill { transition: none; }
 }

@@ -6,6 +6,12 @@
   pointer-events: none;
 }
 
+.playgroundMode { background: var(--bg-color); min-height: 100svh; }
+.playgroundMode .mobileCanvasArea { height: 32px; }
+.playgroundMode .mobileZoneNavSvg { display: none; }
+.playgroundMode .mobileSection { padding: 16px 12px 0; }
+.playgroundMode .mobileFooter { display: none; }
+
 /* ─── Canvas area — scrolls with the page ───────────────────────────────── */
 
 .mobileCanvasArea {
@@ -58,51 +64,6 @@
   padding: 2rem 1.25rem 3rem;
 }
 
-/* ─── Playground — two independent columns, seamless masonry ─────────────── */
-
-.mobilePlaygroundGrid {
-  display: flex;
-  gap: 0.75rem;
-  align-items: flex-start;
-}
-
-.mobilePlaygroundCol {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  gap: 0.75rem;
-}
-
-.mobilePlaygroundItem {
-  display: flex;
-  flex-direction: column;
-  gap: 0.3rem;
-}
-
-/* No aspect-ratio here — set inline per item from media metadata */
-.mobilePlaygroundThumb {
-  position: relative;
-  width: 100%;
-  background: var(--placeholder-color);
-  overflow: hidden;
-}
-
-.mobilePlaygroundPoster {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  transition: opacity 0.15s ease;
-}
-
-.mobilePlaygroundTitle {
-  font-size: calc(0.6rem * var(--font-primary-scale, 1));
-  font-weight: 400;
-  letter-spacing: calc(0.05em + var(--tracking));
-  color: var(--fg-muted);
-}
 
 /* ─── Projects — spaced cards ────────────────────────────────────────────── */
 

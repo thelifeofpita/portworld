@@ -1,0 +1,65 @@
+{
+  "body": {
+    "src": "/generated/duolingo-body-sheen-53c28f564c20.png",
+    "width": 1024,
+    "height": 1024,
+    "range": [
+      0,
+      0.7450980392156863
+    ]
+  },
+  "eyes": {
+    "src": "/generated/duolingo-eyes-sheen-df4549e0f1e9.png",
+    "width": 512,
+    "height": 512,
+    "range": [
+      0,
+      0.7294117647058823
+    ]
+  },
+  "feet": {
+    "src": "/generated/duolingo-feet-sheen-f30f51481a1b.png",
+    "width": 512,
+    "height": 512,
+    "range": [
+      0,
+      0.7568627450980392
+    ]
+  },
+  "mask": {
+    "src": "/generated/duolingo-mask-sheen-5817e8db2b43.png",
+    "width": 512,
+    "height": 512,
+    "range": [
+      0,
+      0.7607843137254902
+    ]
+  },
+  "pockets": {
+    "src": "/generated/duolingo-pockets-sheen-a5a9542d1c54.png",
+    "width": 512,
+    "height": 512,
+    "range": [
+      0.10588235294117647,
+      0.7137254901960784
+    ]
+  },
+  "beek_up": {
+    "src": "/generated/duolingo-beek_up-sheen-94cc5faaeff9.png",
+    "width": 512,
+    "height": 512,
+    "range": [
+      0,
+      0.7372549019607844
+    ]
+  },
+  "beek_down": {
+    "src": "/generated/duolingo-beek_down-sheen-6b3692344f29.png",
+    "width": 512,
+    "height": 512,
+    "range": [
+      0,
+      0.6509803921568628
+    ]
+  }
+}

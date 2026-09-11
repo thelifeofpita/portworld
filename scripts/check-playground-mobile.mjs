@@ -1,0 +1,20 @@
+import { chromium } from 'playwright'
+const browser = await chromium.launch({ channel: 'chrome', headless: true })
+try {
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true })
+  page.on('pageerror', e => console.log('PAGE ERROR', e.message))
+  await page.goto((process.env.TEST_BASE_URL || 'http://localhost:3000'), { waitUntil: 'domcontentloaded' })
+  await page.getByText('Playground', { exact: true }).waitFor()
+  await page.getByRole('status', { name: 'Loading' }).waitFor({ state: 'hidden', timeout: 90000 })
+  await page.waitForTimeout(2000)
+  await page.getByText('Playground', { exact: true }).dispatchEvent('click')
+  await page.getByRole('button', { name: 'Open Woodstock 29', exact: true }).waitFor({ timeout: 60000 })
+  await page.waitForFunction(() => [...document.querySelectorAll('[aria-label="Playground"] img[src]')].every(image => image.complete && image.naturalWidth > 0) && [...document.querySelectorAll('[aria-label="Playground"] video[src]')].every(video => video.readyState >= 2), { timeout: 60000 })
+  await page.waitForTimeout(1000)
+  await page.screenshot({ path: '/private/tmp/playground-mobile.png' })
+  console.log('CARDS', await page.locator('[aria-label="Playground"] button').evaluateAll(cards => cards.map(c => { const r=c.getBoundingClientRect(); return { name:c.getAttribute('aria-label'), w:r.width, h:r.height, inView: r.top>=0 && r.bottom+22<=innerHeight && r.left>=0 && r.right<=innerWidth } })))
+  await page.getByRole('button', { name: 'Open Woodstock 29', exact: true }).click()
+  await page.waitForTimeout(1500)
+  await page.screenshot({ path: '/private/tmp/playground-mobile-detail.png' })
+  console.log('DETAIL',await page.getByRole('dialog').locator('img,video').count())
+} finally { await browser.close() }

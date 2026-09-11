@@ -1,0 +1,30 @@
+[
+  {
+    "width": 1440,
+    "section": "Playground",
+    "readyMs": 4409,
+    "longTasks": [],
+    "maxTaskMs": 0
+  },
+  {
+    "width": 1440,
+    "section": "Projects",
+    "readyMs": 4409,
+    "longTasks": [],
+    "maxTaskMs": 0
+  },
+  {
+    "width": 390,
+    "section": "Playground",
+    "readyMs": 1455,
+    "longTasks": [],
+    "maxTaskMs": 0
+  },
+  {
+    "width": 390,
+    "section": "Projects",
+    "readyMs": 1455,
+    "longTasks": [],
+    "maxTaskMs": 0
+  }
+]

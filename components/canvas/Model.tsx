@@ -305,6 +305,9 @@ export default function Model({ onZoneChange, onZoneReset, onAsciiToggle, onMode
     // actual per-part location. Done here rather than useEffect because the scene
     // graph must be fully ready first.)
     if (accentRestPos.current.size < accentMeshMap.current.size) {
+      // The first frame can run before a renderer/Preload has updated parent
+      // matrices. Cache rest positions only after the centered hierarchy is current.
+      groupRef.current.updateWorldMatrix(true, true)
       _qa.copy(currentQuat.current).invert()
       accentMeshMap.current.forEach((mesh, zone) => {
         _box3.setFromObject(mesh)

@@ -1,0 +1,749 @@
+{
+  "twixLogo": {
+    "source": "MAD/ADS/hatTwix/imgs/hatTwixByTwix01.png",
+    "localCaseTimestamp": "35",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "VykD83mmSTo",
+    "alt": "Hat Twix by Twix campaign logo",
+    "width": 1600,
+    "height": 1004,
+    "src": "/generated/case-twixLogo-1600-039abf3dbf31.webp",
+    "srcSet": "/generated/case-twixLogo-480-c355869bbbc8.webp 480w, /generated/case-twixLogo-960-5d7ceee61738.webp 960w, /generated/case-twixLogo-1600-039abf3dbf31.webp 1600w",
+    "variants": [
+      {
+        "src": "/generated/case-twixLogo-480-c355869bbbc8.webp",
+        "width": 480,
+        "height": 301,
+        "bytes": 42504
+      },
+      {
+        "src": "/generated/case-twixLogo-960-5d7ceee61738.webp",
+        "width": 960,
+        "height": 602,
+        "bytes": 97166
+      },
+      {
+        "src": "/generated/case-twixLogo-1600-039abf3dbf31.webp",
+        "width": 1600,
+        "height": 1004,
+        "bytes": 181220
+      }
+    ]
+  },
+  "twixHenry": {
+    "source": "MAD/ADS/hatTwix/ooh/henry.png",
+    "localCaseTimestamp": "65",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "VykD83mmSTo",
+    "alt": "Thierry Henry: One goal was good. Two was even better.",
+    "width": 1600,
+    "height": 2251,
+    "src": "/generated/case-twixHenry-1600-03eb91399127.webp",
+    "srcSet": "/generated/case-twixHenry-480-45c4250234f4.webp 480w, /generated/case-twixHenry-960-8b5a73922e80.webp 960w, /generated/case-twixHenry-1600-03eb91399127.webp 1600w",
+    "variants": [
+      {
+        "src": "/generated/case-twixHenry-480-45c4250234f4.webp",
+        "width": 480,
+        "height": 675,
+        "bytes": 47092
+      },
+      {
+        "src": "/generated/case-twixHenry-960-8b5a73922e80.webp",
+        "width": 960,
+        "height": 1350,
+        "bytes": 107202
+      },
+      {
+        "src": "/generated/case-twixHenry-1600-03eb91399127.webp",
+        "width": 1600,
+        "height": 2251,
+        "bytes": 195572
+      }
+    ]
+  },
+  "twixZidane": {
+    "source": "MAD/ADS/hatTwix/ooh/zidane.png",
+    "localCaseTimestamp": "65",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "VykD83mmSTo",
+    "alt": "Zinedine Zidane: One goal was good. Two was even better.",
+    "width": 1600,
+    "height": 1137,
+    "src": "/generated/case-twixZidane-1600-0309c6b4b337.webp",
+    "srcSet": "/generated/case-twixZidane-480-52982a0a5960.webp 480w, /generated/case-twixZidane-960-2b2a438b587d.webp 960w, /generated/case-twixZidane-1600-0309c6b4b337.webp 1600w",
+    "variants": [
+      {
+        "src": "/generated/case-twixZidane-480-52982a0a5960.webp",
+        "width": 480,
+        "height": 341,
+        "bytes": 57222
+      },
+      {
+        "src": "/generated/case-twixZidane-960-2b2a438b587d.webp",
+        "width": 960,
+        "height": 682,
+        "bytes": 137292
+      },
+      {
+        "src": "/generated/case-twixZidane-1600-0309c6b4b337.webp",
+        "width": 1600,
+        "height": 1137,
+        "bytes": 249800
+      }
+    ]
+  },
+  "twixBale": {
+    "source": "MAD/ADS/hatTwix/ooh/bale.png",
+    "localCaseTimestamp": "65",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "VykD83mmSTo",
+    "alt": "Gareth Bale: One goal was good. Two was even better.",
+    "width": 1600,
+    "height": 2251,
+    "src": "/generated/case-twixBale-1600-62a41bf709cb.webp",
+    "srcSet": "/generated/case-twixBale-480-65f96a08877d.webp 480w, /generated/case-twixBale-960-f099992e8fb2.webp 960w, /generated/case-twixBale-1600-62a41bf709cb.webp 1600w",
+    "variants": [
+      {
+        "src": "/generated/case-twixBale-480-65f96a08877d.webp",
+        "width": 480,
+        "height": 675,
+        "bytes": 61282
+      },
+      {
+        "src": "/generated/case-twixBale-960-f099992e8fb2.webp",
+        "width": 960,
+        "height": 1350,
+        "bytes": 167932
+      },
+      {
+        "src": "/generated/case-twixBale-1600-62a41bf709cb.webp",
+        "width": 1600,
+        "height": 2251,
+        "bytes": 315590
+      }
+    ]
+  },
+  "twixPub": {
+    "source": "MAD/ADS/hatTwix/ooh/Artboard5.png",
+    "localCaseTimestamp": "65",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "VykD83mmSTo",
+    "alt": "The Henry Hat Twix poster in a football pub",
+    "width": 1600,
+    "height": 2004,
+    "src": "/generated/case-twixPub-1600-cf73d34d1ed4.webp",
+    "srcSet": "/generated/case-twixPub-480-db66a9efd383.webp 480w, /generated/case-twixPub-960-65b343adafc7.webp 960w, /generated/case-twixPub-1600-cf73d34d1ed4.webp 1600w",
+    "variants": [
+      {
+        "src": "/generated/case-twixPub-480-db66a9efd383.webp",
+        "width": 480,
+        "height": 601,
+        "bytes": 67258
+      },
+      {
+        "src": "/generated/case-twixPub-960-65b343adafc7.webp",
+        "width": 960,
+        "height": 1203,
+        "bytes": 193460
+      },
+      {
+        "src": "/generated/case-twixPub-1600-cf73d34d1ed4.webp",
+        "width": 1600,
+        "height": 2004,
+        "bytes": 366542
+      }
+    ]
+  },
+  "twixSocialPsg": {
+    "source": "MAD/ADS/hatTwix/igntiktok/IG 3.png",
+    "localCaseTimestamp": "68–75",
+    "transformation": "Image edit: yellow Hat Twix highlights and selection-outline cleanup; responsive WebP from reviewed edit",
+    "editedSource": "assets/campaign-edits/hat-twix-psg.png",
+    "editorialReference": "VykD83mmSTo",
+    "alt": "PSG social campaign mockup celebrating a Hat Twix",
+    "width": 1535,
+    "height": 1025,
+    "src": "/generated/case-twixSocialPsg-1535-9f097103ccd0.webp",
+    "srcSet": "/generated/case-twixSocialPsg-480-b56c8eb75eae.webp 480w, /generated/case-twixSocialPsg-960-2285f8fd312a.webp 960w, /generated/case-twixSocialPsg-1535-9f097103ccd0.webp 1535w",
+    "variants": [
+      {
+        "src": "/generated/case-twixSocialPsg-480-b56c8eb75eae.webp",
+        "width": 480,
+        "height": 321,
+        "bytes": 27866
+      },
+      {
+        "src": "/generated/case-twixSocialPsg-960-2285f8fd312a.webp",
+        "width": 960,
+        "height": 641,
+        "bytes": 74030
+      },
+      {
+        "src": "/generated/case-twixSocialPsg-1535-9f097103ccd0.webp",
+        "width": 1535,
+        "height": 1025,
+        "bytes": 128608
+      }
+    ]
+  },
+  "twixSocialDinamo": {
+    "source": "MAD/ADS/hatTwix/igntiktok/IG 6.png",
+    "localCaseTimestamp": "70",
+    "transformation": "Image edit: yellow Hat Twix highlights and selection-outline cleanup; responsive WebP from reviewed edit",
+    "editedSource": "assets/campaign-edits/hat-twix-dinamo.png",
+    "editorialReference": "VykD83mmSTo",
+    "alt": "Dinamo social campaign mockup celebrating two goals",
+    "width": 1540,
+    "height": 1021,
+    "src": "/generated/case-twixSocialDinamo-1540-62d2748573f9.webp",
+    "srcSet": "/generated/case-twixSocialDinamo-480-804c7c27ffcd.webp 480w, /generated/case-twixSocialDinamo-960-8afb7ec820aa.webp 960w, /generated/case-twixSocialDinamo-1540-62d2748573f9.webp 1540w",
+    "variants": [
+      {
+        "src": "/generated/case-twixSocialDinamo-480-804c7c27ffcd.webp",
+        "width": 480,
+        "height": 318,
+        "bytes": 27144
+      },
+      {
+        "src": "/generated/case-twixSocialDinamo-960-8afb7ec820aa.webp",
+        "width": 960,
+        "height": 636,
+        "bytes": 72522
+      },
+      {
+        "src": "/generated/case-twixSocialDinamo-1540-62d2748573f9.webp",
+        "width": 1540,
+        "height": 1021,
+        "bytes": 130568
+      }
+    ]
+  },
+  "twixSocialArsenal": {
+    "source": "MAD/ADS/hatTwix/imgs/433/drive-download-20260308T133932Z-1-001/IG POST 1.png",
+    "localCaseTimestamp": "75",
+    "transformation": "Image edit: yellow Hat Twix highlights and selection-outline cleanup; responsive WebP from reviewed edit",
+    "editedSource": "assets/campaign-edits/hat-twix-arsenal.png",
+    "editorialReference": "VykD83mmSTo",
+    "alt": "Arsenal social campaign mockup with Hat Twix highlighted",
+    "width": 1519,
+    "height": 1035,
+    "src": "/generated/case-twixSocialArsenal-1519-27bc95fdf867.webp",
+    "srcSet": "/generated/case-twixSocialArsenal-480-f61b9cec30c3.webp 480w, /generated/case-twixSocialArsenal-960-a3c8b7f61e4b.webp 960w, /generated/case-twixSocialArsenal-1519-27bc95fdf867.webp 1519w",
+    "variants": [
+      {
+        "src": "/generated/case-twixSocialArsenal-480-f61b9cec30c3.webp",
+        "width": 480,
+        "height": 327,
+        "bytes": 37314
+      },
+      {
+        "src": "/generated/case-twixSocialArsenal-960-a3c8b7f61e4b.webp",
+        "width": 960,
+        "height": 654,
+        "bytes": 102904
+      },
+      {
+        "src": "/generated/case-twixSocialArsenal-1519-27bc95fdf867.webp",
+        "width": 1519,
+        "height": 1035,
+        "bytes": 187370
+      }
+    ]
+  },
+  "twixTweets": {
+    "source": "MAD/ADS/hatTwix/imgs/tweets3/X1.png",
+    "localCaseTimestamp": "Social extension",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "VykD83mmSTo",
+    "alt": "Hat Twix campaign tweets about the new name for two goals",
+    "width": 1202,
+    "height": 726,
+    "src": "/generated/case-twixTweets-1202-fe34304c6cb8.webp",
+    "srcSet": "/generated/case-twixTweets-480-beb4257ab13d.webp 480w, /generated/case-twixTweets-960-32bd09f802c0.webp 960w, /generated/case-twixTweets-1202-fe34304c6cb8.webp 1202w",
+    "variants": [
+      {
+        "src": "/generated/case-twixTweets-480-beb4257ab13d.webp",
+        "width": 480,
+        "height": 290,
+        "bytes": 18342
+      },
+      {
+        "src": "/generated/case-twixTweets-960-32bd09f802c0.webp",
+        "width": 960,
+        "height": 580,
+        "bytes": 45942
+      },
+      {
+        "src": "/generated/case-twixTweets-1202-fe34304c6cb8.webp",
+        "width": 1202,
+        "height": 726,
+        "bytes": 60612
+      }
+    ]
+  },
+  "twixTweetStats": {
+    "source": "MAD/ADS/hatTwix/imgs/tweets3/X10.png",
+    "localCaseTimestamp": "Social extension",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "VykD83mmSTo",
+    "alt": "Hat Twix campaign tweet: career stats look twice as impressive",
+    "width": 1194,
+    "height": 206,
+    "src": "/generated/case-twixTweetStats-1194-6ae29e89bc28.webp",
+    "srcSet": "/generated/case-twixTweetStats-480-52856119e30d.webp 480w, /generated/case-twixTweetStats-960-55eeae590c5c.webp 960w, /generated/case-twixTweetStats-1194-6ae29e89bc28.webp 1194w",
+    "variants": [
+      {
+        "src": "/generated/case-twixTweetStats-480-52856119e30d.webp",
+        "width": 480,
+        "height": 83,
+        "bytes": 5950
+      },
+      {
+        "src": "/generated/case-twixTweetStats-960-55eeae590c5c.webp",
+        "width": 960,
+        "height": 166,
+        "bytes": 14744
+      },
+      {
+        "src": "/generated/case-twixTweetStats-1194-6ae29e89bc28.webp",
+        "width": 1194,
+        "height": 206,
+        "bytes": 18816
+      }
+    ]
+  },
+  "twixTiktok": {
+    "source": "MAD/ADS/hatTwix/igntiktok/T2.jpg",
+    "localCaseTimestamp": "Social extension",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "VykD83mmSTo",
+    "alt": "TikTok campaign mockup: Legendary CR7 Hat Twixes",
+    "width": 1125,
+    "height": 2154,
+    "src": "/generated/case-twixTiktok-1125-8b9ac2a33602.webp",
+    "srcSet": "/generated/case-twixTiktok-480-db1802779116.webp 480w, /generated/case-twixTiktok-960-6d1a6cfc3788.webp 960w, /generated/case-twixTiktok-1125-8b9ac2a33602.webp 1125w",
+    "variants": [
+      {
+        "src": "/generated/case-twixTiktok-480-db1802779116.webp",
+        "width": 480,
+        "height": 919,
+        "bytes": 51378
+      },
+      {
+        "src": "/generated/case-twixTiktok-960-6d1a6cfc3788.webp",
+        "width": 960,
+        "height": 1838,
+        "bytes": 113578
+      },
+      {
+        "src": "/generated/case-twixTiktok-1125-8b9ac2a33602.webp",
+        "width": 1125,
+        "height": 2154,
+        "bytes": 138738
+      }
+    ]
+  },
+  "duoProduct": {
+    "source": "CASES/duolingo/stills/ycly.jpg",
+    "localCaseTimestamp": "65–85",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "bWRIjCEHXJk",
+    "alt": "The frosted Duo-shaped ice cream with its wooden stick",
+    "width": 1440,
+    "height": 810,
+    "src": "/generated/case-duoProduct-1440-9be41d901bac.webp",
+    "srcSet": "/generated/case-duoProduct-480-8d6371bf0029.webp 480w, /generated/case-duoProduct-960-98891d1b96ea.webp 960w, /generated/case-duoProduct-1440-9be41d901bac.webp 1440w",
+    "variants": [
+      {
+        "src": "/generated/case-duoProduct-480-8d6371bf0029.webp",
+        "width": 480,
+        "height": 270,
+        "bytes": 5406
+      },
+      {
+        "src": "/generated/case-duoProduct-960-98891d1b96ea.webp",
+        "width": 960,
+        "height": 540,
+        "bytes": 11936
+      },
+      {
+        "src": "/generated/case-duoProduct-1440-9be41d901bac.webp",
+        "width": 1440,
+        "height": 810,
+        "bytes": 19770
+      }
+    ]
+  },
+  "duoReminder": {
+    "source": "CASES/duolingo/JOSE+PITA.mp4",
+    "localCaseTimestamp": "45",
+    "transformation": "Still extracted at 45s; responsive WebP, complete frame retained",
+    "editorialReference": "bWRIjCEHXJk",
+    "alt": "Ice cream stick engraved with Did you do your Duolingo today?",
+    "width": 1600,
+    "height": 900,
+    "src": "/generated/case-duoReminder-1600-083a7b01ba72.webp",
+    "srcSet": "/generated/case-duoReminder-480-44b35a649e34.webp 480w, /generated/case-duoReminder-960-10c51cfd1626.webp 960w, /generated/case-duoReminder-1600-083a7b01ba72.webp 1600w",
+    "variants": [
+      {
+        "src": "/generated/case-duoReminder-480-44b35a649e34.webp",
+        "width": 480,
+        "height": 270,
+        "bytes": 5552
+      },
+      {
+        "src": "/generated/case-duoReminder-960-10c51cfd1626.webp",
+        "width": 960,
+        "height": 540,
+        "bytes": 15752
+      },
+      {
+        "src": "/generated/case-duoReminder-1600-083a7b01ba72.webp",
+        "width": 1600,
+        "height": 900,
+        "bytes": 31320
+      }
+    ]
+  },
+  "duoLessons": {
+    "source": "CASES/duolingo/stills/Frame 13.jpg",
+    "localCaseTimestamp": "47–52",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "bWRIjCEHXJk",
+    "alt": "Three sticks with lessons: gelato, l’addition, and siesta",
+    "width": 1440,
+    "height": 810,
+    "src": "/generated/case-duoLessons-1440-c01b7556401d.webp",
+    "srcSet": "/generated/case-duoLessons-480-f50a9a308035.webp 480w, /generated/case-duoLessons-960-5ccd2620faee.webp 960w, /generated/case-duoLessons-1440-c01b7556401d.webp 1440w",
+    "variants": [
+      {
+        "src": "/generated/case-duoLessons-480-f50a9a308035.webp",
+        "width": 480,
+        "height": 270,
+        "bytes": 11410
+      },
+      {
+        "src": "/generated/case-duoLessons-960-5ccd2620faee.webp",
+        "width": 960,
+        "height": 540,
+        "bytes": 29118
+      },
+      {
+        "src": "/generated/case-duoLessons-1440-c01b7556401d.webp",
+        "width": 1440,
+        "height": 810,
+        "bytes": 48400
+      }
+    ]
+  },
+  "duoFrench": {
+    "source": "CASES/duolingo/stills/stick_1.png",
+    "localCaseTimestamp": "46",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "bWRIjCEHXJk",
+    "alt": "Ask for l’addition, not the check: French lesson on a stick",
+    "width": 1600,
+    "height": 900,
+    "src": "/generated/case-duoFrench-1600-bfd2838aef7d.webp",
+    "srcSet": "/generated/case-duoFrench-480-de3f2b76991d.webp 480w, /generated/case-duoFrench-960-4844a69d6d16.webp 960w, /generated/case-duoFrench-1600-bfd2838aef7d.webp 1600w",
+    "variants": [
+      {
+        "src": "/generated/case-duoFrench-480-de3f2b76991d.webp",
+        "width": 480,
+        "height": 270,
+        "bytes": 9266
+      },
+      {
+        "src": "/generated/case-duoFrench-960-4844a69d6d16.webp",
+        "width": 960,
+        "height": 540,
+        "bytes": 21612
+      },
+      {
+        "src": "/generated/case-duoFrench-1600-bfd2838aef7d.webp",
+        "width": 1600,
+        "height": 900,
+        "bytes": 41620
+      }
+    ]
+  },
+  "duoSpanish": {
+    "source": "CASES/duolingo/stills/stick_02.png",
+    "localCaseTimestamp": "47",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "bWRIjCEHXJk",
+    "alt": "Take a siesta, not just a nap: Spanish lesson on a stick",
+    "width": 1600,
+    "height": 900,
+    "src": "/generated/case-duoSpanish-1600-7a8f5cbd6107.webp",
+    "srcSet": "/generated/case-duoSpanish-480-ed07a6974045.webp 480w, /generated/case-duoSpanish-960-dd13bf95319f.webp 960w, /generated/case-duoSpanish-1600-7a8f5cbd6107.webp 1600w",
+    "variants": [
+      {
+        "src": "/generated/case-duoSpanish-480-ed07a6974045.webp",
+        "width": 480,
+        "height": 270,
+        "bytes": 4828
+      },
+      {
+        "src": "/generated/case-duoSpanish-960-dd13bf95319f.webp",
+        "width": 960,
+        "height": 540,
+        "bytes": 11446
+      },
+      {
+        "src": "/generated/case-duoSpanish-1600-7a8f5cbd6107.webp",
+        "width": 1600,
+        "height": 900,
+        "bytes": 21718
+      }
+    ]
+  },
+  "duoItalian": {
+    "source": "CASES/duolingo/stills/stick_03.png",
+    "localCaseTimestamp": "44",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "bWRIjCEHXJk",
+    "alt": "Ask for a gelato, not an ice cream: Italian lesson on a stick",
+    "width": 1600,
+    "height": 900,
+    "src": "/generated/case-duoItalian-1600-7fe2af1742d1.webp",
+    "srcSet": "/generated/case-duoItalian-480-b4b80265832c.webp 480w, /generated/case-duoItalian-960-29bfefe97e67.webp 960w, /generated/case-duoItalian-1600-7fe2af1742d1.webp 1600w",
+    "variants": [
+      {
+        "src": "/generated/case-duoItalian-480-b4b80265832c.webp",
+        "width": 480,
+        "height": 270,
+        "bytes": 5692
+      },
+      {
+        "src": "/generated/case-duoItalian-960-29bfefe97e67.webp",
+        "width": 960,
+        "height": 540,
+        "bytes": 15568
+      },
+      {
+        "src": "/generated/case-duoItalian-1600-7fe2af1742d1.webp",
+        "width": 1600,
+        "height": 900,
+        "bytes": 31306
+      }
+    ]
+  },
+  "duoWinner": {
+    "source": "CASES/duolingo/stills/sticks.png",
+    "localCaseTimestamp": "50",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "bWRIjCEHXJk",
+    "alt": "Super Winner reward stick alongside the language lessons",
+    "width": 1600,
+    "height": 900,
+    "src": "/generated/case-duoWinner-1600-5c049ceea5b6.webp",
+    "srcSet": "/generated/case-duoWinner-480-f4dc023edfc2.webp 480w, /generated/case-duoWinner-960-6228c9cfc532.webp 960w, /generated/case-duoWinner-1600-5c049ceea5b6.webp 1600w",
+    "variants": [
+      {
+        "src": "/generated/case-duoWinner-480-f4dc023edfc2.webp",
+        "width": 480,
+        "height": 270,
+        "bytes": 10658
+      },
+      {
+        "src": "/generated/case-duoWinner-960-6228c9cfc532.webp",
+        "width": 960,
+        "height": 540,
+        "bytes": 24814
+      },
+      {
+        "src": "/generated/case-duoWinner-1600-5c049ceea5b6.webp",
+        "width": 1600,
+        "height": 900,
+        "bytes": 45552
+      }
+    ]
+  },
+  "verifiedVendor1": {
+    "source": "MAD/ADS/giffgaff/imgs/badges/badge1.png",
+    "localCaseTimestamp": "45–55",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "HwCWeJ_ZcvQ",
+    "alt": "Big Issue vendor wearing the Put in a good word badge",
+    "width": 1600,
+    "height": 900,
+    "src": "/generated/case-verifiedVendor1-1600-9e0f32c289ca.webp",
+    "srcSet": "/generated/case-verifiedVendor1-480-4b9fa8d2bcfa.webp 480w, /generated/case-verifiedVendor1-960-f701de8a846a.webp 960w, /generated/case-verifiedVendor1-1600-9e0f32c289ca.webp 1600w",
+    "variants": [
+      {
+        "src": "/generated/case-verifiedVendor1-480-4b9fa8d2bcfa.webp",
+        "width": 480,
+        "height": 270,
+        "bytes": 21808
+      },
+      {
+        "src": "/generated/case-verifiedVendor1-960-f701de8a846a.webp",
+        "width": 960,
+        "height": 540,
+        "bytes": 55876
+      },
+      {
+        "src": "/generated/case-verifiedVendor1-1600-9e0f32c289ca.webp",
+        "width": 1600,
+        "height": 900,
+        "bytes": 118864
+      }
+    ]
+  },
+  "verifiedVendor2": {
+    "source": "MAD/ADS/giffgaff/imgs/badges/badge2.png",
+    "localCaseTimestamp": "45–55",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "HwCWeJ_ZcvQ",
+    "alt": "Big Issue vendor in a flat cap wearing the reference badge",
+    "width": 1600,
+    "height": 900,
+    "src": "/generated/case-verifiedVendor2-1600-139b593fea72.webp",
+    "srcSet": "/generated/case-verifiedVendor2-480-3f0cd68aebe6.webp 480w, /generated/case-verifiedVendor2-960-ef2262edc7ba.webp 960w, /generated/case-verifiedVendor2-1600-139b593fea72.webp 1600w",
+    "variants": [
+      {
+        "src": "/generated/case-verifiedVendor2-480-3f0cd68aebe6.webp",
+        "width": 480,
+        "height": 270,
+        "bytes": 19088
+      },
+      {
+        "src": "/generated/case-verifiedVendor2-960-ef2262edc7ba.webp",
+        "width": 960,
+        "height": 540,
+        "bytes": 53626
+      },
+      {
+        "src": "/generated/case-verifiedVendor2-1600-139b593fea72.webp",
+        "width": 1600,
+        "height": 900,
+        "bytes": 151762
+      }
+    ]
+  },
+  "verifiedVendor3": {
+    "source": "MAD/ADS/giffgaff/imgs/badges/badge3.png",
+    "localCaseTimestamp": "45–55",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "HwCWeJ_ZcvQ",
+    "alt": "Big Issue vendor in a pink hat wearing the reference badge",
+    "width": 1600,
+    "height": 900,
+    "src": "/generated/case-verifiedVendor3-1600-7e7867ca08b1.webp",
+    "srcSet": "/generated/case-verifiedVendor3-480-2cc2038f5b5b.webp 480w, /generated/case-verifiedVendor3-960-69722c597ba6.webp 960w, /generated/case-verifiedVendor3-1600-7e7867ca08b1.webp 1600w",
+    "variants": [
+      {
+        "src": "/generated/case-verifiedVendor3-480-2cc2038f5b5b.webp",
+        "width": 480,
+        "height": 270,
+        "bytes": 15914
+      },
+      {
+        "src": "/generated/case-verifiedVendor3-960-69722c597ba6.webp",
+        "width": 960,
+        "height": 540,
+        "bytes": 47120
+      },
+      {
+        "src": "/generated/case-verifiedVendor3-1600-7e7867ca08b1.webp",
+        "width": 1600,
+        "height": 900,
+        "bytes": 108258
+      }
+    ]
+  },
+  "verifiedBillboard": {
+    "source": "MAD/ADS/giffgaff/imgs/ooh/billboard1.6.png",
+    "localCaseTimestamp": "70",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "HwCWeJ_ZcvQ",
+    "alt": "The look of reliability: Martin’s Verified billboard",
+    "width": 1600,
+    "height": 1014,
+    "src": "/generated/case-verifiedBillboard-1600-3f5da17336c1.webp",
+    "srcSet": "/generated/case-verifiedBillboard-480-7ebf90e20b21.webp 480w, /generated/case-verifiedBillboard-960-97b2e5912b2f.webp 960w, /generated/case-verifiedBillboard-1600-3f5da17336c1.webp 1600w",
+    "variants": [
+      {
+        "src": "/generated/case-verifiedBillboard-480-7ebf90e20b21.webp",
+        "width": 480,
+        "height": 304,
+        "bytes": 47258
+      },
+      {
+        "src": "/generated/case-verifiedBillboard-960-97b2e5912b2f.webp",
+        "width": 960,
+        "height": 609,
+        "bytes": 157544
+      },
+      {
+        "src": "/generated/case-verifiedBillboard-1600-3f5da17336c1.webp",
+        "width": 1600,
+        "height": 1014,
+        "bytes": 332348
+      }
+    ]
+  },
+  "verifiedLinkedin": {
+    "source": "MAD/ADS/giffgaff/imgs/ooh/linkedinFeed.png",
+    "localCaseTimestamp": "75–80",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "HwCWeJ_ZcvQ",
+    "alt": "The look of dedication: Susan’s Verified LinkedIn mockup",
+    "width": 1600,
+    "height": 897,
+    "src": "/generated/case-verifiedLinkedin-1600-f8e4e2fcef45.webp",
+    "srcSet": "/generated/case-verifiedLinkedin-480-318cb00c6aaa.webp 480w, /generated/case-verifiedLinkedin-960-4262c0bcf47c.webp 960w, /generated/case-verifiedLinkedin-1600-f8e4e2fcef45.webp 1600w",
+    "variants": [
+      {
+        "src": "/generated/case-verifiedLinkedin-480-318cb00c6aaa.webp",
+        "width": 480,
+        "height": 269,
+        "bytes": 12808
+      },
+      {
+        "src": "/generated/case-verifiedLinkedin-960-4262c0bcf47c.webp",
+        "width": 960,
+        "height": 538,
+        "bytes": 36046
+      },
+      {
+        "src": "/generated/case-verifiedLinkedin-1600-f8e4e2fcef45.webp",
+        "width": 1600,
+        "height": 897,
+        "bytes": 72184
+      }
+    ]
+  },
+  "verifiedBoard": {
+    "source": "MAD/ADS/giffgaff/imgs/ooh/communityBoard.png",
+    "localCaseTimestamp": "75–80",
+    "transformation": "Responsive WebP; full artwork and existing alpha retained",
+    "editorialReference": "HwCWeJ_ZcvQ",
+    "alt": "The look of consistency: Will’s Verified community noticeboard",
+    "width": 1100,
+    "height": 825,
+    "src": "/generated/case-verifiedBoard-1100-7e2687834e63.webp",
+    "srcSet": "/generated/case-verifiedBoard-480-13fb602e62a3.webp 480w, /generated/case-verifiedBoard-960-2bde39a20dcd.webp 960w, /generated/case-verifiedBoard-1100-7e2687834e63.webp 1100w",
+    "variants": [
+      {
+        "src": "/generated/case-verifiedBoard-480-13fb602e62a3.webp",
+        "width": 480,
+        "height": 360,
+        "bytes": 61084
+      },
+      {
+        "src": "/generated/case-verifiedBoard-960-2bde39a20dcd.webp",
+        "width": 960,
+        "height": 720,
+        "bytes": 175896
+      },
+      {
+        "src": "/generated/case-verifiedBoard-1100-7e2687834e63.webp",
+        "width": 1100,
+        "height": 825,
+        "bytes": 209374
+      }
+    ]
+  }
+}

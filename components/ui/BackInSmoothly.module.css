@@ -156,9 +156,11 @@
 
 .phoneBox {
   width: 100%;
+  height: auto;
+  min-width: 0;
   max-width: 300px;
   margin: 0 auto;
-  aspect-ratio: 420 / 610;
+  aspect-ratio: 608 / 1080;
   object-fit: contain;
   display: block;
 }
@@ -220,25 +222,22 @@
 }
 
 .qr {
+  filter: brightness(0);
   width: max(64px, 7.7cqw);
   height: auto;
   display: block;
 }
 
-/* ─── Car rear-view camera photo ──────────────────────────────────────── */
-
-.carPhotoWrap {
-  position: relative;
-  width: 100%;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-}
+/* Three complete sticker mockups, stacked on small screens. */
+.mockupRow { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+.mockupRow img { display: block; width: 100%; height: auto; }
 
 /* ─── Wider viewports — match the reference layout's row arrangements ──── */
 
 @media (min-width: 700px) {
   .inner { padding: 0 3rem; gap: 2.25rem; }
 
+  .mockupRow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .gifRow { flex-direction: row; }
   .gifBox { width: calc(50% - 0.625rem); }
 

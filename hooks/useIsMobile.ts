@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 
-export function useIsMobile(): boolean {
-  const [isMobile, setIsMobile] = useState(false)
+export function useIsMobile(): boolean | null {
+  const [isMobile, setIsMobile] = useState<boolean | null>(null)
   useEffect(() => {
     const mq = window.matchMedia('(max-width: 768px)')
     setIsMobile(mq.matches)

@@ -33,7 +33,7 @@
 .projectsPane {
   position: absolute;
   top: 7rem;
-  bottom: 6rem;
+  bottom: 4rem;
   left: 0;
   right: 0;
   pointer-events: none;
@@ -41,7 +41,9 @@
 
 .projectsList {
   position: absolute;
-  top: 50%;
+  top: 0;
+  height: 100%;
+  width: 0;
   list-style: none;
   display: flex;
   flex-direction: column;
@@ -52,7 +54,29 @@
    silhouette bounds), so only the centering transform is declared here. */
 .projectsList:first-child,
 .projectsList:last-child {
+  transform: none;
+}
+
+/* Six positions on an ellipse, not two stacks. The middle pair opens
+   outward; the upper/lower pairs wrap back toward the navigation. */
+.projectsList > .projectCard {
+  position: absolute;
+  top: 16%;
+  left: 6vw;
+  width: min(26vw, calc((100svh - 11rem) * .5));
   transform: translate(-50%, -50%);
+}
+
+.projectsList:last-child > .projectCard { left: -6vw; }
+.projectsList > .projectCard:nth-child(2) { top: 50%; left: -6vw; }
+.projectsList:last-child > .projectCard:nth-child(2) { left: 6vw; }
+.projectsList > .projectCard:nth-child(3) { top: 84%; }
+.projectsList > .projectCard:not(.bigProjectModelSlot) {
+  width: min(25vw, calc((100svh - 11rem) * .36));
+}
+.projectsList > .bigProjectModelSlot {
+  height: calc((100svh - 11rem) * .29);
+  aspect-ratio: auto;
 }
 
 .projectCard {
@@ -76,6 +100,40 @@
 
 .projectCardEdgeRight {
   transform: translateX(-18%);
+}
+
+/* A live 3D model takes over a project's card slot entirely — the model
+   itself is the interactive element (not a picture inside a card), rendered
+   much larger than the slot it occupies so it reads as a standalone piece
+   breaking out of the grid, while the <li> keeps the same footprint as a
+   normal card so sibling spacing in the column doesn't shift.
+
+   The model itself renders inside Scene.tsx's main canvas now, not here —
+   this is a pure invisible measurement box: ContentPanel.tsx publishes its
+   live rect (+ the same cursor-tilt spring values every other card uses)
+   into bigProjectSlotStore every frame, and the in-scene model
+   (InSceneProjectModel.tsx) reads that to position/scale/rotate itself,
+   rather than reimplementing this layout's formulas in JS/Three.js. Hover
+   and click both moved into the canvas too (a real mesh raycast), which is
+   also what finally got the hover highlight right — a true per-pixel
+   silhouette dither via the same shared shader every other card's glow
+   already uses, after a rectangular quad-corner halo (wrong shape) and a
+   hand-rolled SVG dithered drop-shadow (right shape, visibly not the same
+   dither quality) each fell short. */
+.bigProjectModelSlot {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  /* Overrides .projectCard's pointer-events:auto — this <li> is now a pure
+     invisible measurement box (see comment above), and without this override
+     it would sit on top of the canvas and swallow every hover/click before
+     the in-scene model's own raycast ever saw it. */
+  pointer-events: none;
+}
+
+.bigProjectModel {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
 }
 
 .projectCardInner {
@@ -402,104 +460,6 @@
 }
 
 
-/* ─── Playground — scattered cards, left and right of center ─────── */
-
-.playgroundPane {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-}
-
-/* Fixed anchor point — card is centered on it via translate(-50%, -50%) */
-.playgroundCardAnchor {
-  position: absolute;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-}
-
-/* Width driven by inline style (per-card random size) */
-.playgroundCard {
-  position: relative;
-  pointer-events: auto;
-  touch-action: none;
-  user-select: none;
-}
-
-.playgroundCardInner {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.playgroundThumb {
-  position: relative;
-  width: 100%;
-  /* aspect-ratio set via inline style (per-card real ratio) */
-  background-color: var(--placeholder-color);
-  border-radius: 0;
-  overflow: hidden;
-}
-
-.playgroundPoster {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  pointer-events: none;
-  transition: opacity 0.15s ease;
-}
-
-.playgroundVideo {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-  pointer-events: none;
-}
-
-.playgroundCardTitle {
-  font-size: calc(0.65rem * var(--font-primary-scale, 1));
-  font-weight: calc(var(--font-primary-weight) - 100);
-  letter-spacing: calc(0.05em + var(--tracking));
-  color: var(--fg-color);
-}
-
-/* ─── Playground detail overlay ──────────────────────────────────── */
-
-.playgroundBackdrop {
-  position: fixed;
-  inset: 0;
-  background: var(--bg-color);
-  z-index: 50;
-  pointer-events: auto;
-}
-
-/* top/left/width/height driven by Framer Motion (grid rect ↔ near-fullscreen bounds) */
-.playgroundDetailMedia {
-  position: fixed;
-  z-index: 51;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  pointer-events: auto;
-}
-
-/* Same format as the rest of the page's body text (.bio/.cvTitle) */
-.playgroundDetailTitle {
-  z-index: 51;
-  pointer-events: none;
-  white-space: nowrap;
-  font-size: calc(0.875rem * var(--font-primary-scale, 1));
-  line-height: 1.2;
-  letter-spacing: calc(-0.01em + var(--tracking));
-  color: var(--fg-color);
-  text-align: center;
-}
 
 /* ─── Project card thumbnail image ──────────────────────────────── */
 
@@ -584,32 +544,6 @@
   color: var(--fg-color);
 }
 
-/* Playground detail's close control — same bracketed "[X]" treatment as
-   backInSmoothly's nav-row close buttons, centered at the top instead of
-   the corner. Unlike backInSmoothly this page isn't brand-locked, so it
-   uses the site's normal theme colors rather than a fixed brand color. */
-.playgroundDetailClose {
-  position: fixed;
-  top: 1.5rem;
-  left: 50%;
-  transform: translateX(-50%);
-  font-family: var(--font-primary);
-  font-weight: var(--font-primary-weight);
-  font-size: calc(0.75rem * var(--font-primary-scale, 1));
-  text-transform: uppercase;
-  letter-spacing: calc(0.02em + var(--tracking));
-  color: var(--fg-color);
-  cursor: pointer;
-  z-index: 52;
-  background: none;
-  border: none;
-  padding: 0;
-  transition: color 0.15s ease;
-}
-
-.playgroundDetailClose:hover {
-  color: var(--hover-color);
-}
 
 /* ─── Header: prev project | title + desc | next project ──────── */
 

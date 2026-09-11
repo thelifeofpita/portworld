@@ -1,0 +1,28 @@
+{
+  "iceCream": {
+    "src": "/generated/duolingo-iceCream-loop-68cb277d6f6b.mp4",
+    "poster": "/generated/duolingo-iceCream-poster-65c78c7b10fd.webp",
+    "width": 1280,
+    "height": 720,
+    "duration": 3,
+    "bytes": 301923,
+    "label": "Rotating Duo ice cream",
+    "source": "CASES/duolingo/JOSE+PITA.mp4",
+    "start": 67,
+    "end": 70,
+    "edit": "One complete original rotation"
+  },
+  "sticks": {
+    "src": "/generated/duolingo-sticks-loop-e3ce664d75d5.mp4",
+    "poster": "/generated/duolingo-sticks-poster-e8f185298275.webp",
+    "width": 1280,
+    "height": 720,
+    "duration": 3.3,
+    "bytes": 735837,
+    "label": "Camera moving through the lesson sticks",
+    "source": "CASES/duolingo/JOSE+PITA.mp4",
+    "start": 46,
+    "end": 49.6,
+    "edit": "300 ms wrap dissolve; original forward camera motion"
+  }
+}

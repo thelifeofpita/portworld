@@ -26,12 +26,16 @@ export interface ProjectItem {
   youtubeId:      string
   images:         [string, string]
   thumb?:         string
+  thumbModel?:    string  // path to a .glb in /public — renders a live-rotating 3D model on the card instead of thumb
+  bigModel?:      boolean // renders as a large, cursor-following in-scene 3D display instead of a card (see InSceneProjectModel) — thumbModel doubles as its source
+  bigModelBaseRotationYDeg?: number // fixed yaw offset (added to the cursor-tilt rotation) — for a multi-object scene authored front/back rather than side-by-side, a straight-on view can fully hide one object behind another
   icon?:          string  // path to icon in /public/icons/
   iconLabel?:     string
   defaultFeatured?: 'video' | 'img0' | 'img1'
   thumbScale?:      number  // CSS scale applied to the thumbnail image, e.g. 1.2 for 20% zoom
   accentColor?:     string  // brand color for the 3D card mode's extruded frame (debug menu)
-  customLayout?:    'backInSmoothly' | 'surfTheSpike' | 'pickASide'  // bypasses the generic carousel detail view entirely (see CUSTOM_LAYOUTS in components/ui/customLayouts.ts)
+  detailBackground?: string // custom page background when different from the model accent
+  customLayout?:    'backInSmoothly' | 'surfTheSpike' | 'pickASide' | 'hatTwix' | 'duolingo' | 'verified'
 }
 
 export const projectsContent: ProjectItem[] = [
@@ -40,6 +44,9 @@ export const projectsContent: ProjectItem[] = [
     description: `Google needed a new and creative use of their Gemini AI for students, professors or classrooms. Surf the Spike helps college students take full advantage of their late-night caffeine-filled study sessions.`,
     youtubeId:   'nf5xLDfsp5k',
     thumb:       '/projects/proj1/thumb.webp',
+    thumbModel:  '/generated/surfthespike-phone-3f870e359f6d.glb',
+    bigModel:    true,
+    bigModelBaseRotationYDeg: 0, // Blender's authored front view, after glTF's Z-up → Y-up conversion
     images:      ['/projects/proj1/image1.webp', '/projects/proj1/image2.webp'],
     icon:        '/icons/oneShowShortlist.png',
     iconLabel:   'One Show Young Ones Merit Winner',
@@ -51,40 +58,54 @@ export const projectsContent: ProjectItem[] = [
     description: `Duolingo's reminders need to be memorable again. Summer is the season where people use their phone the least, and without their phones, they don't see Duo's notifications. But they do eat ice cream, so we offer their coolest lesson yet.`,
     youtubeId:   'bWRIjCEHXJk',
     thumb:       '/projects/proj3/thumb.webp',
+    thumbModel:  '/models/duolingo.glb',
+    bigModel:    true,
     images:      ['/projects/proj3/image1.webp', '/projects/proj3/image2.webp'],
     icon:        '/icons/MAS.png',
     iconLabel:   'Miami Ad School Scholarship Winner',
     accentColor: '#58CC02',
+    customLayout: 'duolingo',
   },
   {
     title:       'giffgaff X Big Issue: Verified.',
     description: 'giffgaff partnered with Big Issue to help homeless people using the power of connectivity. The "Verified." platform allows Big Issue vendors that are homeless to get references from their clients and eventually get a job.',
     thumb:       '/projects/proj2/thumb.webp',
+    thumbModel:  '/models/verified-magazine-c39b9a5102.glb',
+    bigModel:    true,
     youtubeId:   'HwCWeJ_ZcvQ',
     images:      ['/projects/proj2/image1.webp', '/projects/proj2/image2.webp'],
     icon:        '/icons/DNADShortlist.svg',
     iconLabel:   'D&AD New Blood Pencil Winner',
     accentColor: '#E30613', // Big Issue red
+    customLayout: 'verified',
   },
   {
     title:       'Hat Twix.',
     description: 'One is good, and two is better, but football fans are not really aware. They praise single goals and hat tricks, but two goals are rarely celebrated. Through football commentators, Twix honors the beauty of the two goals.',
     thumb:       '/projects/proj4/thumb.webp',
+    thumbModel:  '/models/hat-twix.glb',
+    bigModel:    true,
     youtubeId:   'VykD83mmSTo',
     images:      ['/projects/proj4/image1.webp', '/projects/proj4/image2.webp'],
     accentColor: '#ED1C24', // Twix red
+    detailBackground: '#F4C145',
+    customLayout: 'hatTwix',
   },
   {
     title:       "McDonald's: Pick a Side.",
     description: "For the US midterm elections, McDonald's turned its side menu into a ballot — every order a vote, tallied live, state by state.",
     youtubeId:   'C9xKzRLujqs',
     thumb:       '/projects/proj6/thumb.webp',
+    thumbModel:  '/models/pick-a-side-fries-50656e5e9f.glb',
+    bigModel:    true,
     images:      ['/projects/proj6/order.webp', '/projects/proj6/checkout.webp'],
     accentColor: '#FFC72C', // matches PickASide.module.css's page background exactly
     customLayout: 'pickASide',
   },
   {
     title:          'PlatanoMelón: Back in smoothly.',
+    thumbModel:     '/models/back-in-smoothly-monitor.glb?v=3',
+    bigModel:       true,
     description:    'Backing in smoothly is relevant for cars, but also, for PlatanoMelón, who took over situations that go back-first to promote their relaxant lubricant.',
     youtubeId:      'ZOVg5GCUxqs',
     thumb:          '/projects/proj5/thumb.webp',

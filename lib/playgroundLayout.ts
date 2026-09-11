@@ -186,6 +186,17 @@ export function buildConfigs(vw: number, vh: number, items: PlaygroundItem[]): P
 export function resolveAspectRatio(item: PlaygroundItem): Promise<number> {
   if (item.aspectRatio !== undefined) return Promise.resolve(item.aspectRatio)
 
+  // A collection's first piece is its cover and defines the card footprint.
+  // The detail view is a responsive grid, so mixed formats remain visible
+  // together without affecting the surrounding masonry.
+  const cover = item.media?.[0]
+  if (cover) {
+    if (cover.type === 'video') {
+      return resolveAspectRatio({ ...item, media: undefined, mp4: cover.src, poster: cover.poster })
+    }
+    return resolveAspectRatio({ ...item, media: undefined, poster: cover.src })
+  }
+
   const giveUp = new Promise<number>(r => setTimeout(() => r(1), 3000))
 
   const detect = new Promise<number>(resolve => {

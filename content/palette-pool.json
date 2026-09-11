@@ -1,0 +1,2002 @@
+[
+  {
+    "title": "EB GB Plain Flavour",
+    "slug": "eb-gb-plain-flavour",
+    "colors": [
+      "d5e6cb",
+      "9594c0",
+      "564295",
+      "1b1b1b"
+    ]
+  },
+  {
+    "title": "Blush GB",
+    "slug": "blush-gb",
+    "colors": [
+      "fe9192",
+      "fcdebe",
+      "0cc0d4",
+      "5e5768"
+    ]
+  },
+  {
+    "title": "Grape Tree GB",
+    "slug": "grape-tree-gb",
+    "colors": [
+      "cfb690",
+      "845a78",
+      "4c4138",
+      "17072b"
+    ]
+  },
+  {
+    "title": "Homework",
+    "slug": "homework",
+    "colors": [
+      "e1d8d4",
+      "878c9d",
+      "45568d",
+      "12121b"
+    ]
+  },
+  {
+    "title": "Window of Opportunity",
+    "slug": "window-of-opportunity",
+    "colors": [
+      "fffff5",
+      "8f94c5",
+      "131457",
+      "433bff"
+    ]
+  },
+  {
+    "title": "Avalon",
+    "slug": "avalon",
+    "colors": [
+      "20759c",
+      "084062",
+      "002841",
+      "000408"
+    ]
+  },
+  {
+    "title": "Night Light [2-BIT]",
+    "slug": "night-light-2-bit",
+    "colors": [
+      "0b0926",
+      "594f7d",
+      "cc9a6e",
+      "faf0b9"
+    ]
+  },
+  {
+    "title": "desat",
+    "slug": "desat",
+    "colors": [
+      "291a1f",
+      "675650",
+      "bea87d",
+      "f0e0cf"
+    ]
+  },
+  {
+    "title": "2-Bit Pips",
+    "slug": "2-bit-pips",
+    "colors": [
+      "3a3522",
+      "7c3838",
+      "647859",
+      "b5a37e"
+    ]
+  },
+  {
+    "title": "ST GameBoy RedRose",
+    "slug": "st-gameboy-redrose",
+    "colors": [
+      "260f0d",
+      "591616",
+      "991f27",
+      "cc3d50"
+    ]
+  },
+  {
+    "title": "Digital Paper",
+    "slug": "digital-paper",
+    "colors": [
+      "f5f5f5",
+      "91a3aa",
+      "4c5671",
+      "050505"
+    ]
+  },
+  {
+    "title": "Cave Moss",
+    "slug": "cave-moss",
+    "colors": [
+      "1a1714",
+      "38403a",
+      "617851",
+      "b3b282"
+    ]
+  },
+  {
+    "title": "Calico 4",
+    "slug": "calico-4",
+    "colors": [
+      "efebdf",
+      "e8a053",
+      "936a4e",
+      "381701"
+    ]
+  },
+  {
+    "title": "Soulscape",
+    "slug": "soulscape",
+    "colors": [
+      "051e45",
+      "0b586e",
+      "1cb099",
+      "42f4af"
+    ]
+  },
+  {
+    "title": "Royal4",
+    "slug": "royal4",
+    "colors": [
+      "521296",
+      "8a1fac",
+      "d4864a",
+      "ebdb5e"
+    ]
+  },
+  {
+    "title": "CGA Palette 2 (Low)",
+    "slug": "cga-palette-2-low",
+    "colors": [
+      "000000",
+      "aa0000",
+      "00aaaa",
+      "aaaaaa"
+    ]
+  },
+  {
+    "title": "Pocket Memories",
+    "slug": "pocket-memories",
+    "colors": [
+      "283818",
+      "607050",
+      "889878",
+      "b0c0a0"
+    ]
+  },
+  {
+    "title": "MUSHBLOOM",
+    "slug": "mushbloom",
+    "colors": [
+      "2b4158",
+      "8b6f7b",
+      "caaea3",
+      "fff9f1"
+    ]
+  },
+  {
+    "title": "Bilkent Metro",
+    "slug": "bilkent-metro",
+    "colors": [
+      "ede1c7",
+      "d8b887",
+      "d17f74",
+      "2f2f4b"
+    ]
+  },
+  {
+    "title": "Blues GB",
+    "slug": "blues-gb",
+    "colors": [
+      "08263b",
+      "30617b",
+      "7ba8b8",
+      "e5f1f3"
+    ]
+  },
+  {
+    "title": "Virtual Boy",
+    "slug": "virtual-boy",
+    "colors": [
+      "ef0000",
+      "a40000",
+      "550000",
+      "000000"
+    ]
+  },
+  {
+    "title": "Cosmic cream - GB",
+    "slug": "cosmic-cream-gb",
+    "colors": [
+      "220780",
+      "615fed",
+      "ffba5a",
+      "fffab2"
+    ]
+  },
+  {
+    "title": "bluedream4",
+    "slug": "bluedream4",
+    "colors": [
+      "1f285d",
+      "4b849a",
+      "98d8b1",
+      "ecf2cb"
+    ]
+  },
+  {
+    "title": "CRTGB",
+    "slug": "crtgb",
+    "colors": [
+      "060601",
+      "0b3e08",
+      "489a0d",
+      "daf222"
+    ]
+  },
+  {
+    "title": "Cave4",
+    "slug": "cave4",
+    "colors": [
+      "e4cbbf",
+      "938282",
+      "4f4e80",
+      "2c0016"
+    ]
+  },
+  {
+    "title": "DMG-01 Accurate",
+    "slug": "dmg-01-accurate",
+    "colors": [
+      "1b2a09",
+      "0e450b",
+      "496b22",
+      "9a9e3f"
+    ]
+  },
+  {
+    "title": "the internet raised you",
+    "slug": "the-internet-raised-you",
+    "colors": [
+      "322623",
+      "7b505c",
+      "9b9880",
+      "e4d6cf"
+    ]
+  },
+  {
+    "title": "EB GB Strawberry Flavour",
+    "slug": "eb-gb-strawberry-flavour",
+    "colors": [
+      "f6edc1",
+      "f890a8",
+      "8b506d",
+      "381a3e"
+    ]
+  },
+  {
+    "title": "Snowflake 4",
+    "slug": "snowflake-4",
+    "colors": [
+      "e7edeb",
+      "8ecece",
+      "62a1c7",
+      "3f6ecc"
+    ]
+  },
+  {
+    "title": "Nintendo Gameboy (Black Zero)",
+    "slug": "nintendo-gameboy-black-zero",
+    "colors": [
+      "2e463d",
+      "385d49",
+      "577b46",
+      "7e8416"
+    ]
+  },
+  {
+    "title": "RettiePunk",
+    "slug": "rettiepunk",
+    "colors": [
+      "151c18",
+      "094466",
+      "cc1242",
+      "f0745c"
+    ]
+  },
+  {
+    "title": "Four Green",
+    "slug": "four-green",
+    "colors": [
+      "588f3d",
+      "36633d",
+      "293d36",
+      "aabf40"
+    ]
+  },
+  {
+    "title": "Dreamful Space",
+    "slug": "dreamful-space",
+    "colors": [
+      "21193c",
+      "932f7b",
+      "e67b8b",
+      "f5d2b8"
+    ]
+  },
+  {
+    "title": "Coffee Cafe",
+    "slug": "coffee-cafe",
+    "colors": [
+      "4d302e",
+      "734d45",
+      "99745c",
+      "cc9e7a"
+    ]
+  },
+  {
+    "title": "Blue Seni",
+    "slug": "blue-seni",
+    "colors": [
+      "d0f4f8",
+      "70b0c0",
+      "3c3468",
+      "1c0820"
+    ]
+  },
+  {
+    "title": "Lemon-Lime",
+    "slug": "lemon-lime",
+    "colors": [
+      "28375b",
+      "39809c",
+      "5fcc86",
+      "fff37b"
+    ]
+  },
+  {
+    "title": "Qameboy",
+    "slug": "qameboy",
+    "colors": [
+      "b2c27d",
+      "739a56",
+      "42665a",
+      "353d46"
+    ]
+  },
+  {
+    "title": "SOFTSERVE 4",
+    "slug": "softserve-4",
+    "colors": [
+      "e64270",
+      "64c1bd",
+      "ead762",
+      "e3e6e8"
+    ]
+  },
+  {
+    "title": "DREAM CANDY",
+    "slug": "dream-candy",
+    "colors": [
+      "442d6e",
+      "d075b7",
+      "f0d063",
+      "ffffff"
+    ]
+  },
+  {
+    "title": "Wisteria Mystery",
+    "slug": "wisteria-mystery",
+    "colors": [
+      "ffffdb",
+      "ffc5bb",
+      "ff99a1",
+      "a06689"
+    ]
+  },
+  {
+    "title": "GrafxKid Gameboy Pocket (Gray)",
+    "slug": "grafxkid-gameboy-pocket-gray",
+    "colors": [
+      "2b2b26",
+      "706b66",
+      "a89f94",
+      "e0dbcd"
+    ]
+  },
+  {
+    "title": "Blood Crow",
+    "slug": "blood-crow",
+    "colors": [
+      "190000",
+      "560909",
+      "ad2020",
+      "f2e6e6"
+    ]
+  },
+  {
+    "title": "Optimized Grayscale 4",
+    "slug": "optimized-grayscale-4",
+    "colors": [
+      "dfdfdf",
+      "9f9f9f",
+      "606060",
+      "202020"
+    ]
+  },
+  {
+    "title": "CherryMelon",
+    "slug": "cherrymelon",
+    "colors": [
+      "fcdeea",
+      "ff4d6d",
+      "265935",
+      "012824"
+    ]
+  },
+  {
+    "title": "T-Lollipop",
+    "slug": "t-lollipop",
+    "colors": [
+      "151640",
+      "3f6d9e",
+      "f783b0",
+      "e6f2ef"
+    ]
+  },
+  {
+    "title": "Autumn Chill",
+    "slug": "autumn-chill",
+    "colors": [
+      "dad3af",
+      "d58863",
+      "c23a73",
+      "2c1e74"
+    ]
+  },
+  {
+    "title": "Moon Crystal",
+    "slug": "moon-crystal",
+    "colors": [
+      "ffe2db",
+      "d9a7c6",
+      "8d89c7",
+      "755f9c"
+    ]
+  },
+  {
+    "title": "2 Bit Matrix",
+    "slug": "2-bit-matrix",
+    "colors": [
+      "f2fff2",
+      "add9bc",
+      "5b8c7c",
+      "0d1a1a"
+    ]
+  },
+  {
+    "title": "kankei4",
+    "slug": "kankei4",
+    "colors": [
+      "ffffff",
+      "f42e1f",
+      "2f256b",
+      "060608"
+    ]
+  },
+  {
+    "title": "Metallic GB",
+    "slug": "metallic-gb",
+    "colors": [
+      "221e31",
+      "41485d",
+      "778e98",
+      "c5dbd4"
+    ]
+  },
+  {
+    "title": "Nintendo Gameboy (Arne)",
+    "slug": "nintendo-gameboy-arne",
+    "colors": [
+      "243137",
+      "3f503f",
+      "768448",
+      "acb56b"
+    ]
+  },
+  {
+    "title": "oil oak",
+    "slug": "oil-oak",
+    "colors": [
+      "090110",
+      "1a1e25",
+      "3d3e32",
+      "6f653d"
+    ]
+  },
+  {
+    "title": "WarmLight",
+    "slug": "warmlight",
+    "colors": [
+      "211e20",
+      "66605c",
+      "ff924f",
+      "ffd191"
+    ]
+  },
+  {
+    "title": "Forgotten Swamp",
+    "slug": "forgotten-swamp",
+    "colors": [
+      "d1ada1",
+      "4d7d65",
+      "593a5f",
+      "3b252e"
+    ]
+  },
+  {
+    "title": "Rising Sun GB",
+    "slug": "rising-sun-gb",
+    "colors": [
+      "181322",
+      "4b372c",
+      "a2423a",
+      "cdc1a7"
+    ]
+  },
+  {
+    "title": "Retro vibes",
+    "slug": "retro-vibes",
+    "colors": [
+      "564756",
+      "507dba",
+      "5acca0",
+      "e5f7d2"
+    ]
+  },
+  {
+    "title": "Americana",
+    "slug": "americana",
+    "colors": [
+      "fce4a8",
+      "71969f",
+      "d71a21",
+      "01334e"
+    ]
+  },
+  {
+    "title": "Grapefruit",
+    "slug": "grapefruit",
+    "colors": [
+      "65296c",
+      "b76591",
+      "f4b26b",
+      "fff5dd"
+    ]
+  },
+  {
+    "title": "Caramel autumn",
+    "slug": "caramel-autumn",
+    "colors": [
+      "290143",
+      "a22fc9",
+      "ff8b40",
+      "fff4b8"
+    ]
+  },
+  {
+    "title": "Didi4",
+    "slug": "didi4",
+    "colors": [
+      "dcfecf",
+      "77af68",
+      "3a655a",
+      "210b2e"
+    ]
+  },
+  {
+    "title": "Monday 4",
+    "slug": "monday-4",
+    "colors": [
+      "ac8876",
+      "906776",
+      "634d69",
+      "353546"
+    ]
+  },
+  {
+    "title": "Kid Icarus (SGB)",
+    "slug": "kid-icarus-sgb",
+    "colors": [
+      "1e0000",
+      "9e0000",
+      "f78e50",
+      "cef7f7"
+    ]
+  },
+  {
+    "title": "AGB",
+    "slug": "agb",
+    "colors": [
+      "1e4959",
+      "3ba155",
+      "a0c76f",
+      "ebe0b2"
+    ]
+  },
+  {
+    "title": "Barbie: The Slasher Movie",
+    "slug": "barbie-the-slasher-movie",
+    "colors": [
+      "000000",
+      "6e1fb1",
+      "cc3385",
+      "f8fbf3"
+    ]
+  },
+  {
+    "title": "Technobike",
+    "slug": "technobike",
+    "colors": [
+      "1d2938",
+      "2a616e",
+      "13b37e",
+      "07ef5c"
+    ]
+  },
+  {
+    "title": "Minty Steel",
+    "slug": "minty-steel",
+    "colors": [
+      "191d24",
+      "364f59",
+      "5a9294",
+      "b5e6d3"
+    ]
+  },
+  {
+    "title": "HarshGreens",
+    "slug": "harshgreens",
+    "colors": [
+      "beeb71",
+      "6ab417",
+      "376d03",
+      "172808"
+    ]
+  },
+  {
+    "title": "Super Mario Land 2 (SGB)",
+    "slug": "super-mario-land-2-sgb",
+    "colors": [
+      "000000",
+      "11c600",
+      "dfa677",
+      "eff7b6"
+    ]
+  },
+  {
+    "title": "Crimson Blood 4",
+    "slug": "crimson-blood-4",
+    "colors": [
+      "290707",
+      "766161",
+      "bb9d9d",
+      "ba0000"
+    ]
+  },
+  {
+    "title": "Bluuberry Donut GB",
+    "slug": "bluuberry-donut-gb",
+    "colors": [
+      "080b12",
+      "26213e",
+      "635c84",
+      "f8f5ff"
+    ]
+  },
+  {
+    "title": "the roar of the owl",
+    "slug": "the-roar-of-the-owl",
+    "colors": [
+      "83e6cd",
+      "66adc6",
+      "4f53ab",
+      "3e2469"
+    ]
+  },
+  {
+    "title": "ST GameBoy Magma",
+    "slug": "st-gameboy-magma",
+    "colors": [
+      "1a0f16",
+      "661f1a",
+      "bf531d",
+      "f2c549"
+    ]
+  },
+  {
+    "title": "LostGB",
+    "slug": "lostgb",
+    "colors": [
+      "141319",
+      "30303d",
+      "7b7aa4",
+      "dadada"
+    ]
+  },
+  {
+    "title": "Droplets",
+    "slug": "droplets",
+    "colors": [
+      "0b1424",
+      "25375c",
+      "5c7391",
+      "aec3d6"
+    ]
+  },
+  {
+    "title": "Mononoke San",
+    "slug": "mononoke-san",
+    "colors": [
+      "03324e",
+      "c74148",
+      "dbb9a0",
+      "ffffff"
+    ]
+  },
+  {
+    "title": "Flamingo GB",
+    "slug": "flamingo-gb",
+    "colors": [
+      "351522",
+      "943054",
+      "db7bae",
+      "f5a1a1"
+    ]
+  },
+  {
+    "title": "Hexpress4",
+    "slug": "hexpress4",
+    "colors": [
+      "553840",
+      "9b6859",
+      "bebc6a",
+      "edf8c8"
+    ]
+  },
+  {
+    "title": "Sunset Lantern",
+    "slug": "sunset-lantern",
+    "colors": [
+      "523237",
+      "ab645a",
+      "e39b7f",
+      "f9cda6"
+    ]
+  },
+  {
+    "title": "Dying Contrast",
+    "slug": "dying-contrast",
+    "colors": [
+      "d1ada1",
+      "5e759c",
+      "7f2c44",
+      "3b252e"
+    ]
+  },
+  {
+    "title": "Pink Brown GB",
+    "slug": "pink-brown-gb",
+    "colors": [
+      "541230",
+      "ad3450",
+      "d98257",
+      "f2d5c2"
+    ]
+  },
+  {
+    "title": "GB AMANITA",
+    "slug": "gb-amanita",
+    "colors": [
+      "662959",
+      "a56368",
+      "bfb1a2",
+      "f0ebd8"
+    ]
+  },
+  {
+    "title": "keeby",
+    "slug": "keeby",
+    "colors": [
+      "c5ccb8",
+      "899b98",
+      "5d6872",
+      "333343"
+    ]
+  },
+  {
+    "title": "Cafe Nouveau",
+    "slug": "cafe-nouveau",
+    "colors": [
+      "f8e6d0",
+      "c08e70",
+      "683a34",
+      "200816"
+    ]
+  },
+  {
+    "title": "Hazy Nebulae",
+    "slug": "hazy-nebulae",
+    "colors": [
+      "11263d",
+      "4f5350",
+      "9a8966",
+      "e6c07e"
+    ]
+  },
+  {
+    "title": "Classic Red Sauce ",
+    "slug": "classic-red-sauce",
+    "colors": [
+      "20181c",
+      "d84444",
+      "a23039",
+      "792336"
+    ]
+  },
+  {
+    "title": "Sanguine GB",
+    "slug": "sanguine-gb",
+    "colors": [
+      "bba075",
+      "734940",
+      "641010",
+      "28000e"
+    ]
+  },
+  {
+    "title": "STEAMPUNK-4",
+    "slug": "steampunk-4",
+    "colors": [
+      "bebc99",
+      "6f8b6c",
+      "4f485e",
+      "171a24"
+    ]
+  },
+  {
+    "title": "Slate",
+    "slug": "slate",
+    "colors": [
+      "beb09f",
+      "608189",
+      "49556c",
+      "292736"
+    ]
+  },
+  {
+    "title": "Golden Boy GB",
+    "slug": "golden-boy-gb",
+    "colors": [
+      "002e3d",
+      "375a26",
+      "9f9660",
+      "e9e4e2"
+    ]
+  },
+  {
+    "title": "RedBoyVibes ",
+    "slug": "redboyvibes",
+    "colors": [
+      "410e43",
+      "ff007e",
+      "de6beb",
+      "ffffff"
+    ]
+  },
+  {
+    "title": "Earth GB",
+    "slug": "earth-gb",
+    "colors": [
+      "774346",
+      "b87652",
+      "acb965",
+      "f5f29e"
+    ]
+  },
+  {
+    "title": "CGA Palette 0 (High)",
+    "slug": "cga-palette-0-high",
+    "colors": [
+      "000000",
+      "55ff55",
+      "ff5555",
+      "ffff55"
+    ]
+  },
+  {
+    "title": "Baldur - Neon Darkness",
+    "slug": "baldur-neon-darkness",
+    "colors": [
+      "0f1b26",
+      "f5e8d1",
+      "20a5a6",
+      "dd5639"
+    ]
+  },
+  {
+    "title": "Kirby (SGB)",
+    "slug": "kirby-sgb",
+    "colors": [
+      "2c2c96",
+      "7733e7",
+      "e78686",
+      "f7bef7"
+    ]
+  },
+  {
+    "title": "EB GB Mint Flavour",
+    "slug": "eb-gb-mint-flavour",
+    "colors": [
+      "f4f2af",
+      "64d0b8",
+      "3b7961",
+      "291f3e"
+    ]
+  },
+  {
+    "title": "CGA Palette 2 (High)",
+    "slug": "cga-palette-2-high",
+    "colors": [
+      "000000",
+      "FF5555",
+      "55FFFF",
+      "FFFFFF"
+    ]
+  },
+  {
+    "title": "Red is Dead",
+    "slug": "red-is-dead",
+    "colors": [
+      "fffcfe",
+      "ff0015",
+      "860020",
+      "11070a"
+    ]
+  },
+  {
+    "title": "MuddySand",
+    "slug": "muddysand",
+    "colors": [
+      "e6d69c",
+      "b4a56a",
+      "7b7162",
+      "393829"
+    ]
+  },
+  {
+    "title": "Weekly Release!",
+    "slug": "weekly-release",
+    "colors": [
+      "cccec7",
+      "a09f97",
+      "77746f",
+      "2e2622"
+    ]
+  },
+  {
+    "title": "Sweet Guaran\u00e1",
+    "slug": "sweet-guarana",
+    "colors": [
+      "253b46",
+      "18865f",
+      "61d162",
+      "ebe7ad"
+    ]
+  },
+  {
+    "title": "Voltage Warning",
+    "slug": "voltage-warning",
+    "colors": [
+      "1c1412",
+      "635650",
+      "d3ae21",
+      "d4c9c3"
+    ]
+  },
+  {
+    "title": "Metroid II (SGB)",
+    "slug": "metroid-ii-sgb",
+    "colors": [
+      "2c1700",
+      "047e60",
+      "b62558",
+      "aedf1e"
+    ]
+  },
+  {
+    "title": "CGA Palette 0 (Low)",
+    "slug": "cga-palette-0-low",
+    "colors": [
+      "000000",
+      "00aa00",
+      "aa0000",
+      "aa5500"
+    ]
+  },
+  {
+    "title": "GB M\u0152BIUS",
+    "slug": "gb-mbius",
+    "colors": [
+      "f1e0cd",
+      "ffa49a",
+      "da3467",
+      "35333f"
+    ]
+  },
+  {
+    "title": "GrafxKid Gameboy Pocket (Green)",
+    "slug": "grafxkid-gameboy-pocket-green",
+    "colors": [
+      "4c625a",
+      "7b9278",
+      "abc396",
+      "dbf4b4"
+    ]
+  },
+  {
+    "title": "Soggy Newspapers",
+    "slug": "soggy-newspapers",
+    "colors": [
+      "dbe6e9",
+      "8f8e8a",
+      "5c5b5b",
+      "0d0e0a"
+    ]
+  },
+  {
+    "title": "Star Pop",
+    "slug": "star-pop",
+    "colors": [
+      "674577",
+      "64b9ca",
+      "ffa3d6",
+      "ffebe5"
+    ]
+  },
+  {
+    "title": "PocketGB",
+    "slug": "pocketgb",
+    "colors": [
+      "aea691",
+      "887b6a",
+      "605444",
+      "4e3f2a"
+    ]
+  },
+  {
+    "title": "lava level",
+    "slug": "lava-level",
+    "colors": [
+      "726059",
+      "301922",
+      "cf331e",
+      "f29d2c"
+    ]
+  },
+  {
+    "title": "Platinum",
+    "slug": "platinum",
+    "colors": [
+      "e0f0e8",
+      "a8c0b0",
+      "507868",
+      "183030"
+    ]
+  },
+  {
+    "title": "Computer Chip y",
+    "slug": "computer-chip-y",
+    "colors": [
+      "eae8db",
+      "797b7a",
+      "2c2f38",
+      "151b26"
+    ]
+  },
+  {
+    "title": "Pumpkin GB",
+    "slug": "pumpkin-gb",
+    "colors": [
+      "142b23",
+      "19692c",
+      "e06e16",
+      "f7db7e"
+    ]
+  },
+  {
+    "title": "CandyPop!",
+    "slug": "candypop",
+    "colors": [
+      "301221",
+      "854576",
+      "9e81d0",
+      "eebff5"
+    ]
+  },
+  {
+    "title": "LightGreen",
+    "slug": "lightgreen",
+    "colors": [
+      "f4fbd0",
+      "68cf68",
+      "1e9178",
+      "05241f"
+    ]
+  },
+  {
+    "title": "pong4",
+    "slug": "pong4",
+    "colors": [
+      "5c4bff",
+      "fdfff2",
+      "14e1ff",
+      "ff7ad6"
+    ]
+  },
+  {
+    "title": "CGA Palette 1 (Low)",
+    "slug": "cga-palette-1-low",
+    "colors": [
+      "000000",
+      "aa00aa",
+      "00aaaa",
+      "aaaaaa"
+    ]
+  },
+  {
+    "title": "Mangavania",
+    "slug": "mangavania",
+    "colors": [
+      "b03e80",
+      "ff8acd",
+      "4aedff",
+      "ffffff"
+    ]
+  },
+  {
+    "title": "Timeless Night",
+    "slug": "timeless-night",
+    "colors": [
+      "6f5d9d",
+      "563482",
+      "2f1c62",
+      "1b0d35"
+    ]
+  },
+  {
+    "title": "PJ Gameboy",
+    "slug": "pj-gameboy",
+    "colors": [
+      "1f1f1f",
+      "4d533c",
+      "8b956d",
+      "c4cfa1"
+    ]
+  },
+  {
+    "title": "Modern 4",
+    "slug": "modern-4",
+    "colors": [
+      "181b24",
+      "0c5066",
+      "d99741",
+      "f0e1d1"
+    ]
+  },
+  {
+    "title": "luxA",
+    "slug": "luxa",
+    "colors": [
+      "1e1e3c",
+      "50506e",
+      "bebee6",
+      "e6e6ff"
+    ]
+  },
+  {
+    "title": "Honey Milk",
+    "slug": "honey-milk",
+    "colors": [
+      "211210",
+      "5e2d20",
+      "c76b2a",
+      "f0c260"
+    ]
+  },
+  {
+    "title": "2BIT Sunrise",
+    "slug": "2bit-sunrise",
+    "colors": [
+      "171726",
+      "804055",
+      "d99d62",
+      "fff2d9"
+    ]
+  },
+  {
+    "title": "Vivid 2bit Scream",
+    "slug": "vivid-2bit-scream",
+    "colors": [
+      "561d17",
+      "5c4fa3",
+      "74af34",
+      "caf532"
+    ]
+  },
+  {
+    "title": "Italy-4",
+    "slug": "italy-4",
+    "colors": [
+      "100f24",
+      "5d8d60",
+      "edeada",
+      "c74634"
+    ]
+  },
+  {
+    "title": "Ocean GB",
+    "slug": "ocean-gb",
+    "colors": [
+      "1c1530",
+      "2a308b",
+      "367dd8",
+      "8de2f6"
+    ]
+  },
+  {
+    "title": "ST GameBoy Deluxe",
+    "slug": "st-gameboy-deluxe",
+    "colors": [
+      "09091a",
+      "442a8c",
+      "a8bf4c",
+      "f4f5e9"
+    ]
+  },
+  {
+    "title": "Darkboy4",
+    "slug": "darkboy4",
+    "colors": [
+      "e7e8f3",
+      "8c83c3",
+      "634d8f",
+      "120b19"
+    ]
+  },
+  {
+    "title": "Foxfire",
+    "slug": "foxfire",
+    "colors": [
+      "5a0084",
+      "e63900",
+      "ffc96b",
+      "ffffff"
+    ]
+  },
+  {
+    "title": "Monologos",
+    "slug": "monologos",
+    "colors": [
+      "211f1f",
+      "372c38",
+      "7a7272",
+      "ababab"
+    ]
+  },
+  {
+    "title": "Bicycle",
+    "slug": "bicycle",
+    "colors": [
+      "161616",
+      "ab4646",
+      "8f9bf6",
+      "f0f0f0"
+    ]
+  },
+  {
+    "title": "ColdGB",
+    "slug": "coldgb",
+    "colors": [
+      "220022",
+      "334455",
+      "779988",
+      "ffffdd"
+    ]
+  },
+  {
+    "title": "Red Poster",
+    "slug": "red-poster",
+    "colors": [
+      "e8d6c0",
+      "92938d",
+      "a1281c",
+      "000000"
+    ]
+  },
+  {
+    "title": "Empty Space 4",
+    "slug": "empty-space-4",
+    "colors": [
+      "000100",
+      "431723",
+      "46464f",
+      "928e80"
+    ]
+  },
+  {
+    "title": "HoneyGB",
+    "slug": "honeygb",
+    "colors": [
+      "3e3a42",
+      "877286",
+      "f0b695",
+      "e9f5da"
+    ]
+  },
+  {
+    "title": "Megaman V (SGB)",
+    "slug": "megaman-v-sgb",
+    "colors": [
+      "102533",
+      "42678e",
+      "6f9edf",
+      "cecece"
+    ]
+  },
+  {
+    "title": "RGR-Papercut4",
+    "slug": "rgr-papercut4",
+    "colors": [
+      "0c0c0d",
+      "3f3d47",
+      "8b7d73",
+      "cdb27b"
+    ]
+  },
+  {
+    "title": "GB Chocolate",
+    "slug": "gb-chocolate",
+    "colors": [
+      "ffe4c2",
+      "dca456",
+      "a9604c",
+      "422936"
+    ]
+  },
+  {
+    "title": "horehound-4",
+    "slug": "horehound-4",
+    "colors": [
+      "3c1402",
+      "ca9a57",
+      "e96f1b",
+      "312b24"
+    ]
+  },
+  {
+    "title": "Coral 4",
+    "slug": "coral-4",
+    "colors": [
+      "ffd0a4",
+      "f4949c",
+      "7c9aac",
+      "68518a"
+    ]
+  },
+  {
+    "title": "Wish GB",
+    "slug": "wish-gb",
+    "colors": [
+      "622e4c",
+      "7550e8",
+      "608fcf",
+      "8be5ff"
+    ]
+  },
+  {
+    "title": "Nostalgia",
+    "slug": "nostalgia",
+    "colors": [
+      "d0d058",
+      "a0a840",
+      "708028",
+      "405010"
+    ]
+  },
+  {
+    "title": "2-bit Grayscale",
+    "slug": "2-bit-grayscale",
+    "colors": [
+      "000000",
+      "676767",
+      "b6b6b6",
+      "ffffff"
+    ]
+  },
+  {
+    "title": "Crimson",
+    "slug": "crimson",
+    "colors": [
+      "eff9d6",
+      "ba5044",
+      "7a1c4b",
+      "1b0326"
+    ]
+  },
+  {
+    "title": "BLK AQU4",
+    "slug": "blk-aqu4",
+    "colors": [
+      "002b59",
+      "005f8c",
+      "00b9be",
+      "9ff4e5"
+    ]
+  },
+  {
+    "title": "SpaceHaze",
+    "slug": "spacehaze",
+    "colors": [
+      "f8e3c4",
+      "cc3495",
+      "6b1fb1",
+      "0b0630"
+    ]
+  },
+  {
+    "title": "Velvet Cherry GB",
+    "slug": "velvet-cherry-gb",
+    "colors": [
+      "2d162c",
+      "412752",
+      "683a68",
+      "9775a6"
+    ]
+  },
+  {
+    "title": "Arq4",
+    "slug": "arq4",
+    "colors": [
+      "ffffff",
+      "6772a9",
+      "3a3277",
+      "000000"
+    ]
+  },
+  {
+    "title": "bittersweet",
+    "slug": "bittersweet",
+    "colors": [
+      "282328",
+      "545c7e",
+      "c56981",
+      "a3a29a"
+    ]
+  },
+  {
+    "title": "Pokemon (SGB)",
+    "slug": "pokemon-sgb",
+    "colors": [
+      "181010",
+      "84739c",
+      "f7b58c",
+      "ffefff"
+    ]
+  },
+  {
+    "title": "SODA-CAP",
+    "slug": "soda-cap",
+    "colors": [
+      "2176cc",
+      "ff7d6e",
+      "fca6ac",
+      "e8e7cb"
+    ]
+  },
+  {
+    "title": "Links Awakening (SGB)",
+    "slug": "links-awakening-sgb",
+    "colors": [
+      "5a3921",
+      "6b8c42",
+      "7bc67b",
+      "ffffb5"
+    ]
+  },
+  {
+    "title": "Fiery Plague GB",
+    "slug": "fiery-plague-gb",
+    "colors": [
+      "1a2129",
+      "312137",
+      "512839",
+      "713141"
+    ]
+  },
+  {
+    "title": "Gold GB",
+    "slug": "gold-gb",
+    "colors": [
+      "210b1b",
+      "4d222c",
+      "9d654c",
+      "cfab51"
+    ]
+  },
+  {
+    "title": "HallowPumpkin",
+    "slug": "hallowpumpkin",
+    "colors": [
+      "300030",
+      "602878",
+      "f89020",
+      "f8f088"
+    ]
+  },
+  {
+    "title": "Nymph GB",
+    "slug": "nymph-gb",
+    "colors": [
+      "2c2137",
+      "446176",
+      "3fac95",
+      "a1ef8c"
+    ]
+  },
+  {
+    "title": "Red-Blood Pain",
+    "slug": "red-blood-pain",
+    "colors": [
+      "7e1f23",
+      "c4181f",
+      "120a19",
+      "5e4069"
+    ]
+  },
+  {
+    "title": "Nintendo Super Gameboy",
+    "slug": "nintendo-super-gameboy",
+    "colors": [
+      "331e50",
+      "a63725",
+      "d68e49",
+      "f7e7c6"
+    ]
+  },
+  {
+    "title": "dustbyte",
+    "slug": "dustbyte",
+    "colors": [
+      "788374",
+      "f5e9bf",
+      "aa644d",
+      "372a39"
+    ]
+  },
+  {
+    "title": "bluem0ld",
+    "slug": "bluem0ld",
+    "colors": [
+      "191b1a",
+      "294257",
+      "579c9a",
+      "99c9b3"
+    ]
+  },
+  {
+    "title": "Lospec GB",
+    "slug": "lospec-gb",
+    "colors": [
+      "000000",
+      "382843",
+      "7c6d80",
+      "c7c6c6"
+    ]
+  },
+  {
+    "title": "FuzzyFour",
+    "slug": "fuzzyfour",
+    "colors": [
+      "302387",
+      "ff3796",
+      "00faac",
+      "fffdaf"
+    ]
+  },
+  {
+    "title": "Coldfire GB",
+    "slug": "coldfire-gb",
+    "colors": [
+      "46425e",
+      "5b768d",
+      "d17c7c",
+      "f6c6a8"
+    ]
+  },
+  {
+    "title": "Andrade Gameboy",
+    "slug": "andrade-gameboy",
+    "colors": [
+      "202020",
+      "5e6745",
+      "aeba89",
+      "e3eec0"
+    ]
+  },
+  {
+    "title": "EN4",
+    "slug": "en4",
+    "colors": [
+      "fbf7f3",
+      "e5b083",
+      "426e5d",
+      "20283d"
+    ]
+  },
+  {
+    "title": "PurpleDawn",
+    "slug": "purpledawn",
+    "colors": [
+      "eefded",
+      "9a7bbc",
+      "2d757e",
+      "001b2e"
+    ]
+  },
+  {
+    "title": "CGA Palette 1 (High)",
+    "slug": "cga-palette-1-high",
+    "colors": [
+      "000000",
+      "ff55ff",
+      "55ffff",
+      "ffffff"
+    ]
+  },
+  {
+    "title": "HEART4",
+    "slug": "heart4",
+    "colors": [
+      "3e2653",
+      "a64777",
+      "ff4589",
+      "ebe5ce"
+    ]
+  },
+  {
+    "title": "Look of Horror",
+    "slug": "look-of-horror",
+    "colors": [
+      "0a202f",
+      "302d6a",
+      "871c3e",
+      "d32836"
+    ]
+  },
+  {
+    "title": "Neon Night Sky",
+    "slug": "neon-night-sky",
+    "colors": [
+      "131626",
+      "4d4d80",
+      "e6a1cf",
+      "ffe6ea"
+    ]
+  },
+  {
+    "title": "b4sement",
+    "slug": "b4sement",
+    "colors": [
+      "222323",
+      "ff4adc",
+      "3dff98",
+      "f0f6f0"
+    ]
+  },
+  {
+    "title": "laser lab",
+    "slug": "laser-lab",
+    "colors": [
+      "e01f3f",
+      "fff8ed",
+      "7b6960",
+      "271d2c"
+    ]
+  },
+  {
+    "title": "dusty4",
+    "slug": "dusty4",
+    "colors": [
+      "f5f6df",
+      "5a8f78",
+      "3a5068",
+      "372a51"
+    ]
+  },
+  {
+    "title": "pen n paper",
+    "slug": "pen-n-paper",
+    "colors": [
+      "e4dbba",
+      "a4929a",
+      "4f3a54",
+      "260d1c"
+    ]
+  },
+  {
+    "title": "Amber CRTGB",
+    "slug": "amber-crtgb",
+    "colors": [
+      "0d0405",
+      "5e1210",
+      "d35600",
+      "fed018"
+    ]
+  },
+  {
+    "title": "2BIT DEMIBOY",
+    "slug": "2bit-demiboy",
+    "colors": [
+      "252525",
+      "4b564d",
+      "9aa57c",
+      "e0e9c4"
+    ]
+  },
+  {
+    "title": "minty fresh",
+    "slug": "minty-fresh",
+    "colors": [
+      "40332f",
+      "856d52",
+      "95c798",
+      "fbffe0"
+    ]
+  },
+  {
+    "title": "Slurry GB",
+    "slug": "slurry-gb",
+    "colors": [
+      "00303b",
+      "4e494c",
+      "d4984a",
+      "ffffc7"
+    ]
+  },
+  {
+    "title": "Yana's Modernized Pokemon SGB",
+    "slug": "yanas-modernized-pokemon-sgb",
+    "colors": [
+      "471e4c",
+      "876bb2",
+      "ffefff",
+      "f7b58c"
+    ]
+  },
+  {
+    "title": "Mokky",
+    "slug": "mokky",
+    "colors": [
+      "cca66e",
+      "99683d",
+      "664930",
+      "332920"
+    ]
+  },
+  {
+    "title": "lava",
+    "slug": "lava",
+    "colors": [
+      "850101",
+      "b63402",
+      "e78304",
+      "eafe54"
+    ]
+  },
+  {
+    "title": "Nintendo Internal",
+    "slug": "nintendo-internal",
+    "colors": [
+      "384828",
+      "607028",
+      "a0a830",
+      "d0e040"
+    ]
+  },
+  {
+    "title": "Orchids4",
+    "slug": "orchids4",
+    "colors": [
+      "220630",
+      "3834a3",
+      "d964d5",
+      "ffbfe3"
+    ]
+  },
+  {
+    "title": "Novocaine GB",
+    "slug": "novocaine-gb",
+    "colors": [
+      "052227",
+      "1d6763",
+      "6fb8ad",
+      "a1ffe1"
+    ]
+  },
+  {
+    "title": "GB Easy Greens",
+    "slug": "gb-easy-greens",
+    "colors": [
+      "004333",
+      "0d8833",
+      "a1bc00",
+      "ebdd77"
+    ]
+  },
+  {
+    "title": "FLORESCENCE",
+    "slug": "florescence",
+    "colors": [
+      "311f5f",
+      "1687a7",
+      "1fd5bc",
+      "edffb1"
+    ]
+  },
+  {
+    "title": "mint4",
+    "slug": "mint4",
+    "colors": [
+      "f7e2e3",
+      "9edeb5",
+      "6fc4b2",
+      "71a8c6"
+    ]
+  },
+  {
+    "title": "Pink Puff GB",
+    "slug": "pink-puff-gb",
+    "colors": [
+      "8e1438",
+      "e84b6a",
+      "fc92a3",
+      "f7d7db"
+    ]
+  },
+  {
+    "title": "Tea gb ",
+    "slug": "tea-gb",
+    "colors": [
+      "d6c894",
+      "b59070",
+      "875d51",
+      "422e31"
+    ]
+  },
+  {
+    "title": "Bmo",
+    "slug": "bmo",
+    "colors": [
+      "101e2b",
+      "183a42",
+      "407c84",
+      "8bbe93"
+    ]
+  },
+  {
+    "title": "CGA Mibend4",
+    "slug": "cga-mibend4",
+    "colors": [
+      "291f23",
+      "bd502f",
+      "34d1af",
+      "f7ecb9"
+    ]
+  },
+  {
+    "title": "JB4",
+    "slug": "jb4",
+    "colors": [
+      "daf3ec",
+      "00bff3",
+      "ed008c",
+      "260016"
+    ]
+  },
+  {
+    "title": "grey mist",
+    "slug": "grey-mist",
+    "colors": [
+      "f1ffe0",
+      "988171",
+      "463534",
+      "1e1721"
+    ]
+  },
+  {
+    "title": "Daybreak",
+    "slug": "daybreak",
+    "colors": [
+      "08050c",
+      "822d30",
+      "eb754d",
+      "f8b581"
+    ]
+  },
+  {
+    "title": "Ancient Scroll",
+    "slug": "ancient-scroll",
+    "colors": [
+      "2e4252",
+      "738e85",
+      "bebba1",
+      "e5dab9"
+    ]
+  },
+  {
+    "title": "RABBIT5PM",
+    "slug": "rabbit5pm",
+    "colors": [
+      "ffe7cd",
+      "e4a39f",
+      "629098",
+      "4c3457"
+    ]
+  },
+  {
+    "title": "GB NOODS",
+    "slug": "gb-noods",
+    "colors": [
+      "4c4139",
+      "9a747f",
+      "ccb4a4",
+      "e5dacd"
+    ]
+  },
+  {
+    "title": "2Bit Catgirls: Rise",
+    "slug": "2bit-catgirls-rise",
+    "colors": [
+      "162c27",
+      "534650",
+      "6f9b8a",
+      "ead7be"
+    ]
+  },
+  {
+    "title": "Blueberry GB",
+    "slug": "blueberry-gb",
+    "colors": [
+      "280b0b",
+      "6c2e53",
+      "aa73e0",
+      "b0ecf9"
+    ]
+  },
+  {
+    "title": "Gooseberry Thistle",
+    "slug": "gooseberry-thistle",
+    "colors": [
+      "48376c",
+      "6c56ab",
+      "b883b9",
+      "bfdce1"
+    ]
+  }
+]

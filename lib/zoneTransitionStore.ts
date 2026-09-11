@@ -16,7 +16,9 @@ import type { Zone } from '@/types'
 export const zoneTransitionStore: {
   displayedZone: Zone | null
   blend: number // 0..1 fade/scale progress for displayedZone
+  projectsOpacity: number // section fade × shared camera-pull overlay opacity
 } = {
   displayedZone: null,
   blend: 0,
+  projectsOpacity: 0,
 }

@@ -1,20 +1,6 @@
 import type { Palette } from './paletteVars'
 
-// Server-side palette source: fetches Lospec's top 4-color palettes, filters
-// them for contrast, and picks one at random with a random role assignment.
-//
-// Lives here (rather than only inside the /api/palette route) so app/layout.tsx
-// can call it directly during SSR and inline the chosen palette into the HTML.
-// That's what removes the old load-time color snap: the first painted frame
-// already carries the session's real colors instead of the placeholder
-// white/near-black defaults, with no client round-trip to wait on.
-// Lospec's palette-list AJAX endpoint (same one lospec.com/palette-list uses
-// client-side) — 10 palettes per page, no auth/CORS headers needed since this
-// runs server-side. colorNumberFilterType=exact + colorNumber=4 restricts to
-// palettes with exactly 4 colors; sortingType=downloads ranks by popularity.
-const LOSPEC_URL = 'https://lospec.com/palette-list/load'
-const PAGE_SIZE  = 10
-const PAGES      = 20 // 20 x 10 = top 200 by downloads
+import cachedPalettes from '@/content/palette-pool.json'
 
 interface LospecPalette {
   title:  string
@@ -143,58 +129,8 @@ function toPalette(p: LospecPalette): Palette {
   return { white: `#${white}`, yellow: `#${yellow}`, red: `#${red}`, black: `#${black}`, bright: `#${bright}`, title: p.title, slug: p.slug }
 }
 
-async function fetchTopPalettes(): Promise<LospecPalette[]> {
-  const pages = await Promise.all(
-    Array.from({ length: PAGES }, (_, i) => {
-      const page = i + 1
-      const url = `${LOSPEC_URL}?colorNumberFilterType=exact&colorNumber=4&sortingType=downloads&tag=&page=${page}`
-      return fetch(url, { signal: AbortSignal.timeout(4000), next: { revalidate: 86400 } })
-        .then(res => (res.ok ? res.json() : null))
-        .catch(() => null)
-    })
-  )
-
-  return pages
-    .filter((p): p is { palettes: LospecPalette[] } => !!p?.palettes?.length)
-    .flatMap(p => p.palettes)
-    .slice(0, PAGES * PAGE_SIZE)
-}
-
-
-// The upstream pages are the slow part, and every request picks from the same
-// pool — so the POOL is cached in module scope, not just the HTTP responses.
-// Next's fetch cache still covers cold starts across instances; this covers
-// repeat calls within one warm instance, where it turns palette selection into
-// pure CPU (no await at all).
-let poolCache: { pool: LospecPalette[]; at: number; ttl: number } | null = null
-const POOL_TTL_MS = 86_400_000  // matches the per-fetch `revalidate: 86400`
-// A pool that came back empty (Lospec down/unreachable) is cached only briefly,
-// so one bad moment doesn't pin the site to the 4 fallback palettes all day.
-const FALLBACK_TTL_MS = 60_000
-
-async function getPool(): Promise<LospecPalette[]> {
-  if (poolCache && Date.now() - poolCache.at < poolCache.ttl) return poolCache.pool
-
-  let pool = FALLBACK_PALETTES
-  let fromUpstream = false
-  try {
-    const topPalettes = await fetchTopPalettes()
-    // Prefer palettes that clear the contrast bar; if the filter happens to
-    // reject the entire pool (it shouldn't — usually ~5-10% pass), fall
-    // back to the unfiltered pool rather than erroring.
-    const filtered = topPalettes.filter(passesContrastFilter)
-    if (filtered.length > 0) { pool = filtered; fromUpstream = true }
-    else if (topPalettes.length > 0) { pool = topPalettes; fromUpstream = true }
-  } catch {
-    // fall through to FALLBACK_PALETTES
-  }
-
-  poolCache = { pool, at: Date.now(), ttl: fromUpstream ? POOL_TTL_MS : FALLBACK_TTL_MS }
-  return pool
-}
-
-// One random palette, in one random valid role assignment.
+// Versioned local snapshot: no upstream service is on the request path.
+const validatedPool = [...cachedPalettes, ...FALLBACK_PALETTES].filter(passesContrastFilter)
 export async function pickPalette(): Promise<Palette> {
-  const pool = await getPool()
-  return toPalette(pool[Math.floor(Math.random() * pool.length)])
+  return toPalette(validatedPool[Math.floor(Math.random() * validatedPool.length)])
 }

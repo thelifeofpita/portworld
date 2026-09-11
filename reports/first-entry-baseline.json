@@ -1,0 +1,48 @@
+[
+  {
+    "width": 1440,
+    "section": "Playground",
+    "readyMs": 1892,
+    "longTasks": [
+      {
+        "start": 1979.6000000238419,
+        "duration": 386
+      },
+      {
+        "start": 3473.5,
+        "duration": 193
+      }
+    ],
+    "maxTaskMs": 386
+  },
+  {
+    "width": 1440,
+    "section": "Projects",
+    "readyMs": 1892,
+    "longTasks": [
+      {
+        "start": 4848.5,
+        "duration": 164
+      },
+      {
+        "start": 5020.200000017881,
+        "duration": 184
+      }
+    ],
+    "maxTaskMs": 184
+  },
+  {
+    "width": 390,
+    "section": "Playground",
+    "readyMs": 1924,
+    "longTasks": [],
+    "maxTaskMs": 0
+  },
+  {
+    "width": 390,
+    "section": "Projects",
+    "readyMs": 1924,
+    "longTasks": [],
+    "maxTaskMs": 0
+  }
+]

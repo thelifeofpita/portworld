@@ -1,6 +1,7 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  distDir: process.env.PERF_DIST_DIR || ".next",
   turbopack: {
     root: __dirname,
   },
@@ -24,6 +25,7 @@ const nextConfig: NextConfig = {
   },
   async headers() {
     return [
+      { source: '/generated/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
       {
         source: '/models/:path*',
         headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }],

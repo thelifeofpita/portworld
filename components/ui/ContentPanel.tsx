@@ -1,11 +1,14 @@
 'use client'
 
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { observeLayout } from '@/lib/layoutMeasurement'
+import { subscribeFrame } from '@/lib/frameScheduler'
 import Image from 'next/image'
 import { createPortal } from 'react-dom'
 import { AnimatePresence, animate, motion, useMotionValue, useSpring, useTransform, type MotionValue } from 'framer-motion'
 import type { Zone } from '@/types'
-import { playgroundContent, type PlaygroundItem } from '@/content/playgroundContent'
+import dynamic from 'next/dynamic'
+const PlaygroundGallery = dynamic(() => import('./PlaygroundGallery'))
 import { projectsContent, type ProjectItem } from '@/content/projectsContent'
 import { aboutContent } from '@/content/aboutContent'
 import { cameraStore } from '@/lib/cameraStore'
@@ -15,10 +18,14 @@ import { zoneStore } from '@/lib/zoneStore'
 import { zoneTransitionStore } from '@/lib/zoneTransitionStore'
 import { projectCardCorners } from '@/lib/cardGlowStore'
 import { playgroundGlowStore } from '@/lib/playgroundGlowStore'
+import { bigProjectSlotStore } from '@/lib/bigProjectSlotStore'
+import { bigProjectExpandStore } from '@/lib/bigProjectExpandStore'
 import { cursorStore, ensureCursorTracking } from '@/lib/cursorStore'
-import { buildConfigs, resolveAspectRatio, type PlaygroundCardConfig } from '@/lib/playgroundLayout'
 import { CUSTOM_LAYOUTS } from './customLayouts'
+import ProjectThumbModel from '@/components/canvas/ProjectThumbModel'
 import styles from './ContentPanel.module.css'
+
+
 
 // Snappy panel open/close — same feel as the accent color snap
 const PANEL_TRANSITION = { duration: 0.22, ease: [0.2, 0, 0, 1] as const }
@@ -42,8 +49,6 @@ const LOOK_SENSITIVITY  = 1.15
 // style — projectCardCorners() replicates that exact CSS transform in JS to
 // find the tilted card's true on-screen quad, so the two have to agree.
 const PROJECT_CARD_PERSPECTIVE = 900
-// Must match PlaygroundCard's `transformPerspective: PLAYGROUND_CARD_PERSPECTIVE` style.
-const PLAYGROUND_CARD_PERSPECTIVE = 700
 // dt-normalized smoothing factor for the glow's hover color-wipe progress —
 // same shape/pace as PostProcessing.tsx's own dither-mode transition lerp.
 const HOVER_WIPE_SMOOTH = 0.14
@@ -160,12 +165,14 @@ function useCardTilt<T extends HTMLElement = HTMLElement>() {
   // card's own live rect each frame.
   useEffect(() => {
     ensureCursorTracking()
-    let rafId: number
+    if (!rootRef.current) return
+    const measurement = observeLayout(rootRef.current)
+    let stop: () => void
     const tick = () => {
       if (cursorStore.hasMoved) {
         const el = rootRef.current
-        if (el) {
-          const r = el.getBoundingClientRect()
+        if (el && measurement.rect) {
+          const r = measurement.rect!
           const cx = r.left + r.width  / 2
           const cy = r.top  + r.height / 2
           const dx = (cursorStore.x - cx) / (window.innerWidth  / 2)
@@ -174,10 +181,9 @@ function useCardTilt<T extends HTMLElement = HTMLElement>() {
           rotateX.set(-dy * LOOK_SENSITIVITY * LOOK_MAX_DEG)
         }
       }
-      rafId = requestAnimationFrame(tick)
     }
-    rafId = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(rafId)
+    stop = subscribeFrame(tick, measurement.read)
+    return () => { stop(); measurement.dispose() }
   }, [rotateX, rotateY])
 
   const onTiltEnter = useCallback(() => { hoveredRef.current = true; setHovered(true) }, [])
@@ -198,12 +204,13 @@ interface CardProps {
   arcInset?:   boolean // top/bottom card in its column — pulled inward for the circular composition
   onExpand:    (rect: CardRect) => void
   thumb?:      string
+  thumbModel?: string // path to a .glb — when set, renders a live 3D model instead of the thumb image
   accentColor?: string // the project's own brand color — paints its extruded side faces
   isOpen:      boolean // portal is fully open — card hides so they don't overlap
   thumbScale?: number  // CSS scale applied to the thumbnail image
 }
 
-function ProjectCard({ direction, arcInset, onExpand, thumb, accentColor, isOpen, thumbScale = 1 }: CardProps) {
+function ProjectCard({ direction, arcInset, onExpand, thumb, thumbModel, accentColor, isOpen, thumbScale = 1 }: CardProps) {
   const thumbRef     = useRef<HTMLDivElement>(null)
   const dragBlockRef = useRef(false)
   const { hoveredRef, springX, springY, onTiltEnter, onTiltLeave, rootRef } = useCardTilt<HTMLDivElement>()
@@ -218,7 +225,7 @@ function ProjectCard({ direction, arcInset, onExpand, thumb, accentColor, isOpen
   // glow can't outlive the pane.
   const glowSlotRef = useRef<number | null>(null)
   useEffect(() => {
-    let rafId: number
+    let stop: () => void
     let lastTime = performance.now()
     const hoverProgress = { current: 0 }
     const releaseSlot = () => {
@@ -252,11 +259,10 @@ function ProjectCard({ direction, arcInset, onExpand, thumb, accentColor, isOpen
       } else {
         releaseSlot()
       }
-      rafId = requestAnimationFrame(tick)
     }
-    rafId = requestAnimationFrame(tick)
+    stop = subscribeFrame(tick)
     return () => {
-      cancelAnimationFrame(rafId)
+      stop()
       releaseSlot()
     }
   }, [isOpen, springX, springY, hoveredRef, rootRef])
@@ -267,7 +273,7 @@ function ProjectCard({ direction, arcInset, onExpand, thumb, accentColor, isOpen
   // React. Writes are skipped while the tilt is unchanged.
   const faceRefs = useRef<(HTMLDivElement | null)[]>([])
   useEffect(() => {
-    let rafId: number
+    let stop: () => void
     // Infinity, not NaN — every comparison against NaN is false, which would
     // stop the first write from ever happening.
     let lastX = Infinity, lastY = Infinity
@@ -284,10 +290,9 @@ function ProjectCard({ direction, arcInset, onExpand, thumb, accentColor, isOpen
           el.style.setProperty('--sheen-spot', `${sheenSpot(CARD_FACE_AXES[i], degX, degY).toFixed(1)}%`)
         })
       }
-      rafId = requestAnimationFrame(tick)
     }
-    rafId = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(rafId)
+    stop = subscribeFrame(tick)
+    return () => stop()
   }, [springX, springY])
 
   // Arc composition — top/bottom cards in each column pull horizontally toward
@@ -330,39 +335,99 @@ function ProjectCard({ direction, arcInset, onExpand, thumb, accentColor, isOpen
           animate={{ opacity: isOpen ? 0 : 1 }}
           transition={{ opacity: { duration: isOpen ? 0.05 : 0 } }}
         >
-          <motion.div
-            className={styles.projectCardInner}
-            style={{ rotateX: springX, rotateY: springY, transformPerspective: PROJECT_CARD_PERSPECTIVE, pointerEvents: 'none' }}
-          >
-            {/* The slab's side faces take the project's OWN brand color (the
-                same per-project accent the outer glow used to carry), so each
-                card's depth reads as that project's color rather than one
-                uniform site accent. */}
-            <div
-              className={styles.projectCardRow}
-              style={accentColor ? ({ '--extrude-face': accentColor } as React.CSSProperties) : undefined}
-            >
-              {/* The slab's back and side faces — real elements standing in the
-                  same 3D space as the tilt above, see ContentPanel.module.css.
-                  Rendered before the thumb so the thumb (the front face) paints
-                  last. Order must match CARD_FACE_NORMALS, which is what the
-                  sheen loop above indexes them by. */}
-              {[styles.extrudeBack, styles.extrudeLeft, styles.extrudeRight, styles.extrudeTop, styles.extrudeBottom]
-                .map((faceClass, i) => (
-                  <div
-                    key={faceClass}
-                    ref={el => { faceRefs.current[i] = el }}
-                    className={`${styles.extrudeFace} ${faceClass}`}
-                    aria-hidden="true"
-                  />
-                ))}
-              <div ref={thumbRef} className={styles.projectThumb}>
-                {thumb && <Image src={thumb} alt="" fill priority quality={90} style={{ objectFit: 'cover', transform: thumbScale !== 1 ? `scale(${thumbScale})` : undefined }} sizes="30vw" />}
-              </div>
+          {/* A live 3D model already has its own real depth, so it skips the
+              CSS-faked tilt/extrude slab entirely (that machinery exists to
+              sell depth on a flat image) and fills the card's full footprint
+              directly — the model IS the card, not a picture inset into one. */}
+          {thumbModel ? (
+            <div ref={thumbRef} className={styles.projectThumb}>
+              <ProjectThumbModel src={thumbModel} />
             </div>
-          </motion.div>
+          ) : (
+            <motion.div
+              className={styles.projectCardInner}
+              style={{ rotateX: springX, rotateY: springY, transformPerspective: PROJECT_CARD_PERSPECTIVE, pointerEvents: 'none' }}
+            >
+              {/* The slab's side faces take the project's OWN brand color (the
+                  same per-project accent the outer glow used to carry), so each
+                  card's depth reads as that project's color rather than one
+                  uniform site accent. */}
+              <div
+                className={styles.projectCardRow}
+                style={accentColor ? ({ '--extrude-face': accentColor } as React.CSSProperties) : undefined}
+              >
+                {/* The slab's back and side faces — real elements standing in the
+                    same 3D space as the tilt above, see ContentPanel.module.css.
+                    Rendered before the thumb so the thumb (the front face) paints
+                    last. Order must match CARD_FACE_NORMALS, which is what the
+                    sheen loop above indexes them by. */}
+                {[styles.extrudeBack, styles.extrudeLeft, styles.extrudeRight, styles.extrudeTop, styles.extrudeBottom]
+                  .map((faceClass, i) => (
+                    <div
+                      key={faceClass}
+                      ref={el => { faceRefs.current[i] = el }}
+                      className={`${styles.extrudeFace} ${faceClass}`}
+                      aria-hidden="true"
+                    />
+                  ))}
+                <div ref={thumbRef} className={styles.projectThumb}>
+                  {thumb && <Image src={thumb} alt="" fill priority quality={90} style={{ objectFit: 'cover', transform: thumbScale !== 1 ? `scale(${thumbScale})` : undefined }} sizes="30vw" />}
+                </div>
+              </div>
+            </motion.div>
+          )}
         </motion.div>
       </motion.div>
+    </li>
+  )
+}
+
+// A live 3D model that takes over a project's card slot entirely, rendered
+// large and breaking out of the grid (see .bigProjectModel in the CSS
+// module) rather than living inside ProjectCard's drag/tilt/extrude
+// apparatus — the model itself is the clickable element.
+//
+// This is now a pure DOM measurement spacer, not a canvas: the actual model
+// renders inside Scene.tsx's main canvas (InSceneProjectModel.tsx), so its
+// hover-glow can be a true per-pixel silhouette dither via the same shared
+// shader every other card's "perfect" glow already uses, rather than an
+// approximation (a rectangular quad-corner halo — wrong shape for an
+// irregular 3D object — and a hand-rolled SVG dithered drop-shadow were each
+// tried and found lacking before this). <Canvas> is its own React
+// reconciler root, so nothing inside it can read this element directly —
+// instead this publishes its live rect + the same cursor-tilt spring values
+// every other card uses into bigProjectSlotStore every frame, and the
+// in-scene model reads that. Hover/click both move into the Canvas too (a
+// real mesh raycast, via onPointerOver/onClick there) — bridged back out
+// via bigProjectExpandStore, the same plain-callback pattern zoneStore
+// already uses for Model.tsx -> ZoneNav.tsx.
+function BigProjectCardSlot({ index }: { index: number }) {
+  const { springX, springY, rootRef } = useCardTilt<HTMLDivElement>()
+
+  useEffect(() => {
+    if (!rootRef.current) return
+    const measurement = observeLayout(rootRef.current)
+    let stop: () => void
+    const tick = () => {
+      const el = rootRef.current
+      if (el && measurement.rect) {
+        const r = measurement.rect!
+        bigProjectSlotStore[index] = {
+          top: r.top, left: r.left, width: r.width, height: r.height,
+          tiltXDeg: springX.get(), tiltYDeg: springY.get(),
+        }
+      }
+    }
+    stop = subscribeFrame(tick, measurement.read)
+    return () => {
+      stop(); measurement.dispose()
+      bigProjectSlotStore[index] = null
+    }
+  }, [index, springX, springY, rootRef])
+
+  return (
+    <li className={`${styles.projectCard} ${styles.bigProjectModelSlot}`}>
+      <div ref={rootRef} className={styles.bigProjectModel} />
     </li>
   )
 }
@@ -614,7 +679,7 @@ function ProjectDetail({
           opacity: [1, 1, 0],
           transition: { ...PANEL_EXIT, opacity: { duration: PANEL_EXIT.duration, times: [0, 0.8, 1] } },
         }}
-        style={isCustomLayout ? { backgroundColor: item.accentColor } : undefined}
+        style={isCustomLayout ? { backgroundColor: item.detailBackground ?? item.accentColor } : undefined}
         role="dialog"
         aria-modal="true"
       >
@@ -764,7 +829,7 @@ function ProjectsPane() {
   // they cause. The loop tracks the silhouette every frame so positions smoothly
   // follow the model as the camera zooms out; no fixed timeout needed.
   useEffect(() => {
-    let rafId: number
+    let stop: () => void
     const tick = () => {
       const { pts, count, cx } = silhouetteStore
       const vw = window.innerWidth
@@ -776,12 +841,11 @@ function ProjectsPane() {
         if (x < minX) minX = x
         if (x > maxX) maxX = x
       }
-      if (leftListRef.current)  leftListRef.current.style.left  = `${minX / 2}px`
-      if (rightListRef.current) rightListRef.current.style.left = `${(maxX + vw) / 2}px`
-      rafId = requestAnimationFrame(tick)
+      if (leftListRef.current && leftListRef.current.style.left !== `${minX / 2}px`) leftListRef.current.style.left = `${minX / 2}px`
+      if (rightListRef.current && rightListRef.current.style.left !== `${(maxX + vw) / 2}px`) rightListRef.current.style.left = `${(maxX + vw) / 2}px`
     }
-    rafId = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(rafId)
+    stop = subscribeFrame(tick)
+    return () => stop()
   }, [])
 
   const handleExpand = useCallback((index: number, rect: CardRect) => {
@@ -792,17 +856,30 @@ function ProjectsPane() {
   const handleClose    = useCallback(() => setExpandedIndex(null), [])
   const handleNavigate = useCallback((newIndex: number) => setExpandedIndex(newIndex), [])
 
+  // Bridge for the "big" in-scene project model's click-to-expand — it lives
+  // inside Scene.tsx's <Canvas>, a separate React reconciler root that can't
+  // receive handleExpand as a normal prop. Same plain-callback pattern
+  // zoneStore.snapToZone already uses for Model.tsx -> ZoneNav.tsx.
+  useEffect(() => {
+    bigProjectExpandStore.onExpand = handleExpand
+    return () => { bigProjectExpandStore.onExpand = null }
+  }, [handleExpand])
+
   return (
     <>
       <div className={styles.projectsPane}>
         <ul ref={leftListRef} className={styles.projectsList}>
           {[0, 1, 2].map((i, pos) => (
-            <ProjectCard key={i} direction="left" arcInset={pos !== 1} onExpand={(r) => handleExpand(i, r)} thumb={projectsContent[i].thumb} accentColor={projectsContent[i].accentColor} isOpen={expandedIndex === i} thumbScale={projectsContent[i].thumbScale} />
+            projectsContent[i].bigModel && projectsContent[i].thumbModel
+              ? <BigProjectCardSlot key={i} index={i} />
+              : <ProjectCard key={i} direction="left" arcInset={pos !== 1} onExpand={(r) => handleExpand(i, r)} thumb={projectsContent[i].thumb} thumbModel={projectsContent[i].thumbModel} accentColor={projectsContent[i].accentColor} isOpen={expandedIndex === i} thumbScale={projectsContent[i].thumbScale} />
           ))}
         </ul>
         <ul ref={rightListRef} className={styles.projectsList}>
           {[3, 4, 5].map((i, pos) => (
-            <ProjectCard key={i} direction="right" arcInset={pos !== 1} onExpand={(r) => handleExpand(i, r)} thumb={projectsContent[i].thumb} accentColor={projectsContent[i].accentColor} isOpen={expandedIndex === i} thumbScale={projectsContent[i].thumbScale} />
+            projectsContent[i].bigModel && projectsContent[i].thumbModel
+              ? <BigProjectCardSlot key={i} index={i} />
+              : <ProjectCard key={i} direction="right" arcInset={pos !== 1} onExpand={(r) => handleExpand(i, r)} thumb={projectsContent[i].thumb} thumbModel={projectsContent[i].thumbModel} accentColor={projectsContent[i].accentColor} isOpen={expandedIndex === i} thumbScale={projectsContent[i].thumbScale} />
           ))}
         </ul>
       </div>
@@ -867,7 +944,7 @@ function AboutPane() {
   // own transformPerspective (below) happens to be the same 900 value.
   const glowSlotRef = useRef<number | null>(null)
   useEffect(() => {
-    let rafId: number
+    let stop: () => void
     let lastTime = performance.now()
     const hoverProgress = { current: 0 }
     const releaseSlot = () => {
@@ -899,11 +976,10 @@ function AboutPane() {
       } else {
         releaseSlot()
       }
-      rafId = requestAnimationFrame(tick)
     }
-    rafId = requestAnimationFrame(tick)
+    stop = subscribeFrame(tick)
     return () => {
-      cancelAnimationFrame(rafId)
+      stop()
       releaseSlot()
     }
   }, [springX, springY, hoveredRef])
@@ -1040,395 +1116,11 @@ function AboutPane() {
   )
 }
 
-// ─── Playground card ──────────────────────────────────────────────────────────
-
-interface PlaygroundCardProps {
-  index:       number
-  cfg:         PlaygroundCardConfig
-  layoutKey:   number     // bumped whenever the layout is re-solved (resize)
-  item:        PlaygroundItem
-  isOpen:      boolean      // detail portal is showing this item — hide the card underneath
-  onExpand:    (index: number, rect: CardRect) => void
-  registerRef: (index: number, el: HTMLDivElement | null) => void
-}
-
-function PlaygroundCard({ index, cfg, layoutKey, item, isOpen, onExpand, registerRef }: PlaygroundCardProps) {
-  const videoRef     = useRef<HTMLVideoElement>(null)
-  const thumbRef      = useRef<HTMLDivElement>(null)
-  const dragBlockRef = useRef(false)
-  const { hovered, hoveredRef, springX, springY, onTiltEnter, onTiltLeave, rootRef } = useCardTilt<HTMLDivElement>()
-
-  // The drag offset lives in motion values we own (rather than framer's
-  // internal ones) so a re-solved layout can clear it: cfg.x/cfg.y move the
-  // anchor to a new spot, and a stale drag offset on top of that would leave
-  // the card sitting wherever the old viewport put it.
-  const dragX = useMotionValue(0)
-  const dragY = useMotionValue(0)
-  useEffect(() => {
-    dragX.set(0)
-    dragY.set(0)
-  }, [layoutKey, dragX, dragY])
-
-  // Register the thumb's element so the detail overlay can measure its live
-  // rect for the FLIP-open animation and for the close animation (which needs
-  // the rect of whichever item is current after scrolling through the panel).
-  useEffect(() => {
-    registerRef(index, thumbRef.current)
-    return () => registerRef(index, null)
-  }, [index, registerRef])
-
-  const handleEnter = useCallback(() => {
-    onTiltEnter()
-    videoRef.current?.play().catch(() => {})
-  }, [onTiltEnter])
-
-  const handleLeave = useCallback(() => {
-    onTiltLeave()
-    const v = videoRef.current
-    if (v) { v.pause(); v.currentTime = 0 }
-  }, [onTiltLeave])
-
-  // Hover-only glow — unlike Projects' always-on glow, Playground items have
-  // no per-item brand color, so the glow only fades in (in the sitewide
-  // focus accent color) while hovered, using a dynamically-claimed slot from
-  // playgroundGlowStore's small pool (see that file for why — far more items
-  // than fit a fixed per-item uniform array, but only ever a couple are
-  // mid-transition at once). Anchor uses thumbRef's own (post-rotation) rect
-  // center rather than an unrotated ancestor — unlike ProjectCard, this
-  // card's rotated element also contains the title text below the thumb, so
-  // no ancestor box matches the thumb's own pre-rotation position exactly;
-  // this is a deliberate small-bias approximation (a few px at this card's
-  // clamped tilt range), not the exact approach used for Projects.
-  const glowSlotRef = useRef<number | null>(null)
-  useEffect(() => {
-    let rafId: number
-    let lastTime = performance.now()
-    const hoverProgress = { current: 0 }
-    const releaseSlot = () => {
-      if (glowSlotRef.current !== null) {
-        playgroundGlowStore.entries[glowSlotRef.current] = null
-        glowSlotRef.current = null
-      }
-    }
-    const tick = (now: number) => {
-      const dt = Math.min((now - lastTime) / 1000, 0.1)
-      lastTime = now
-      const f = 1 - Math.pow(1 - HOVER_WIPE_SMOOTH, dt * 60)
-      hoverProgress.current += ((hoveredRef.current ? 1 : 0) - hoverProgress.current) * f
-
-      const el = thumbRef.current
-      const w  = el?.offsetWidth  ?? 0
-      const h  = el?.offsetHeight ?? 0
-      if (el && w && h && !isOpen && hoverProgress.current > 0.001) {
-        if (glowSlotRef.current === null) {
-          glowSlotRef.current = playgroundGlowStore.entries.findIndex(e => e === null)
-        }
-        if (glowSlotRef.current !== -1 && glowSlotRef.current !== null) {
-          const r  = el.getBoundingClientRect()
-          const cx = r.left + r.width  / 2
-          const cy = r.top  + r.height / 2
-          const corners = projectCardCorners(springX.get(), springY.get(), w, h, PLAYGROUND_CARD_PERSPECTIVE, cx, cy)
-          playgroundGlowStore.entries[glowSlotRef.current] = { corners, opacity: hoverProgress.current }
-        }
-      } else {
-        releaseSlot()
-      }
-      rafId = requestAnimationFrame(tick)
-    }
-    rafId = requestAnimationFrame(tick)
-    return () => {
-      cancelAnimationFrame(rafId)
-      releaseSlot()
-    }
-  }, [isOpen, springX, springY, hoveredRef])
-
-  return (
-    <div style={{ position: 'absolute', left: `${cfg.x}%`, top: `${cfg.y}%`, pointerEvents: 'none', zIndex: hovered ? 100 : 'auto' }}>
-      <div className={styles.playgroundCardAnchor}>
-        <motion.div
-          ref={rootRef}
-          className={styles.playgroundCard}
-          style={{ width: cfg.thumbW, x: dragX, y: dragY, cursor: 'grab' }}
-          drag
-          dragElastic={0}
-          dragMomentum={false}
-          whileDrag={{ scale: 1.05, zIndex: 20 }}
-          onDragStart={() => { dragBlockRef.current = true }}
-          onDragEnd={() => { setTimeout(() => { dragBlockRef.current = false }, 0) }}
-          onPointerEnter={handleEnter}
-          onPointerLeave={handleLeave}
-          onTap={() => {
-            if (dragBlockRef.current) return
-            const r = thumbRef.current?.getBoundingClientRect()
-            if (r) onExpand(index, { top: r.top, left: r.left, width: r.width, height: r.height })
-          }}
-        >
-          {/* Hidden only while the detail portal is showing this exact item — see
-              ProjectCard for why this doesn't cause a gap/blink on close. */}
-          <motion.div
-            style={{ width: '100%' }}
-            initial={false}
-            animate={{ opacity: isOpen ? 0 : 1 }}
-            transition={{ opacity: { duration: isOpen ? 0.05 : 0 } }}
-          >
-            <motion.div
-              className={styles.playgroundCardInner}
-              style={{ rotateX: springX, rotateY: springY, transformPerspective: PLAYGROUND_CARD_PERSPECTIVE, pointerEvents: 'none' }}
-            >
-              <div
-                ref={thumbRef}
-                className={styles.playgroundThumb}
-                style={{ aspectRatio: String(cfg.aspectRatio) }}
-              >
-                {(item.mp4 || item.webm) && (
-                  <video ref={videoRef} className={styles.playgroundVideo} muted loop playsInline preload="metadata">
-                    {item.webm && <source src={item.webm} type="video/webm" />}
-                    {item.mp4  && <source src={item.mp4}  type="video/mp4"  />}
-                  </video>
-                )}
-                {item.poster && (
-                  <img
-                    src={item.poster} alt=""
-                    className={styles.playgroundPoster}
-                    style={{ opacity: (hovered && (item.mp4 || item.webm)) ? 0 : 1 }}
-                  />
-                )}
-              </div>
-              <p className={styles.playgroundCardTitle}>{item.title}</p>
-            </motion.div>
-          </motion.div>
-        </motion.div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Playground detail overlay ────────────────────────────────────────────────
-// Fullscreen (minus a generous margin) view of one item. The white backdrop
-// fades in on its own. The media itself FLIPs from the clicked card's rect to
-// the near-fullscreen bounds, mirroring ProjectDetail. Scrolling or the arrow
-// keys move through items — the outgoing item's media shrinks back to its own
-// grid position while the incoming one grows from its own grid position, in
-// either direction.
-
-function PlaygroundMedia({ item }: { item: PlaygroundItem }) {
-  if (item.mp4 || item.webm) {
-    return (
-      <video
-        autoPlay loop muted playsInline
-        style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }}
-      >
-        {item.webm && <source src={item.webm} type="video/webm" />}
-        {item.mp4  && <source src={item.mp4}  type="video/mp4"  />}
-      </video>
-    )
-  }
-  return item.poster
-    ? <img src={item.poster} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain', display: 'block' }} />
-    : <div style={{ width: '100%', height: '100%', background: 'var(--placeholder-color)' }} />
-}
-
-function PlaygroundDetail({
-  index, initialRect, getCardRect, configs, onNavigate, onClose,
-}: {
-  index:       number | null
-  initialRect: CardRect | null
-  getCardRect: (i: number) => CardRect | null
-  configs:     PlaygroundCardConfig[]
-  onNavigate:  (i: number) => void
-  onClose:     () => void
-}) {
-  const indexRef = useRef(index)
-  useEffect(() => { indexRef.current = index }, [index])
-
-  const n = playgroundContent.length
-
-  // Almost-fullscreen bounds — generous margin, computed once on first open
-  // and kept for the life of the component (it's always mounted; only its
-  // internal AnimatePresence shows/hides content — see below for why).
-  const finalRef = useRef<{ top: number; left: number; width: number; height: number } | null>(null)
-  if (index !== null && !finalRef.current) {
-    finalRef.current = {
-      top:    Math.min(window.innerHeight * 0.09, 110),
-      left:   Math.min(window.innerWidth  * 0.07, 110),
-      width:  window.innerWidth  - 2 * Math.min(window.innerWidth  * 0.07, 110),
-      height: window.innerHeight - 2 * Math.min(window.innerHeight * 0.09, 110),
-    }
-  }
-  const final = finalRef.current
-
-  const goTo = useCallback((dir: 1 | -1) => {
-    if (indexRef.current === null) return
-    onNavigate(((indexRef.current + dir) % n + n) % n)
-  }, [n, onNavigate])
-
-  // Wheel moves through items — either direction. Throttled so one wheel
-  // "tick" (trackpad or mouse) advances exactly one item.
-  useEffect(() => {
-    if (index === null) return
-    let lastTime = 0
-    const handleWheel = (e: WheelEvent) => {
-      e.preventDefault()
-      const now = Date.now()
-      if (now - lastTime < 300) return
-      const delta = Math.abs(e.deltaX) > Math.abs(e.deltaY) ? e.deltaX : e.deltaY
-      if (Math.abs(delta) < 4) return
-      lastTime = now
-      goTo(delta > 0 ? 1 : -1)
-    }
-    window.addEventListener('wheel', handleWheel, { passive: false })
-    return () => window.removeEventListener('wheel', handleWheel)
-  }, [index, goTo])
-
-  useEffect(() => {
-    if (index === null) return
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape')                              onClose()
-      if (e.key === 'ArrowRight' || e.key === 'ArrowDown')  goTo(1)
-      if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp')    goTo(-1)
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [index, onClose, goTo])
-
-  if (!final) return null  // never opened yet — nothing to portal
-
-  // Sized to the item's real aspect ratio and centered in `final` — the hit
-  // area matches the visible image exactly, so a click just outside the
-  // picture (not out at the true screen edge) already counts as "outside".
-  const bigRect = (i: number): CardRect => {
-    const ar = configs[i]?.aspectRatio ?? 1
-    let width = final.width, height = width / ar
-    if (height > final.height) { height = final.height; width = height * ar }
-    return {
-      width, height,
-      left: final.left + (final.width  - width)  / 2,
-      top:  final.top  + (final.height - height) / 2,
-    }
-  }
-
-  const titleStyle: React.CSSProperties = {
-    position: 'fixed',
-    top:  final.top + final.height + 24,
-    left: final.left + final.width / 2,
-    transform: 'translateX(-50%)',
-  }
-
-  // Everything below lives in ONE AnimatePresence (not nested ones per element),
-  // so closing — which removes all of it in a single React commit — actually
-  // waits for each child's own exit animation instead of cutting instantly.
-  // Backdrop and close button use a stable key so item-to-item navigation
-  // doesn't remount them; only the media/title (keyed by index) enter/exit,
-  // simultaneously (no `mode="wait"`) so the outgoing item shrinks+fades out
-  // while the incoming one grows+fades in at the same time.
-  return createPortal(
-    <AnimatePresence>
-      {index !== null && [
-        <motion.div
-          key="pg-backdrop"
-          className={styles.playgroundBackdrop}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={onClose}
-        />,
-
-        <motion.div
-          key={`pg-media-${index}`}
-          className={styles.playgroundDetailMedia}
-          initial={{ ...(getCardRect(index) ?? initialRect ?? bigRect(index)), opacity: 0, borderRadius: 0 }}
-          animate={{ ...bigRect(index), opacity: 1, borderRadius: 0, transition: PANEL_TRANSITION }}
-          exit={{ ...(getCardRect(index) ?? initialRect ?? bigRect(index)), opacity: 0, borderRadius: 0, transition: PANEL_EXIT }}
-        >
-          <PlaygroundMedia item={playgroundContent[index]} />
-        </motion.div>,
-
-        <button
-          key="pg-close"
-          className={styles.playgroundDetailClose}
-          onClick={onClose}
-          aria-label="Close"
-        >[X]</button>,
-
-        <motion.p
-          key={`pg-title-${index}`}
-          className={styles.playgroundDetailTitle}
-          style={titleStyle}
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1, transition: { duration: 0.18 } }}
-          exit={{ opacity: 0, transition: { duration: 0.12 } }}
-        >
-          {playgroundContent[index].title}
-        </motion.p>,
-      ]}
-    </AnimatePresence>,
-    document.body
-  )
-}
-
-// ─── Playground pane ──────────────────────────────────────────────────────────
-
-function PlaygroundPane({ configs, layoutKey }: { configs: PlaygroundCardConfig[]; layoutKey: number }) {
-  const [expandedIndex, setExpandedIndex] = useState<number | null>(null)
-  const [expandedRect,  setExpandedRect]  = useState<CardRect | null>(null)
-  const cardElRefs = useRef<Map<number, HTMLDivElement>>(new Map())
-
-  const registerRef = useCallback((index: number, el: HTMLDivElement | null) => {
-    if (el) cardElRefs.current.set(index, el)
-    else cardElRefs.current.delete(index)
-  }, [])
-
-  const getCardRect = useCallback((index: number): CardRect | null => {
-    const el = cardElRefs.current.get(index)
-    if (!el) return null
-    const r = el.getBoundingClientRect()
-    return { top: r.top, left: r.left, width: r.width, height: r.height }
-  }, [])
-
-  const handleExpand = useCallback((index: number, rect: CardRect) => {
-    setExpandedRect(rect)
-    setExpandedIndex(index)
-  }, [])
-
-  const handleClose = useCallback(() => setExpandedIndex(null), [])
-
-  return (
-    <>
-      <div className={styles.playgroundPane}>
-        {configs.map((cfg, i) =>
-          cfg ? (
-            <PlaygroundCard
-              key={i}
-              index={i}
-              cfg={cfg}
-              layoutKey={layoutKey}
-              item={playgroundContent[i]}
-              isOpen={expandedIndex === i}
-              onExpand={handleExpand}
-              registerRef={registerRef}
-            />
-          ) : null
-        )}
-      </div>
-
-      {/* Always mounted — it manages its own show/hide internally via a single
-          AnimatePresence, so its exit animations actually play on close
-          instead of being cut short by an outer AnimatePresence unmounting it. */}
-      <PlaygroundDetail
-        index={expandedIndex}
-        initialRect={expandedRect}
-        getCardRect={getCardRect}
-        configs={configs}
-        onNavigate={setExpandedIndex}
-        onClose={handleClose}
-      />
-    </>
-  )
-}
-
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
 interface ContentPanelProps {
+  warming?: boolean
+  onPrepared?: () => void
   activeZone: Zone | null
   isContentMode: boolean
 }
@@ -1445,9 +1137,12 @@ const ZONE_FADE_DURATION = 0.2
 // DOM content.
 const ZONE_PARALLAX = 2.2
 
-export default function ContentPanel({ activeZone, isContentMode }: ContentPanelProps) {
+export default function ContentPanel({ activeZone, isContentMode, warming = false, onPrepared }: ContentPanelProps) {
+  const [visited, setVisited] = useState<Set<Zone>>(new Set([0, 2]))
+  useEffect(() => { if (activeZone !== null) setVisited(old => old.has(activeZone) ? old : new Set([...old, activeZone])) }, [activeZone])
   const overlayRef        = useRef<HTMLDivElement>(null)
-  // One layer per zone, always mounted while isVisible — a hard swap between
+  // Retain prepared Projects/Playground panes so entry never remounts them.
+  // One layer per zone — a hard swap between
   // panes read as a cut, so instead all three stay in the DOM and cross-fade
   // (+ scale pop) in place. Only ONE zone is ever actually fading/shown at a
   // time (displayedZoneRef) — switching zones fully fades the old one OUT
@@ -1509,53 +1204,6 @@ export default function ContentPanel({ activeZone, isContentMode }: ContentPanel
     }
   }, [isContentMode])
 
-  // Warm the browser cache for project thumbnails immediately on mount so they're
-  // ready before the user rotates to zone 0 (belt-and-suspenders with the <link
-  // rel="preload"> in layout.tsx which fires even earlier via the HTML parser).
-  useEffect(() => {
-    projectsContent.forEach(p => { if (p.thumb) new window.Image().src = p.thumb })
-  }, [])
-
-  // Configs computed once all aspect ratios are known — prevents overlap that
-  // would occur if layout ran before the real card shapes were resolved. The
-  // resolved items are kept in a ref so resizes can re-solve the layout
-  // immediately (buildConfigs is deterministic in viewport size, so re-running
-  // it is stable — same input, same placement) without re-probing every
-  // poster/video for its dimensions again.
-  const [playgroundConfigs, setMiscConfigs] = useState<PlaygroundCardConfig[]>([])
-  const [playgroundLayoutKey, setPlaygroundLayoutKey] = useState(0)
-  const resolvedItemsRef = useRef<PlaygroundItem[] | null>(null)
-  useLayoutEffect(() => {
-    let cancelled = false
-
-    Promise.all(playgroundContent.map(resolveAspectRatio)).then(aspectRatios => {
-      if (cancelled) return
-      const resolved = playgroundContent.map((item, i) => ({ ...item, aspectRatio: aspectRatios[i] }))
-      resolvedItemsRef.current = resolved
-      setMiscConfigs(buildConfigs(window.innerWidth, window.innerHeight, resolved))
-    })
-
-    // Re-solve on resize, coalesced to one run per frame — resize fires far
-    // faster than the solver needs to run, and each run touches every card.
-    let raf = 0
-    const onResize = () => {
-      const resolved = resolvedItemsRef.current
-      if (!resolved) return
-      cancelAnimationFrame(raf)
-      raf = requestAnimationFrame(() => {
-        setMiscConfigs(buildConfigs(window.innerWidth, window.innerHeight, resolved))
-        setPlaygroundLayoutKey(k => k + 1)
-      })
-    }
-    window.addEventListener('resize', onResize)
-
-    return () => {
-      cancelled = true
-      cancelAnimationFrame(raf)
-      window.removeEventListener('resize', onResize)
-    }
-  }, [])
-
   // Drive scale + opacity from live camera Z so DOM content moves in lockstep with
   // the 3D camera pull — not on an independent CSS timer.
   //
@@ -1572,7 +1220,7 @@ export default function ContentPanel({ activeZone, isContentMode }: ContentPanel
   useEffect(() => {
     const NAV_Z     = 5
     const CONTENT_Z = 15
-    let rafId: number
+    let stop: () => void
     let lastTime = performance.now()
     const tick = (now: number) => {
       // dt-normalize the blend below — a fixed per-frame multiplier would decay
@@ -1587,8 +1235,8 @@ export default function ContentPanel({ activeZone, isContentMode }: ContentPanel
         const z = cameraStore.z
         const s = Math.min(CONTENT_Z / NAV_Z, CONTENT_Z / z)   // 3→1 as z: 5→15
         const o = Math.max(0, Math.min(1, (z - (NAV_Z + 0.5)) / 2))  // 0 at z=5.5, 1 at z=7.5
-        el.style.transform = `scale(${s})`
-        el.style.opacity   = String(o)
+        if (el.style.transform !== `scale(${s})`) el.style.transform = `scale(${s})`
+        if (el.style.opacity !== String(o)) el.style.opacity = String(o)
 
         // Unmount once camera has fully returned to the nav position
         if (!isContentModeRef.current && z <= NAV_Z + 0.3) {
@@ -1635,6 +1283,7 @@ export default function ContentPanel({ activeZone, isContentMode }: ContentPanel
         const layer = paneRefs.current[zone]
         if (!layer) return
         const b = zone === displayedZoneRef.current ? blendRef.current : 0
+        if (zone === 0) zoneTransitionStore.projectsOpacity = b * Number(overlayRef.current?.style.opacity ?? 0)
         // Exiting (this zone is displayed but easing toward 0): live-sample
         // every frame, so the content visibly chases wherever its body part
         // is heading right now as the model keeps rotating toward whatever
@@ -1646,8 +1295,8 @@ export default function ContentPanel({ activeZone, isContentMode }: ContentPanel
         const drift = isExiting ? liveDrift(zone) : enterDriftRef.current[zone]
         const dx = drift.x * (1 - b)
         const dy = drift.y * (1 - b)
-        layer.style.transform = `translate(${dx}px, ${dy}px)`
-        layer.style.opacity   = String(b)
+        if (layer.style.transform !== `translate(${dx}px, ${dy}px)`) layer.style.transform = `translate(${dx}px, ${dy}px)`
+        if (layer.style.opacity !== String(b)) layer.style.opacity = String(b)
         // Cards declare their own `pointer-events: auto` (so drags on the empty
         // canvas between them still reach the 3D model), which means the
         // layer's own pointer-events can't gate them — only `inert` actually
@@ -1655,10 +1304,9 @@ export default function ContentPanel({ activeZone, isContentMode }: ContentPanel
         layer.inert = desired !== zone
       })
 
-      rafId = requestAnimationFrame(tick)
     }
-    rafId = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(rafId)
+    stop = subscribeFrame(tick)
+    return () => stop()
   }, [])
 
   return (
@@ -1667,13 +1315,13 @@ export default function ContentPanel({ activeZone, isContentMode }: ContentPanel
     // (z-index:9) can receive mouseenter even though the overlay is at z-index:10.
     <div ref={overlayRef} className={styles.overlay} aria-live="polite">
       <div ref={el => { paneRefs.current[0] = el }} className={styles.paneLayer} aria-hidden={activeZone !== 0}>
-        {isVisible && <ProjectsPane />}
+        <ProjectsPane />
       </div>
       <div ref={el => { paneRefs.current[1] = el }} className={styles.paneLayer} aria-hidden={activeZone !== 1}>
-        {isVisible && <AboutPane />}
+        {isVisible && visited.has(1) && <AboutPane />}
       </div>
       <div ref={el => { paneRefs.current[2] = el }} className={styles.paneLayer} aria-hidden={activeZone !== 2}>
-        {isVisible && <PlaygroundPane configs={playgroundConfigs} layoutKey={playgroundLayoutKey} />}
+        {visited.has(2) && <PlaygroundGallery active={warming || activeZone === 2} warming={warming} onPrepared={onPrepared} />}
       </div>
     </div>
   )

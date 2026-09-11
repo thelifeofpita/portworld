@@ -23,30 +23,65 @@
 // Example:
 //   { title: 'Fluid loop',  mp4: '/playground/fluid.mp4', webm: '/playground/fluid.webm', poster: '/playground/fluid.jpg' },
 
-export interface PlaygroundItem {
-  title:        string
-  mp4?:         string   // primary video — H.264 MP4
-  webm?:        string   // optional WebM VP9 (smaller, better quality at same bitrate)
-  poster?:      string   // still shown before hover; omit to use first video frame
-  aspectRatio?: number   // width/height override — auto-detected from poster image if omitted
+export interface PlaygroundMediaItem {
+  src: string
+  previewSrc?: string
+  detailSrc?: string
+  srcSet?: string
+  width?: number
+  height?: number
+  duration?: number
+  playbackId?: string
+  type?: 'image' | 'video'
+  poster?: string
+  alt?: string
+  /** Optional display-only crop; source images remain untouched. */
+  crop?: { aspectRatio: number; position: string }
 }
 
+export interface PlaygroundItem {
+  title: string
+  mp4?: string
+  webm?: string
+  poster?: string
+  aspectRatio?: number
+  media?: PlaygroundMediaItem[]
+  previewDuration?: number
+  previewIndices?: number[]
+  externalUrl?: string
+  gameUrl?: string
+}
+
+const image = (src: string): PlaygroundMediaItem => ({ src, type: 'image' })
+const video = (src: string, poster: string): PlaygroundMediaItem => ({ src, type: 'video', poster })
+
 export const playgroundContent: PlaygroundItem[] = [
-  { title: 'Desmodus',             mp4: '/playground/desmodus.mp4',  poster: '/playground/desmodus.webp' },
-  { title: `Se me cayó el bodegón`, mp4: '/playground/bodegon.mp4',  poster: '/playground/bodegon.webp' },
-  { title: 'IDS',                  mp4: '/playground/id.mp4',        poster: '/playground/id.webp' },
-  { title: 'Tracking blobs',       mp4: '/playground/tracking.mp4',  poster: '/playground/tracking.webp' },
-  { title: 'Glitchy animals',      mp4: '/playground/animals.mp4',   poster: '/playground/animals.webp' },
-  { title: 'Badass scythe',        mp4: '/playground/scythe.mp4',    poster: '/playground/scythe.webp' },
-  { title: `Pita's coffee`,        mp4: '/playground/coffee.mp4',    poster: '/playground/coffee.webp' },
-  { title: `Proto-character`,      mp4: '/playground/char1.mp4',     poster: '/playground/char1.webp' },
-  { title: `Hanamichi`,            mp4: '/playground/hanamichi.mp4', poster: '/playground/hanamichi.webp' },
-  { title: `Earrings`,             mp4: '/playground/earring.mp4',   poster: '/playground/earring.webp' },
-  { title: `Ring`,                 mp4: '/playground/ring.mp4',      poster: '/playground/ring.webp' },
-  { title: `Among the pillars`,    poster: '/playground/pillars.webp' },
- // { title: `City invasion`,       poster: '/playground/city.webp' },
-  { title: `Chained down`,         poster: '/playground/chain.webp' },
-  { title: `Globe`,                poster: '/playground/globe.webp' },
-  { title: `Bassball`,             mp4: '/playground/bassball.mp4',  poster: '/playground/bassball.webp' },
-  { title: `Swordsman`,            mp4: '/playground/berserk.mp4',   poster: '/playground/berserk.webp' },
+  { aspectRatio: 1.788, title: 'LPOOP', externalUrl: 'https://thelifeofpita.itch.io/lpoop', gameUrl: 'https://itch.io/embed-upload/14519487?color=101010', media: [1, 2, 3, 4].map(i => ({ src: `/playground/lpoop-${i}.png`, type: 'image', alt: `LPOOP game screenshot ${i}` })) },
+  { aspectRatio: 0.8, title: 'Captive worlds', media: [image('/playground/full-Cqg7PD2oDK1.webp'), image('/playground/full-CqwNm0YtvHl.webp'), image('/playground/full-Cq6chiJobGK.webp'), image('/playground/full-CrlKQNvoV25.webp')] },
+  { aspectRatio: 0.72112, title: 'Invasion studies', media: [image('/playground/full-CtmVSNEoEq3.webp'), image('/playground/full-CtuDx8tMPMh.webp'), image('/playground/full-Ct1s7TjoKC3.webp')] },
+  { aspectRatio: 0.61466, title: 'Jewellery in motion', media: [video('/playground/ring.mp4', '/playground/ring.webp'), video('/playground/neck-chain.mp4', '/playground/neck-chain.jpg'), video('/playground/bracelet.mp4', '/playground/bracelet.jpg'), video('/playground/earring.mp4', '/playground/earring.webp')] },
+  { aspectRatio: 0.71138, title: 'Swords, wings & bassball', media: [video('/playground/berserk.mp4', '/playground/berserk.webp'), video('/playground/wings.mp4', '/playground/wings.jpg'), video('/playground/bassball.mp4', '/playground/bassball.webp')] },
+  { aspectRatio: 0.56389, title: 'Desmodus', media: [video('/playground/scythe.mp4', '/playground/scythe.webp'), video('/playground/desmodus.mp4', '/playground/desmodus.webp')] },
+  { aspectRatio: 0.8, title: 'Se me cayó el bodegón', media: [video('/playground/bodegon.mp4', '/playground/bodegon.webp')] },
+  { aspectRatio: 0.56389, title: 'Characters', media: [video('/playground/hanamichi.mp4', '/playground/hanamichi.webp'), video('/playground/char1.mp4', '/playground/char1.webp')] },
+  { aspectRatio: 0.5625, title: 'Stickers', media: [video('/playground/stickers-loop.mp4', '/playground/stickers-loop.jpg')] },
+  { aspectRatio: 1, title: 'Glitchy animals / tracking blobs', media: [video('/playground/animals.mp4', '/playground/animals.webp'), video('/playground/tracking.mp4', '/playground/tracking.webp')] },
+  { aspectRatio: 0.70732, title: 'Letters thing', poster: '/playground/lettersThing.png' },
+  { aspectRatio: 1.40705, title: 'Out pics', poster: '/playground/outpics.png' },
+  { aspectRatio: 1, title: 'Rodman', poster: '/playground/rodman.png' },
+  { aspectRatio: 0.66696, title: 'Wild horses', poster: '/playground/wildHorses.png' },
+  { aspectRatio: 1, title: 'Album cover collection', media: [image('/playground/album-cover-1.jpg'), image('/playground/album-cover-2.jpg'), image('/playground/album-cover-3.jpg')] },
+  { aspectRatio: 0.6474, title: 'Cooler Venus', previewIndices: [0, 1, 2, 3], media: [image('/playground/cooler_venus/poster1.png'), image('/playground/cooler_venus/manual1.png'), image('/playground/cooler_venus/poster2.png'), image('/playground/cooler_venus/manual2.png'), image('/playground/cooler_venus/golden_disc.png'), image('/playground/cooler_venus/sunscreen.png')] },
+  { aspectRatio: 0.70697, title: 'Woodstock 29', previewIndices: [0, 1], media: [
+    image('/playground/woodstock29/main_poster.png'),
+    image('/playground/woodstock29/alt_poster.png'),
+    image('/playground/woodstock29/posters.png'),
+    { ...image('/playground/woodstock29/sticker.png'), alt: 'Woodstock sticker on a festival water bottle', crop: { aspectRatio: 1.2, position: '64% 50%' } },
+    image('/playground/woodstock29/hydration.png'),
+    image('/playground/woodstock29/igpost_1.png'),
+    image('/playground/woodstock29/igpost_2.png'),
+    { ...image('/playground/woodstock29/cap.png'), alt: 'Embroidered Woodstock cap in the crowd', crop: { aspectRatio: 1.5, position: '40% 50%' } },
+    image('/playground/woodstock29/mat.png'),
+    { ...image('/playground/woodstock29/wristband.png'), alt: 'Woodstock wristband on a raised arm', crop: { aspectRatio: 1.15, position: '84% 50%' } },
+  ] },
 ]

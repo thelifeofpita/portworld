@@ -3,9 +3,9 @@
 import { useState, useCallback, useEffect, useRef } from 'react'
 import dynamic from 'next/dynamic'
 import Loader from '@/components/ui/Loader'
-import ContentPanel from '@/components/ui/ContentPanel'
+const ContentPanel = dynamic(() => import('@/components/ui/ContentPanel'))
 import ZoneNav from '@/components/ui/ZoneNav'
-import MobilePage from '@/components/ui/MobilePage'
+const MobilePage = dynamic(() => import('@/components/ui/MobilePage'))
 import Byline from '@/components/ui/Byline'
 import { useIsMobile } from '@/hooks/useIsMobile'
 import { zoneStore } from '@/lib/zoneStore'
@@ -63,6 +63,8 @@ function CursorHint({ visible }: { visible: boolean }) {
 export default function Home() {
   const isMobile = useIsMobile()
   const [activeZone,       setActiveZone]       = useState<Zone | null>(null)
+  const [sectionsReady, setSectionsReady] = useState(false)
+  const handleSectionsReady = useCallback(() => setSectionsReady(true), [])
   const [loaded,           setLoaded]           = useState(false)
   // A random Lospec palette is fetched fresh on every visit (see paletteStore) —
   // kicked off here, in parallel with the 3D model loading, so the loading
@@ -151,6 +153,8 @@ export default function Home() {
   // entirely and returns to the landing view (model grows, work leaves).
   const handleModelClick = useCallback(() => { zoneStore.resetToLanding?.() }, [])
 
+  if (isMobile === null) return <Loader visible />
+
   if (isMobile) {
     return (
       <>
@@ -159,8 +163,10 @@ export default function Home() {
           onZoneChange={handleZoneChange}
           onZoneReset={handleZoneReset}
           onLoad={handleLoad}
+          onPrepared={handleSectionsReady}
+          warming={!sectionsReady}
         />
-        <Loader visible={!loaded || !paletteReady} />
+        <Loader visible={!loaded || !paletteReady || !sectionsReady} />
       </>
     )
   }
@@ -174,7 +180,7 @@ export default function Home() {
         onLoad={handleLoad}
         isContentMode={isContentMode}
       />
-      <ContentPanel activeZone={activeZone} isContentMode={isContentMode} />
+      <ContentPanel activeZone={activeZone} isContentMode={isContentMode} warming={!sectionsReady} onPrepared={handleSectionsReady} />
       <ZoneNav isContentMode={!navVisible} />
 
       {/* Visual reference zone over the small model — entry detection is via global mousemove */}
@@ -182,7 +188,7 @@ export default function Home() {
 
       <Byline isContentMode={isContentMode} />
       <CursorHint visible={loaded && !isContentMode} />
-      <Loader visible={!loaded || !paletteReady} />
+      <Loader visible={!loaded || !paletteReady || !sectionsReady} />
     </main>
   )
 }
