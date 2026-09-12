@@ -64,10 +64,22 @@ export default function BackInSmoothlyDetail({ onPrev, onNext, onClose }: BackIn
           </video>
         </DitherReveal>
 
+        {/* Each sticker carries its real pixel dimensions. These are the
+            images DitherReveal's own comment calls out by name: styled
+            width:100%/height:auto with no intrinsic ratio, their height was
+            unknown until decode, so the mask <rect> measured height="0" and
+            the reveal never played — and the page grew under the reader as
+            they loaded. */}
         <DitherReveal overlayColor="#FFE500" className={styles.stickerRow}>
-          <img className={styles.sticker} src="/projects/proj5/sticker1.webp" alt="Back in smoothly — easier with our relaxant lubricant" />
-          <img className={styles.sticker} src="/projects/proj5/sticker2.webp" alt="Back in smoothly — easier with our relaxant lubricant" />
-          <img className={styles.sticker} src="/projects/proj5/sticker3.webp" alt="Back in smoothly — easier with our relaxant lubricant" />
+          {([
+            ['/projects/proj5/sticker1.webp', 517, 555],
+            ['/projects/proj5/sticker2.webp', 514, 515],
+            ['/projects/proj5/sticker3.webp', 537, 546],
+          ] as const).map(([src, w, h]) => (
+            <img key={src} className={styles.sticker} src={src} width={w} height={h}
+              loading="lazy" decoding="async"
+              alt="Back in smoothly — easier with our relaxant lubricant" />
+          ))}
         </DitherReveal>
 
         <DitherReveal overlayColor="#FFE500" className={styles.ctaRow}>
@@ -80,7 +92,9 @@ export default function BackInSmoothlyDetail({ onPrev, onNext, onClose }: BackIn
               <span className={styles.ctaBadgeLine}>Play now!</span>
             </a>
             <p className={styles.ctaCaption}>Best played on mobile.</p>
-            <img className={styles.qr} src={media['qr.svg'].src} alt="Scan to play Back in smoothly on your phone" />
+            <img className={styles.qr} src={media['qr.svg'].src}
+              width={media['qr.svg'].width} height={media['qr.svg'].height}
+              alt="Scan to play Back in smoothly on your phone" />
           </div>
 
           <img className={styles.phoneBox} src={media['gif4.transparent'].src} width={608} height={1080}

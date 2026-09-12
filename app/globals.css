@@ -338,13 +338,42 @@ body {
   overflow: hidden;
 }
 
+/* Mobile scrolls, and the VIEWPORT must be the thing that scrolls.
+
+   Declaring overflow on <html> stops <body>'s overflow from propagating to the
+   viewport, which turns <body> itself into a scroll box. This block used to set
+   `overflow-y: auto` on both, and that is exactly what happened: the whole page
+   scrolled inside <body> while the viewport never moved. Measured on a real
+   wheel gesture — window.scrollY 0, document.body.scrollTop 500, window 'scroll'
+   listeners firing zero times. Every window.scrollY read and window scroll
+   listener on the mobile path (the 3D model's scroll offset and fade in
+   Scene.tsx, this page's own scroll-driven grid pitch, snap()'s scroll-to-top,
+   the detail overlay's scroll save/restore, PlaygroundGallery's focus picker)
+   was therefore dead code that had never once run.
+
+   So: <html> is the scroller, and <body> stays fully `visible`.
+
+   The horizontal clip lives on <html> deliberately. Putting `overflow-x: hidden`
+   on <body> would silently undo all of this — CSS requires that when one axis is
+   non-visible, a `visible` other axis computes to `auto`, so `body { overflow-x:
+   hidden; overflow-y: visible }` gives back `overflow-y: auto` and body is a
+   scroll box again. Verified: that form leaves html.scrollHeight at the viewport
+   height. Do not move the clip back onto body. */
 @media (max-width: 768px) {
-  html,
-  body {
+  html {
     height: auto;
     min-height: 100%;
     overflow-x: hidden;
     overflow-y: auto;
+    /* Keeps pull-to-refresh/rubber-band overscroll chrome from visually
+       fighting the full-bleed fixed 3D canvas background (Scene.tsx). */
+    overscroll-behavior-y: contain;
+  }
+
+  body {
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
   }
 }
 

@@ -119,10 +119,13 @@
 }
 
 /* ─── Device mockups — 2×2 grid of pre-framed animations ────────────────
-   The source webps are already framed device mockups on white and vary in
-   aspect ratio, so each cell fits the whole mockup (object-fit: contain),
-   centred, and the page yellow shows in the letterbox margins. One column on
-   narrow viewports so the phone screens stay legible. */
+   The source animations are framed device mockups on a *transparent* canvas
+   and vary in aspect ratio, so each cell fits the whole mockup
+   (object-fit: contain), centred, and the page yellow shows in the letterbox
+   margins. mp4 has no alpha channel, so they are encoded composited over
+   #FFC72C — this page's background — which reproduces exactly what the
+   original alpha webps rendered as here. One column on narrow viewports so
+   the phone screens stay legible. */
 
 .mockGrid {
   display: grid;
@@ -144,4 +147,35 @@
   .inner { padding: 0 3rem; gap: 2.25rem; }
 
   .mockGrid { grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+}
+
+/* ─── Comfortable tap targets on phones ──────────────────────────────────
+   Desktop's zero-padding/max(0.7rem,1.5cqw) nav reads fine with a cursor,
+   but is too small to reliably tap. Geometry only; color/hover untouched. */
+@media (max-width: 699px) {
+  /* The mockups are portrait (560x922, 460x990) but the desktop cell is a
+     fixed 3:4 box with object-fit: contain, so each sat letterboxed inside
+     dead space it didn't need. --mock-aspect (set per video in PickASide.tsx)
+     is each one's true ratio, so the box matches the frame exactly.
+     NOT `aspect-ratio: auto`: a <video> takes no ratio from its width/height
+     attributes, so auto left the height attribute as the box height — an
+     898px box around a 511px frame, ~390px of void per mockup. */
+  .mockCell { aspect-ratio: var(--mock-aspect); height: auto; }
+
+  .navClose {
+    padding: 0.75rem;
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: max(0.85rem, 3.6cqw);
+  }
+  .navBtn {
+    padding: 0.75rem 0.5rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    font-size: max(0.85rem, 3.6cqw);
+  }
 }

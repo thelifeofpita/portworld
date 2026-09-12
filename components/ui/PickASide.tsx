@@ -1,5 +1,7 @@
 'use client'
 
+import type { CSSProperties } from 'react'
+
 import DitherReveal from './DitherReveal'
 import styles from './PickASide.module.css'
 
@@ -17,13 +19,23 @@ interface PickASideDetailProps {
   onClose: () => void
 }
 
-// Pre-framed device mockups (animated webp) from the case — shown whole in a
-// 2×2 grid, not cropped.
+// Pre-framed device mockups from the case — shown whole in a 2×2 grid, not
+// cropped. The sources carry alpha; mp4 does not, so they are encoded
+// composited over this page's #FFC72C rather than mp4's default black.
+//
+// These are mp4 now, not animated webp. They always were video in an image
+// container: app was 371 frames and reminder 208, and the four together came
+// to 9MB — enough that on a phone the grid rendered as empty coloured boxes
+// while they downloaded, which is what made this page look broken. The same
+// frames as h264 come to 1.8MB (-80%), and every other case page on the site
+// already uses mp4 + poster for its loops (BackInSmoothly's gifRow,
+// SurfTheSpike's uiVideo, CampaignLoop), so this follows the house pattern
+// rather than inventing one.
 const MOCKS = [
-  { src: '/projects/proj6/order.webp',    alt: 'A McDonald’s order kiosk: the Pick a Side menu blocks folding down into a ballot' },
-  { src: '/projects/proj6/checkout.webp', alt: 'The kiosk order summary resolving into a red ballot box' },
-  { src: '/projects/proj6/reminder.webp', alt: 'A McDonald’s fries carton turning to show an “I PICKED MY SIDE” sticker' },
-  { src: '/projects/proj6/app.webp',      alt: 'The McDonald’s app: a Pick a Side section running the election live, state by state' },
+  { src: '/projects/proj6/order.mp4',    w: 560, h: 922, alt: 'A McDonald’s order kiosk: the Pick a Side menu blocks folding down into a ballot' },
+  { src: '/projects/proj6/checkout.mp4', w: 560, h: 898, alt: 'The kiosk order summary resolving into a red ballot box' },
+  { src: '/projects/proj6/reminder.mp4', w: 560, h: 626, alt: 'A McDonald’s fries carton turning to show an “I PICKED MY SIDE” sticker' },
+  { src: '/projects/proj6/app.mp4',      w: 460, h: 990, alt: 'The McDonald’s app: a Pick a Side section running the election live, state by state' },
 ]
 
 // Both the top and bottom instance carry their own [X] — this page has no
@@ -70,7 +82,27 @@ export default function PickASideDetail({ onPrev, onNext, onClose }: PickASideDe
 
         <DitherReveal overlayColor={PAGE_COLOR} className={styles.mockGrid}>
           {MOCKS.map(m => (
-            <img key={m.src} className={styles.mockCell} src={m.src} alt={m.alt} />
+            <video
+              key={m.src}
+              className={styles.mockCell}
+              width={m.w}
+              height={m.h}
+              // A <video> does NOT derive an aspect ratio from its width/height
+              // attributes the way an <img> does — the height attribute just
+              // becomes the box height. So a 100%-wide video with no CSS height
+              // got a 898px-tall box with the frame letterboxed inside it.
+              // The mobile rule consumes this; desktop keeps its own 3:4 cell.
+              style={{ '--mock-aspect': `${m.w} / ${m.h}` } as CSSProperties}
+              poster={m.src.replace('.mp4', '-poster.jpg')}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              aria-label={m.alt}
+            >
+              <source src={m.src} type="video/mp4" />
+            </video>
           ))}
         </DitherReveal>
 

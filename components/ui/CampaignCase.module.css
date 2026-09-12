@@ -95,7 +95,106 @@
 @media (max-width: 699px) {
   .subtitle { max-width: 100%; }
   .logo { max-width: 65%; }
-  .vendors { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.5rem; }
-  .posters { gap: 0.5rem; }
+
+  /* This block used to change nothing but tap targets and gaps, so the image
+     grids kept their desktop column counts on a 390px phone. The campaign work
+     ended up smaller than the social proof sitting under it.
+
+     Posters ARE the campaign — one at a time, full width, at their own aspect.
+     The desktop row is 1fr 1.98fr 1fr with cover-cropped full-height cells;
+     three of those across 350px gave each poster ~90-180px and about 105px of
+     height, at which their copy is unreadable. */
+  .posters { grid-template-columns: 1fr; gap: 0.75rem; }
+  .posters .image { height: auto; object-fit: contain; }
+
+  /* Same reasoning: the vendors' reference cards are the product. Forcing
+     three across (which this block previously did explicitly) left each
+     portrait ~105px wide with the card illegible. */
+  .vendors { grid-template-columns: 1fr; gap: 0.75rem; }
+  .vendors .image { aspect-ratio: auto; object-fit: contain; }
+
+  /* Socials keep every asset but compose as one block rather than a plain
+     2-up run: the Instagram mockup spans both columns at the top, then the
+     TikTok frame sits left with the two tweet images stacked to its right.
+     That gives the one full-width mockup the emphasis and lets the TikTok's
+     portrait height pair against the tweet stack instead of leaving a hole
+     beside it. Source order in HatTwix.tsx is [instagram, tweets, tiktok],
+     so the areas below reorder tiktok/tweets visually.
+     The TikTok also loses its desktop 240px max-width override. */
+  .socials {
+    /* Not 1fr/1fr: at equal widths the TikTok frame runs ~299px tall against
+       the tweet stack's ~129px, leaving a block of bare page under the
+       tweets. 0.42/0.58 narrows the portrait frame and widens the stack,
+       which closes most of the gap; the stack is then centred against the
+       frame so what is left reads as spacing rather than a hole. */
+    grid-template-columns: 0.42fr 0.58fr;
+    grid-template-areas:
+      "ig     ig"
+      "tiktok tweets";
+    gap: 0.5rem;
+    align-items: start;
+  }
+  .socials > :first-child { grid-area: ig; }
+  .socials > .tweets { grid-area: tweets; align-self: center; }
+  .socials > .image:last-child { grid-area: tiktok; max-width: 100%; justify-self: stretch; }
+  .tweets { gap: 0.5rem; }
+
+  /* ─── Duolingo stills: two columns, re-framed ──────────────────────────
+     The desktop framing is percentage-based and therefore scale-invariant, so
+     a 6-up crop shown in a phone-sized cell is the identical composition just
+     smaller — which is how duoWinner ended up slicing "SUPER" off the left
+     and pulling in the neighbouring stick's "Ask for l'addition" on the
+     right, and how duoFrench lost the tail of its diagonal run off the bottom.
+     The crops below re-frame each one around its own message, so a two-up
+     cell spends all of its ~171px on the engraving instead of on stick.
+
+     Each is derived from where the message actually sits in the 1600x900
+     source (measured, not guessed), with:
+       visible width  fw = 1 / crop-width
+       crop-x = -(xLeft + fw/2)
+       visible height fh = (16/9) / (boxAspect * crop-width)
+       crop-y = -(yTop + fh/2)
+     Every message is centred in its window, which reduces both to
+     -(region centre) — so the offsets below read directly as the message's
+     centre point in the frame. The square cell is uniform across all six so
+     the two columns stay aligned; crop-width is then set per still by
+     whichever axis its message is longest on. Desktop (>=700px) keeps its
+     6-up 8:9 cells untouched. */
+  .stills { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+  .stillCrop { aspect-ratio: 1; }
+
+  /* Side-on sticks, message at x 0.18-0.55, y 0.40-0.57 — width-limited. */
+  .stillCrop[data-duo-crop="duoReminder"],
+  .stillCrop[data-duo-crop="duoItalian"] { --crop-width: 250%; --crop-x: -36.5%; --crop-y: -48.5%; }
+
+  /* Vertical stick, text rotated 90deg: x 0.37-0.58, y 0.11-0.82. Height is
+     the binding axis here — 250% is the most zoom that still fits the run. */
+  .stillCrop[data-duo-crop="duoFrench"] { --crop-width: 250%; --crop-x: -47.5%; --crop-y: -46.5%; }
+
+  /* Diagonal stick: badge + message at x 0.26-0.64, y 0.22-0.60. */
+  .stillCrop[data-duo-crop="duoSpanish"] { --crop-width: 240%; --crop-x: -45%; --crop-y: -41%; }
+
+  /* Diagonal stick: x 0.28-0.62, y 0.24-0.68. Tighter than desktop's so the
+     neighbouring stick's copy stays out of frame. */
+  .stillCrop[data-duo-crop="duoWinner"] { --crop-width: 290%; --crop-x: -45%; --crop-y: -46%; }
+
+  /* Comfortable tap targets — desktop's zero-padding/max(0.7rem,1.5cqw)
+     nav reads fine with a cursor, but is too small to reliably tap. Only
+     geometry changes here; color/hover stay untouched. */
+  .navigation button {
+    padding: 0.75rem 0.5rem;
+    min-height: 44px;
+    font-size: max(0.85rem, 3.6cqw);
+    display: inline-flex;
+    align-items: center;
+  }
+  .close {
+    padding: 0.75rem;
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+  }
 }
 @media (prefers-reduced-motion: reduce) { .navigation button { transition: none; } }

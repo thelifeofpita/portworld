@@ -127,6 +127,21 @@
   display: block;
 }
 
+/* scan.webp is one composite of three phones side by side. Full-width on a
+   phone that gives each handset ~110px, at which the caffeine labels on the
+   screens — the entire point of the frame — are unreadable. Desktop keeps the
+   composite untouched; mobile swaps in the three separately-cropped phones
+   (scan1/2/3.webp) stacked, so each gets the full column width. */
+.scanStack {
+  display: none;
+}
+
+.scanStack img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
 .uiVideo {
   width: 100%;
   aspect-ratio: 16 / 9;
@@ -139,7 +154,7 @@
    Source frames are portrait (~900x1012). Each cell is a taller 3:4 crop so
    four sit in a row; per-image object-position (set inline in SurfTheSpike.tsx)
    keeps the campaign artwork — the window poster / the machine branding —
-   centred in the crop. Two columns on narrow viewports so they stay legible. */
+   centred in the crop. */
 
 .photoRow {
   display: grid;
@@ -162,4 +177,75 @@
   .inner { padding: 0 3rem; gap: 2.25rem; }
 
   .photoRow { grid-template-columns: repeat(4, 1fr); gap: 0.75rem; }
+}
+
+/* ─── Comfortable tap targets on phones ──────────────────────────────────
+   Desktop's zero-padding/max(0.7rem,1.5cqw) nav reads fine with a cursor,
+   but is too small to reliably tap — PlaygroundGallery.tsx also reuses
+   .navBtn/.navClose/.projectNav verbatim for its own Collection nav, so
+   this fixes Playground's prev/next/close too. Geometry only; color/hover
+   untouched. */
+@media (max-width: 699px) {
+  /* Layout, not just tap targets. This breakpoint used to carry nothing but
+     button padding, so every image grid kept its desktop column count on a
+     390px phone — which is what made the campaign work unreadable. */
+
+  /* Stay two-up, but stop cropping. The 3:4 cover crop exists so four fit in a
+     desktop row; at two-up on a phone it sliced them instead — "Sleep like a
+     baby, tomorrow." rendered as "leep like a / aby, tomorrow". Their own
+     aspect shows each scene whole.
+     Deliberately NOT one-per-row: these are environmental context shots (a
+     poster in a shop window, a wrapped vending machine), so the job is to read
+     the setting, not the poster copy. Giving them full width each added ~1300px
+     of scrolling for no gain in what they communicate — unlike the scan
+     handsets above, which are product UI and do need the width.
+     `height: auto` is not redundant: the width/height attributes on these
+     <img>s land in the presentational-hints origin as real declarations, so
+     with only `aspect-ratio: auto` the height attribute won — 155x1012 boxes
+     with the photo contained in a sliver at the top. Same trap as the <video>
+     mockups on the Pick a Side page. */
+  .photoRow { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+  .photoCell { aspect-ratio: auto; height: auto; object-fit: contain; background: transparent; }
+
+  /* Keep the three handsets in one row, but swap the composite for the three
+     separate crops. scan.webp is 1610x686 and the phones only occupy 62% of
+     it (322 + 318 + 364px, with wide empty margins between), so full-width it
+     gives each handset ~70px. The crops drop the margins, so the same row
+     renders each at ~109px — 1.55x larger for the same vertical space.
+     Column widths are proportional to each crop's own aspect ratio
+     (339/672, 335/679, 381/673) so all three come out the same height, the
+     way they sit in the composite. */
+  .scanImg { display: none; }
+  .scanStack {
+    display: grid;
+    grid-template-columns: 5045fr 4934fr 5662fr;
+    gap: 0.35rem;
+    align-items: end;
+  }
+
+  /* ui.mp4 is a 1440x810 widescreen frame with the handset centred in it, so
+     at 16:9 on a 350px column the phone renders ~145px and the Gemini UI —
+     the point of the shot — is unreadable. The handset occupies x 25.6-74.2%
+     of the frame in every one of its 32 sampled frames (it pans but never
+     leaves that band), so an 8:9 box with the existing object-fit: cover
+     crops to exactly the centre 50% and doubles the phone's size. No markup
+     change needed: cover derives the crop from the box ratio alone. */
+  .uiVideo { aspect-ratio: 8 / 9; }
+
+  .navClose {
+    padding: 0.75rem;
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: max(0.85rem, 3.6cqw);
+  }
+  .navBtn {
+    padding: 0.75rem 0.5rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    font-size: max(0.85rem, 3.6cqw);
+  }
 }

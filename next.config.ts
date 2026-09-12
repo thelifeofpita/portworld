@@ -5,6 +5,10 @@ const nextConfig: NextConfig = {
   turbopack: {
     root: __dirname,
   },
+  // Lets phone/tablet testing over the local network or Tailscale reach the
+  // dev server's HMR websocket — Next blocks unlisted origins by default.
+  // Dev-only (this config has no effect on `next build`/production).
+  allowedDevOrigins: ['192.168.1.85', '100.123.220.74'],
   // Next's built-in dev-server image optimizer (Turbopack, next dev) hangs
   // indefinitely on most concurrent requests when several <Image priority>
   // components mount at once (reproduced cold in both a private Chrome

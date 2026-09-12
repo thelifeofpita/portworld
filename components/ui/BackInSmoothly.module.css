@@ -245,3 +245,42 @@
   .ctaRow .phoneBox { flex: 1 1 0; max-width: none; }
   .ctaCenter { order: 0; flex: 1.1 1 0; }
 }
+
+/* ─── Comfortable tap targets on phones ──────────────────────────────────
+   Desktop's zero-padding/max(0.7rem,1.5cqw) nav reads fine with a cursor,
+   but is too small to reliably tap. Geometry only; color/hover untouched. */
+@media (max-width: 699px) {
+  /* .stickerRow is flex 3-up at every width, which on a 350px column renders
+     each sticker 99px wide — "Back in smoothly." set at 7.7% of the artwork's
+     width comes out ~7px, i.e. the campaign line itself is unreadable. Two-up
+     triples it to ~13px for +264px of scroll. Not one-up: that would only buy
+     the small "Easier with our relaxant lubricant." caption, at a further
+     ~740px, and these same three designs appear full-width in .mockupRow
+     immediately below. The third sticker centres across both columns rather
+     than sitting alone in column one. */
+  .stickerRow {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    justify-content: initial;
+  }
+  .sticker { width: 100%; }
+  .sticker:last-child { grid-column: 1 / -1; justify-self: center; width: calc(50% - 0.25rem); }
+
+  .navClose {
+    padding: 0.75rem;
+    min-width: 44px;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: max(0.85rem, 3.6cqw);
+  }
+  .navBtn {
+    padding: 0.75rem 0.5rem;
+    min-height: 44px;
+    display: inline-flex;
+    align-items: center;
+    font-size: max(0.85rem, 3.6cqw);
+  }
+}

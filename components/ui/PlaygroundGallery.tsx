@@ -1,27 +1,21 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import mediaManifest from '@/content/media-manifest.json'
 import { registerMedia, initializeMediaClock } from '@/lib/mediaPlayback'
 import { subscribeFrame } from '@/lib/frameScheduler'
 import { observeLayout } from '@/lib/layoutMeasurement'
 import { createPortal } from 'react-dom'
 import { playgroundContent, type PlaygroundItem, type PlaygroundMediaItem } from '@/content/playgroundContent'
+import { pieces } from '@/lib/playgroundMedia'
 import styles from './PlaygroundGallery.module.css'
 import projectNavStyles from './SurfTheSpike.module.css'
 import { motion, useMotionValue, useSpring } from 'framer-motion'
+import { EASE_OUT } from '@/lib/motionEasing'
 import { fitOrbit } from '@/lib/fitOrbit'
 import { cursorStore, ensureCursorTracking } from '@/lib/cursorStore'
 import { projectCardCorners } from '@/lib/cardGlowStore'
 import { playgroundGlowStore } from '@/lib/playgroundGlowStore'
-
-const metadata = mediaManifest as Record<string, Partial<PlaygroundMediaItem>>
-function pieces(item: PlaygroundItem): PlaygroundMediaItem[] {
-  const all = item.media ?? (item.mp4 || item.webm
-    ? [{ src: item.mp4 ?? item.webm!, type: 'video' as const, poster: item.poster }]
-    : [{ src: item.poster!, type: 'image' as const }])
-  return all.map(piece => ({ ...metadata[piece.src], ...piece }))
-}
+import { lockScroll } from '@/lib/scrollLock'
 
 function useSize() {
   const ref = useRef<HTMLDivElement>(null)
@@ -159,8 +153,11 @@ function Collection({ item, ratios, onRatio, close, navigate, visible = true }: 
     if (!visible) return
     const previous = document.activeElement as HTMLElement | null
     closeRef.current?.focus()
-    const overflow = document.body.style.overflow
-    document.body.style.overflow = 'hidden'
+    // Not `body.style.overflow = 'hidden'` — on mobile the viewport is the
+    // scroller, so that only makes body its own scroll box and the gallery
+    // keeps scrolling behind this overlay. See lib/scrollLock.ts. (It's a
+    // no-op on desktop, where html/body are pinned already.)
+    const unlock = lockScroll()
     const key = (e: KeyboardEvent) => {
       if (e.key === 'Escape') close()
       if (e.key === 'ArrowRight') navigate(1)
@@ -174,9 +171,22 @@ function Collection({ item, ratios, onRatio, close, navigate, visible = true }: 
       }
     }
     document.addEventListener('keydown', key)
-    return () => { document.removeEventListener('keydown', key); document.body.style.overflow = overflow; previous?.focus() }
+    return () => { document.removeEventListener('keydown', key); unlock(); previous?.focus() }
   }, [close, navigate, visible])
-  return createPortal(<div className={styles.dialog} style={{ display: visible ? undefined : 'none' }} role="dialog" aria-modal="true" aria-label={item.title}>
+  // Animated the same way MobileProjectDetail (MobilePage.tsx) opens/closes
+  // — opacity+y, 0.3s, shared EASE_OUT — instead of the instant display:none
+  // snap this used to be. Driven by `visible` (not mount/unmount) because a
+  // game item (gameUrl set) stays permanently mounted once opened so its
+  // iframe never reloads — `inert` keeps it out of the tab order/a11y tree
+  // and pointerEvents:none keeps it non-interactive while hidden, without
+  // needing to actually remove it from the DOM.
+  return createPortal(<motion.div className={styles.dialog}
+    initial={{ opacity: 0, y: 24 }}
+    animate={{ opacity: visible ? 1 : 0, y: visible ? 0 : 24 }}
+    transition={{ duration: 0.3, ease: EASE_OUT }}
+    style={{ pointerEvents: visible ? 'auto' : 'none' }}
+    inert={!visible}
+    role="dialog" aria-modal="true" aria-label={item.title}>
     <nav className={`${projectNavStyles.projectNav} ${styles.collectionNav}`} aria-label="Collection navigation">
       <button className={projectNavStyles.navBtn} onClick={() => navigate(-1)} aria-label="Previous collection">← Previous</button>
       <button className={projectNavStyles.navClose} ref={closeRef} onClick={close} aria-label="Close collection">[X]</button>
@@ -193,7 +203,7 @@ function Collection({ item, ratios, onRatio, close, navigate, visible = true }: 
       </div>}
       {!playing && all.map((piece, i) => <div key={piece.src} className={styles.piece} style={rects[i]}><Media piece={piece} detail active={visible} onRatio={onRatio} /></div>)}
     </div>
-  </div>, document.body)
+  </motion.div>, document.body)
 }
 
 export default function PlaygroundGallery({ mobile = false, active = true, warming = false, onPrepared }: { mobile?: boolean; active?: boolean; warming?: boolean; onPrepared?: () => void }) {
@@ -248,8 +258,15 @@ export default function PlaygroundGallery({ mobile = false, active = true, warmi
 
   const [ratios, setRatios] = useState<Record<string, number>>({})
   const [open, setOpen] = useState<number | null>(null)
-  const [games, setGames] = useState<Set<number>>(new Set())
-  useEffect(() => { if (open !== null && playgroundContent[open].gameUrl) setGames(old => old.has(open) ? old : new Set([...old, open])) }, [open])
+  // Every item ever opened stays mounted afterward (like the old game-only
+  // `games` Set this replaces) — Collection now animates its own open/close
+  // via the `visible` prop (see Collection above), and that only produces a
+  // real fade-out if the element is still there to animate rather than being
+  // torn out of the tree the instant `open` changes. Also lets Prev/Next
+  // cross-fade between two already-mounted instances instead of a fresh
+  // element replacing the old one.
+  const [opened, setOpened] = useState<Set<number>>(new Set())
+  useEffect(() => { if (open !== null) setOpened(old => old.has(open) ? old : new Set([...old, open])) }, [open])
   const onRatio = useCallback((src: string, ratio: number) => {
     if (!(ratio > 0)) return
     setRatios(previous => previous[src] === ratio ? previous : { ...previous, [src]: ratio })
@@ -354,7 +371,6 @@ export default function PlaygroundGallery({ mobile = false, active = true, warmi
         {order.map(i => renderCard(playgroundContent[i], i))}
       </div>
     )}
-    {[...games].map(index => <Collection key={index} visible={active && open === index} item={playgroundContent[index]} ratios={ratios} onRatio={onRatio} close={close} navigate={navigate} />)}
-    {open !== null && !playgroundContent[open].gameUrl && <Collection key={playgroundContent[open].title} visible={active} item={playgroundContent[open]} ratios={ratios} onRatio={onRatio} close={close} navigate={navigate} />}
+    {[...opened].map(index => <Collection key={index} visible={active && open === index} item={playgroundContent[index]} ratios={ratios} onRatio={onRatio} close={close} navigate={navigate} />)}
   </>
 }

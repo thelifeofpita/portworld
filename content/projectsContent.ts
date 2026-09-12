@@ -28,6 +28,36 @@ export interface ProjectItem {
   thumb?:         string
   thumbModel?:    string  // path to a .glb in /public — renders a live-rotating 3D model on the card instead of thumb
   bigModel?:      boolean // renders as a large, cursor-following in-scene 3D display instead of a card (see InSceneProjectModel) — thumbModel doubles as its source
+  // Static capture of the live 3D model (see scripts/capture-mobile-project-
+  // thumbs.mjs + process-mobile-project-thumbs.mjs), pre-trimmed to its own
+  // content with a transparent background. Mobile's Projects grid renders
+  // this instead of a live InSceneProjectModel — 6 simultaneous WebGL
+  // renders with shadows/env-mapping is real weight to carry through a
+  // scrolling page; desktop is untouched and keeps the live model.
+  mobileThumb?:   string
+  // The captured image's width as a % of its grid slot's width — MEASURED
+  // at capture time (crop's CSS width ÷ the slot it was shot from, see
+  // process-mobile-project-thumbs.mjs), not a formula or hand tuning. This
+  // is exactly how wide the live 3D model actually rendered relative to its
+  // slot, so displaying the static image at this same width (height:auto,
+  // preserving its own aspect ratio) reproduces the live size exactly.
+  mobileThumbWidthPct?: number
+  // The capture's own aspect ratio (width ÷ height), also measured by
+  // process-mobile-project-thumbs.mjs. Combined with mobileThumbWidthPct it
+  // gives the thumb's rendered HEIGHT as a fraction of its square slot
+  // (widthPct ÷ aspect — up to 134% for Hat Twix), which is what the grid
+  // needs in order to leave each piece enough room not to collide with its
+  // neighbours. Also gives the <img> an intrinsic ratio so it reserves the
+  // right box before it decodes.
+  mobileThumbAspect?: number
+  // Two-width responsive set (half and full) emitted by the same script, so a
+  // small phone doesn't download pixels it can't resolve — at full size the six
+  // thumbs come to ~480KB. mobileThumb stays the fallback src.
+  mobileThumbSrcSet?: string
+  // The full-size crop's real pixel dimensions. Gives the <img> an intrinsic
+  // ratio so it reserves the right box before it decodes.
+  mobileThumbWidth?: number
+  mobileThumbHeight?: number
   bigModelBaseRotationYDeg?: number // fixed yaw offset (added to the cursor-tilt rotation) — for a multi-object scene authored front/back rather than side-by-side, a straight-on view can fully hide one object behind another
   icon?:          string  // path to icon in /public/icons/
   iconLabel?:     string
@@ -46,6 +76,12 @@ export const projectsContent: ProjectItem[] = [
     thumb:       '/projects/proj1/thumb.webp',
     thumbModel:  '/generated/surfthespike-phone-3f870e359f6d.glb',
     bigModel:    true,
+    mobileThumb: '/projects/mobile-thumbs/surf-the-spike-2a12c67849ca.webp',
+    mobileThumbWidthPct: 47.1,
+    mobileThumbAspect: 0.612,
+    mobileThumbSrcSet: '/projects/mobile-thumbs/surf-the-spike-2a12c67849ca@half.webp 171w, /projects/mobile-thumbs/surf-the-spike-2a12c67849ca.webp 341w',
+    mobileThumbWidth: 341,
+    mobileThumbHeight: 557,
     bigModelBaseRotationYDeg: 0, // Blender's authored front view, after glTF's Z-up → Y-up conversion
     images:      ['/projects/proj1/image1.webp', '/projects/proj1/image2.webp'],
     icon:        '/icons/oneShowShortlist.png',
@@ -60,6 +96,12 @@ export const projectsContent: ProjectItem[] = [
     thumb:       '/projects/proj3/thumb.webp',
     thumbModel:  '/models/duolingo.glb',
     bigModel:    true,
+    mobileThumb: '/projects/mobile-thumbs/duolingo-a8662a5f661e.webp',
+    mobileThumbWidthPct: 60.9,
+    mobileThumbAspect: 0.792,
+    mobileThumbSrcSet: '/projects/mobile-thumbs/duolingo-a8662a5f661e@half.webp 221w, /projects/mobile-thumbs/duolingo-a8662a5f661e.webp 441w',
+    mobileThumbWidth: 441,
+    mobileThumbHeight: 557,
     images:      ['/projects/proj3/image1.webp', '/projects/proj3/image2.webp'],
     icon:        '/icons/MAS.png',
     iconLabel:   'Miami Ad School Scholarship Winner',
@@ -72,6 +114,12 @@ export const projectsContent: ProjectItem[] = [
     thumb:       '/projects/proj2/thumb.webp',
     thumbModel:  '/models/verified-magazine-c39b9a5102.glb',
     bigModel:    true,
+    mobileThumb: '/projects/mobile-thumbs/verified-20c6c94c5cca.webp',
+    mobileThumbWidthPct: 57,
+    mobileThumbAspect: 0.787,
+    mobileThumbSrcSet: '/projects/mobile-thumbs/verified-20c6c94c5cca@half.webp 207w, /projects/mobile-thumbs/verified-20c6c94c5cca.webp 413w',
+    mobileThumbWidth: 413,
+    mobileThumbHeight: 525,
     youtubeId:   'HwCWeJ_ZcvQ',
     images:      ['/projects/proj2/image1.webp', '/projects/proj2/image2.webp'],
     icon:        '/icons/DNADShortlist.svg',
@@ -85,6 +133,12 @@ export const projectsContent: ProjectItem[] = [
     thumb:       '/projects/proj4/thumb.webp',
     thumbModel:  '/models/hat-twix.glb',
     bigModel:    true,
+    mobileThumb: '/projects/mobile-thumbs/hat-twix-e802f1dcc68a.webp',
+    mobileThumbWidthPct: 54.6,
+    mobileThumbAspect: 0.75,
+    mobileThumbSrcSet: '/projects/mobile-thumbs/hat-twix-e802f1dcc68a@half.webp 198w, /projects/mobile-thumbs/hat-twix-e802f1dcc68a.webp 395w',
+    mobileThumbWidth: 395,
+    mobileThumbHeight: 527,
     youtubeId:   'VykD83mmSTo',
     images:      ['/projects/proj4/image1.webp', '/projects/proj4/image2.webp'],
     accentColor: '#ED1C24', // Twix red
@@ -98,7 +152,17 @@ export const projectsContent: ProjectItem[] = [
     thumb:       '/projects/proj6/thumb.webp',
     thumbModel:  '/models/pick-a-side-fries-50656e5e9f.glb',
     bigModel:    true,
-    images:      ['/projects/proj6/order.webp', '/projects/proj6/checkout.webp'],
+    mobileThumb: '/projects/mobile-thumbs/pick-a-side-44831653db79.webp',
+    mobileThumbWidthPct: 56.2,
+    mobileThumbAspect: 0.834,
+    mobileThumbSrcSet: '/projects/mobile-thumbs/pick-a-side-44831653db79@half.webp 204w, /projects/mobile-thumbs/pick-a-side-44831653db79.webp 407w',
+    mobileThumbWidth: 407,
+    mobileThumbHeight: 488,
+    // Posters, not the old order/checkout animated webps. This page uses a
+    // customLayout, so `images` is never rendered here — but mobileWarmup.ts
+    // prefetches every entry's `images`, and those two webps were 740KB of
+    // animation downloaded on warm-up for something nothing displays.
+    images:      ['/projects/proj6/order-poster.jpg', '/projects/proj6/checkout-poster.jpg'],
     accentColor: '#FFC72C', // matches PickASide.module.css's page background exactly
     customLayout: 'pickASide',
   },
@@ -106,6 +170,12 @@ export const projectsContent: ProjectItem[] = [
     title:          'PlatanoMelón: Back in smoothly.',
     thumbModel:     '/models/back-in-smoothly-monitor.glb?v=3',
     bigModel:       true,
+    mobileThumb:    '/projects/mobile-thumbs/back-in-smoothly-6531e83c3051.webp',
+    mobileThumbWidthPct: 72,
+    mobileThumbAspect: 1.155,
+    mobileThumbSrcSet: '/projects/mobile-thumbs/back-in-smoothly-6531e83c3051@half.webp 261w, /projects/mobile-thumbs/back-in-smoothly-6531e83c3051.webp 521w',
+    mobileThumbWidth: 521,
+    mobileThumbHeight: 451,
     description:    'Backing in smoothly is relevant for cars, but also, for PlatanoMelón, who took over situations that go back-first to promote their relaxant lubricant.',
     youtubeId:      'ZOVg5GCUxqs',
     thumb:          '/projects/proj5/thumb.webp',

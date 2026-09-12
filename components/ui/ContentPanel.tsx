@@ -23,13 +23,14 @@ import { bigProjectExpandStore } from '@/lib/bigProjectExpandStore'
 import { cursorStore, ensureCursorTracking } from '@/lib/cursorStore'
 import { CUSTOM_LAYOUTS } from './customLayouts'
 import ProjectThumbModel from '@/components/canvas/ProjectThumbModel'
+import { EASE_OUT } from '@/lib/motionEasing'
 import styles from './ContentPanel.module.css'
 
 
 
 // Snappy panel open/close — same feel as the accent color snap
 const PANEL_TRANSITION = { duration: 0.22, ease: [0.2, 0, 0, 1] as const }
-const PANEL_EXIT       = { duration: 0.25, ease: [0.22, 1, 0.36, 1] as const }
+const PANEL_EXIT       = { duration: 0.25, ease: EASE_OUT }
 
 // ─── Hover tilt ───────────────────────────────────────────────────────────────
 // Shared by project/playground/about cards: the whole card leans toward the

@@ -30,6 +30,12 @@ export const CHROME_MATERIAL = new THREE.MeshStandardMaterial({
   roughness: 0.2,
   color: new THREE.Color(0xd4d4d4),
   envMapIntensity: 2.5,
+  // transparent:true even though opacity stays 1 on desktop — Scene.tsx's
+  // ScrollingGroup fades this on mobile as you scroll past the model's home
+  // area (opacity:1 with transparent:true renders identically to fully
+  // opaque, so this is a no-op visually until that fade actually animates
+  // it away from 1).
+  transparent: true,
 })
 
 const DRAG_SENSITIVITY = 0.008  // tuned at NAV_Z — see onPointerMove for the zoom compensation
@@ -58,14 +64,16 @@ interface ModelProps {
   onModelClick?: () => void
   isContentMode?: boolean
   yOffset?: number
+  isMobile?: boolean
 }
 
-export default function Model({ onZoneChange, onZoneReset, onAsciiToggle, onModelClick, isContentMode = false, yOffset = 0 }: ModelProps) {
+export default function Model({ onZoneChange, onZoneReset, onAsciiToggle, onModelClick, isContentMode = false, yOffset = 0, isMobile = false }: ModelProps) {
   const { scene } = useGLTF('/models/modelSeparated.glb')
   const groupRef = useRef<THREE.Group>(null)
   const { gl, camera } = useThree()
   const cameraRef = useRef(camera)
   const isContentModeRef = useRef(isContentMode)
+  const isMobileRef = useRef(isMobile)
 
   // Quaternion rotation — no gimbal lock, POV-aware
   const currentQuat = useRef(new THREE.Quaternion())
@@ -96,6 +104,12 @@ export default function Model({ onZoneChange, onZoneReset, onAsciiToggle, onMode
   useEffect(() => {
     isContentModeRef.current = isContentMode
   }, [isContentMode])
+
+  // Same pattern for isMobile — read live inside the stable (empty-deps)
+  // onPointerMove callback below without re-subscribing it every render.
+  useEffect(() => {
+    isMobileRef.current = isMobile
+  }, [isMobile])
 
   // Compute bounding box center (for pivot) + sampled vertex positions + normals (for silhouette).
   // Both arrays are in group-local centered space (scene-world pos/dir + centerOffset/normalMatrix),
@@ -189,8 +203,17 @@ export default function Model({ onZoneChange, onZoneReset, onAsciiToggle, onMode
     _v3b.setFromMatrixColumn(cameraRef.current.matrix, 1) // up
     _v3a.setFromMatrixColumn(cameraRef.current.matrix, 0) // right
     _qa.setFromAxisAngle(_v3b, dx * sensitivity)
-    _qb.setFromAxisAngle(_v3a, dy * sensitivity)
-    targetQuat.current.premultiply(_qa).premultiply(_qb)
+    if (isMobileRef.current) {
+      // Mobile: horizontal (yaw) only — CLAUDE.md's "horizontal rotation
+      // only" spec, and critically what keeps this conflict-free with the
+      // canvas's touch-action:pan-y (see Scene.tsx): a vertical swipe never
+      // has any rotational effect, so there's no visible partial-rotate
+      // before the browser commits the gesture to native scrolling.
+      targetQuat.current.premultiply(_qa)
+    } else {
+      _qb.setFromAxisAngle(_v3a, dy * sensitivity)
+      targetQuat.current.premultiply(_qa).premultiply(_qb)
+    }
   }, [])
 
   // Snap so the given zone's mesh faces the camera, preserving current roll.
@@ -260,21 +283,37 @@ export default function Model({ onZoneChange, onZoneReset, onAsciiToggle, onMode
     }
   }, [gl, snapToZone])
 
+  // Fires when the browser cancels an in-progress pointer sequence — notably,
+  // on mobile, when it commits an ambiguous touch to native scrolling (see
+  // Scene.tsx's touch-action:pan-y). Only pointerup used to be handled, so a
+  // cancelled gesture could leave isDragging stuck true. Unlike onPointerUp,
+  // this must NOT run the zone-snap logic — a cancel means the browser took
+  // the gesture for scrolling, not a deliberate release, so snapping to
+  // whichever zone happened to be centered would be a surprising side effect
+  // of just trying to scroll the page.
+  const onPointerCancel = useCallback(() => {
+    if (!isDragging.current) return
+    isDragging.current = false
+    gl.domElement.style.cursor = 'grab'
+  }, [gl])
+
   useEffect(() => {
     const el = gl.domElement
     el.style.cursor = 'grab'
     const onDragStart = (e: DragEvent) => e.preventDefault()
     el.addEventListener('pointerdown', onPointerDown)
     el.addEventListener('dragstart',   onDragStart)
-    window.addEventListener('pointermove', onPointerMove)
-    window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointermove',   onPointerMove)
+    window.addEventListener('pointerup',     onPointerUp)
+    window.addEventListener('pointercancel', onPointerCancel)
     return () => {
       el.removeEventListener('pointerdown', onPointerDown)
       el.removeEventListener('dragstart',   onDragStart)
-      window.removeEventListener('pointermove', onPointerMove)
-      window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointermove',   onPointerMove)
+      window.removeEventListener('pointerup',     onPointerUp)
+      window.removeEventListener('pointercancel', onPointerCancel)
     }
-  }, [gl, onPointerDown, onPointerMove, onPointerUp])
+  }, [gl, onPointerDown, onPointerMove, onPointerUp, onPointerCancel])
 
   useFrame((_, delta) => {
     if (!groupRef.current) return

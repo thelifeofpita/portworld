@@ -58,31 +58,24 @@
   padding: 2rem 1.25rem 3rem;
 }
 
-/* Projects has nothing left inside .mobileSection that needs to catch its
-   own taps — the whole grid is pointer-events:none (see .mobileProjectGrid)
-   and the detail overlay lives outside it (portaled to body) — so the
-   section itself must ALSO stop intercepting, or its own solid box (not any
-   particular child) swallows every tap before it reaches the canvas below,
-   where the model's real mesh raycast lives. About/Playground keep the
-   shared .mobileSection default: they still have real DOM controls (links,
-   Playground's own cards) that need it. */
-.mobileProjectsSection {
-  pointer-events: none;
-}
+/* Projects renders real DOM buttons/images now (a static captured image per
+   project, not a live WebGL model — see MobileProjectSlot in MobilePage.tsx),
+   so it needs the same pointer-events:auto every other section gets — no
+   override needed here any more. */
 
 
 /* ─── Projects — two columns ──────────────────────────────────────────────── */
 
+/* Column gutter is sized from the widest piece's real overflow, not picked by
+   eye. Thumbs render at --thumb-width-pct of their column (a measurement — see
+   mobileThumbWidthPct) and the widest, Back in Smoothly, is 121.8%, so it
+   hangs ~10.9% of a column width past each edge. At the 390px reference
+   viewport that is ~16px a side, which a 1rem gutter could not absorb — pieces
+   visibly collided. 2.5rem clears it with room for the focus scale. */
 .mobileProjectGrid {
   display: flex;
-  gap: 1rem;
+  gap: 2.5rem;
   margin-top: 2rem;
-  /* pointer-events is inherited — none here cascades through every
-     descendant (columns, slots) with no per-element overrides needed. The
-     whole grid is a layout/visual anchor only; every real tap is a mesh
-     raycast on the canvas underneath (see bigProjectExpandStore in
-     MobilePage.tsx), same as desktop. */
-  pointer-events: none;
 }
 
 .mobileProjectGridCol {
@@ -90,20 +83,68 @@
   min-width: 0;
   display: flex;
   flex-direction: column;
-  gap: 5rem;
+  /* Vertical spacing is now a design choice rather than a collision budget:
+     .mobileProjectStage reserves each image's true height, so nothing spills
+     onto its neighbours any more. */
+  gap: 3rem;
 }
 
-/* Pure invisible layout anchor — no background, no overflow clipping. The
-   actual model renders inside Scene.tsx's shared canvas (not here), sized
-   larger than this box so it visibly breaks out of it — same as desktop's
-   .bigProjectModelSlot. pointer-events:none for the same reason desktop's
-   has it: taps land on the model's own mesh raycast in the canvas, not this
-   DOM box (see bigProjectExpandStore in MobilePage.tsx). */
 .mobileProjectSlot {
   position: relative;
   width: 100%;
-  aspect-ratio: 1;
-  pointer-events: none;
+}
+
+.mobileProjectBtn {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Reserves exactly the box the image actually occupies. padding-top resolves
+   against this element's own width, and --thumb-height-pct is the image's
+   rendered height expressed in those same units (widthPct ÷ the capture's
+   aspect ratio), so the two line up precisely. This replaces a fixed square
+   cell that every thumb overflowed vertically — by up to 17% of a column at
+   each end for Hat Twix, which is what made the rows run into each other. */
+.mobileProjectStage {
+  display: block;
+  position: relative;
+  width: 100%;
+  padding-top: var(--thumb-height-pct, 100%);
+}
+
+.mobileProjectImage {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  /* --thumb-width-pct (set inline per slot, from content/projectsContent.ts's
+     mobileThumbWidthPct) is a MEASUREMENT, not a formula: it's exactly how
+     wide the live 3D model rendered relative to its own slot, captured
+     directly off the real render (see process-mobile-project-thumbs.mjs).
+     height:auto preserves the image's own aspect ratio, so this reproduces
+     the live model's on-screen size exactly instead of approximating it.
+
+     Capped at the page's own side margin (.mobileSection's 1.25rem) so a
+     piece can hang past its column — that break-out is the look — without
+     ever running off the screen. Back in Smoothly measures 121.8%, which on
+     a 390-500px viewport put its right edge a few pixels beyond the
+     viewport and simply got sliced off, reading as a broken crop rather
+     than a deliberate bleed. Only the two widest pieces are affected. */
+  width: min(var(--thumb-width-pct, 100%), calc(100% + 2rem));
+  height: auto;
+  pointer-events: none; /* taps handled by .mobileProjectBtn, the parent */
+  transform: translate(-50%, -50%); /* MobileProjects' scroll handler overwrites this with the live pitch/scale */
+  will-change: transform;
+}
+
+.mobileProjectBtn:focus-visible {
+  outline: 2px solid var(--hover-color);
+  outline-offset: 4px;
 }
 
 /* ─── Projects — full-screen tap-to-open detail ──────────────────────────── */
@@ -115,6 +156,11 @@
   background: var(--bg-color);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  /* Without this, reaching either end of the case study and continuing to
+     drag chains the gesture through to the document behind. globals.css
+     declares this on html/body, but that does nothing for a separate
+     scrolling element sitting on top of them. */
+  overscroll-behavior: contain;
 }
 
 .mobileProjectDetailHeader {
@@ -122,7 +168,7 @@
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  padding: 1rem 1.25rem 0;
+  padding: calc(1rem + env(safe-area-inset-top)) 1.25rem 0;
 }
 
 .mobileProjectDetailClose,
@@ -138,6 +184,13 @@
   padding: 0.4rem;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  /* Comfortable tap target (~44px, WCAG 2.5.5 / Apple HIG) — this file only
+     ever renders on mobile, so no @media gate needed. */
+  min-width: 44px;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .mobileProjectDetailTitle {
@@ -314,7 +367,8 @@
 
 .mobileFooter {
   pointer-events: auto;
-  padding: 1.5rem 1.25rem 3rem;
+  /* env() resolves to 0 without a notch/home-indicator, a safe no-op there */
+  padding: 1.5rem 1.25rem calc(3rem + env(safe-area-inset-bottom));
   display: flex;
   flex-direction: column;
   gap: 1rem;

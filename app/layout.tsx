@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import LazyDebugMenu from '@/components/ui/LazyDebugMenu'
 import { pickPalette } from '@/lib/paletteSource'
@@ -7,6 +7,16 @@ import { paletteCssVars } from '@/lib/paletteVars'
 export const metadata: Metadata = {
   title: "Pita's goods",
   description: 'Creatively misdirected.',
+}
+
+// viewport-fit=cover is what makes env(safe-area-inset-*) resolve to real
+// notch/home-indicator clearance instead of 0 — see MobilePage.module.css's
+// .mobileFooter/.mobileProjectDetailHeader and PlaygroundGallery.module.css's
+// .collectionNav/.toolbar.
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  viewportFit: 'cover',
 }
 
 // The theme is randomized per visit, so the HTML itself can never be cached.

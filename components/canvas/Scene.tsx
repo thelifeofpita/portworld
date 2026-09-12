@@ -4,7 +4,7 @@ import React, { Suspense, useEffect, useRef, useCallback, useState, useReducer }
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { Environment, useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
-import Model from './Model'
+import Model, { CHROME_MATERIAL } from './Model'
 const InSceneProjectModel = React.lazy(() => import('./InSceneProjectModel'))
 import PostProcessing from './PostProcessing'
 import { projectsContent } from '@/content/projectsContent'
@@ -12,42 +12,13 @@ import { bgStore } from '@/lib/bgStore'
 import { fgStore } from '@/lib/fgStore'
 import { shaderStore } from '@/lib/shaderStore'
 import { modelScrollStore } from '@/lib/modelScrollStore'
+import { MOBILE_CANVAS_VH, mobileOverlayStore } from '@/lib/mobileLayout'
 import { cameraStore } from '@/lib/cameraStore'
 import { debugStore } from '@/lib/debugStore'
 import { getThemeColors, subscribePalette } from '@/lib/paletteStore'
 import type { Zone } from '@/types'
 
 const projectModels = projectsContent.map((project, index) => ({ project, index })).filter(({ project }) => project.bigModel && project.thumbModel)
-
-// Mobile's Projects grid (MobilePage.tsx) gives each model a bigger slot
-// than desktop's tighter ellipse composition — this multiplies
-// InSceneProjectModel's fitted scale so they fill that room instead of
-// leaving it empty. Desktop is untouched (passes the InSceneProjectModel
-// default of 1). Per-project, and necessarily so: the fit-scale formula
-// sizes to bounding-sphere AREA, not filled pixel coverage, so a sparse
-// silhouette (Hat Twix's candy bar strung between two balls, lots of empty
-// space inside its own bounding sphere) reads visibly smaller than a solid
-// blob (the owl, the magazine) at the identical boost value.
-//
-// These MUST be re-measured/re-judged any time the mobile grid's own box
-// width changes — they're tuned against a specific slot size, not the model
-// itself. bigProjectFootprintStore's radius (bounding CIRCLE of the whole
-// silhouette) turned out to be a bad proxy for perceived size on top of
-// that: Hat Twix (candy bar strung between two balls — a diagonal sliver,
-// mostly empty inside its own bounding circle) and Pick a Side's fries (a
-// narrow box with a few stray fry tips reaching wide) both measured
-// comparable-or-larger radius than their neighbors while still visibly
-// reading smaller, because so little of that bounding circle is actually
-// filled. Bumped both past what the radius numbers alone would suggest —
-// judged from actual screenshots, not the metric.
-const MOBILE_PROJECT_SIZE_BOOST_OVERRIDES: Record<number, number> = {
-  0: 1.00, // Surf the Spike
-  1: 1.00, // Duolingo
-  2: 1.25, // Verified magazine
-  3: 1.45, // Hat Twix — sparse diagonal silhouette, reads smaller than its radius suggests
-  4: 1.25, // Pick a Side fries — narrow/sparse, same reason; 1.15 read too small, 1.50 read way oversized/too tall — settled between
-  5: 1.20, // Back in Smoothly
-}
 
 class ProjectLoadBoundary extends React.Component<{ children: React.ReactNode; onPrepared: () => void }, { failed: boolean }> {
   state = { failed: false }
@@ -96,7 +67,6 @@ function EnvironmentTracker() {
 // portion at the same pixel density it had when the canvas was physically 45vh.
 // To keep that density, the full-page vFOV cap = old 16° cap / CANVAS_VH ≈ 35.6°.
 // (The top 45% of a 35.6° field contains exactly 16° worth of content.)
-const MOBILE_CANVAS_VH  = 0.45
 const MOBILE_FOV_CAP    = 16 / MOBILE_CANVAS_VH            // ≈ 35.56°
 const MOBILE_NDC_OFFSET = (0.5 - MOBILE_CANVAS_VH / 2) * 2 // 0.55 — NDC above center
 
@@ -316,23 +286,59 @@ function BackgroundSync() {
 // so Model.tsx posStore computations stay accurate.
 function ScrollingGroup({ baseY, isMobile, children }: { baseY: number; isMobile: boolean; children: React.ReactNode }) {
   const ref      = useRef<THREE.Group>(null)
-  const scrollPx = useRef(0)
   const { camera } = useThree()
-
-  useEffect(() => {
-    if (!isMobile) return
-    const onScroll = () => { scrollPx.current = window.scrollY }
-    window.addEventListener('scroll', onScroll, { passive: true })
-    return () => window.removeEventListener('scroll', onScroll)
-  }, [isMobile])
 
   useFrame(() => {
     if (!ref.current) return
     let y = baseY
     if (isMobile) {
+      // Read window.scrollY directly each frame rather than caching it from a
+      // 'scroll' listener.
+      //
+      // This used to cache, and for a long time it did not matter which way it
+      // was written, because window.scrollY was stuck at 0 regardless: the
+      // mobile page was scrolling <body> rather than the viewport, so window
+      // scroll events never fired and window.scrollY never moved. The model
+      // therefore never tracked scroll and never faded — it just sat behind the
+      // content forever. That is fixed in globals.css (the viewport is the
+      // scroller now; see the comment there), and this reads live so it can
+      // never go stale against it — a reload at a restored offset, a
+      // back-navigation, or the Scene remount after a WebGL context loss all
+      // land on the correct value on the very first frame. One property read
+      // per frame is cheaper than being wrong.
+      const scrollPx = window.scrollY
       const cam = camera as THREE.PerspectiveCamera
       const halfH = Math.tan((cam.fov / 2) * Math.PI / 180) * 5
-      y += scrollPx.current * (2 * halfH / window.innerHeight)
+      y += scrollPx * (2 * halfH / window.innerHeight)
+
+      // The position offset above alone takes about a full screen height of
+      // scroll to actually carry the model off-screen — until then it's
+      // still partially on screen, showing through the gaps between the
+      // Projects grid's images (this canvas is a full-page fixed layer
+      // sitting behind them). That reads as a broken animating fragment
+      // bleeding into what should be static photos. Fade it out well before
+      // that — fully gone by the time you've scrolled past the canvas
+      // area's own height (MOBILE_CANVAS_VH, matching .mobileCanvasArea in
+      // MobilePage.module.css), independent of how far the position math
+      // has actually carried it by then.
+      const fadeDistance = window.innerHeight * MOBILE_CANVAS_VH
+      const fade = Math.max(0, 1 - scrollPx / fadeDistance)
+
+      // Visibility, not just opacity, is what actually guarantees the model
+      // is gone. CHROME_MATERIAL is a module-level singleton shared by every
+      // mesh (see Model.tsx) that paletteStore also writes to — leaving "the
+      // model is hidden" encoded solely in one writer's opacity on a shared
+      // material is the same multi-writer hazard that has bitten this
+      // codebase before. `visible` can't get stuck half-applied.
+      //
+      // A full-screen overlay (a project case study) also hides it outright:
+      // while one is up the document doesn't scroll, so the fade above is
+      // frozen at whatever it was when the overlay opened.
+      ref.current.visible = fade > 0.001 && !mobileOverlayStore.open
+      CHROME_MATERIAL.opacity = fade
+    } else {
+      if (!ref.current.visible) ref.current.visible = true
+      if (CHROME_MATERIAL.opacity !== 1) CHROME_MATERIAL.opacity = 1
     }
     ref.current.position.y = y
     modelScrollStore.extraWorldY = y - baseY
@@ -362,33 +368,34 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
   // rather than waiting for all of them. The rest keep warming one-at-a-time in
   // the background (the projectCount effect below), so only a deliberately fast
   // rotate into Projects in the moment right after Behold lifts can still catch
-  // a model compiling — natural browsing never does. Mobile now goes through
-  // the exact same warm-and-reveal sequence as desktop — it used to skip
-  // project models entirely and fall back to flat card thumbnails, but mobile
-  // Projects now renders the same real in-scene models (see MobilePage.tsx's
-  // MobileProjectSlot), so it needs them warmed for the same reason.
+  // a model compiling — natural browsing never does. Mobile no longer renders
+  // these at all (its Projects grid uses a static captured image per project —
+  // see MobilePage.tsx's MobileProjectSlot — six simultaneous live WebGL
+  // renders was real weight to carry through a scrolling page), so it never
+  // needs to wait on this warm-up.
   const firedLoadRef = useRef(false)
   useEffect(() => {
     if (firedLoadRef.current) return
-    if (navigationReady && (projectModels.length === 0 || preparedProjects >= 1)) {
+    if (navigationReady && (isMobile || projectModels.length === 0 || preparedProjects >= 1)) {
       firedLoadRef.current = true
       onLoad()
     }
-  }, [navigationReady, preparedProjects, onLoad])
+  }, [navigationReady, isMobile, preparedProjects, onLoad])
   // Once the first model is warm, pull the remaining GLBs in parallel so the
   // background warm-chain below is compile-bound (a few frames each) rather than
-  // waiting on serial network fetches.
+  // waiting on serial network fetches. Desktop only — mobile never renders
+  // these models, so there's nothing to warm.
   useEffect(() => {
-    if (preparedProjects < 1) return
+    if (isMobile || preparedProjects < 1) return
     for (const { project } of projectModels.slice(1)) useGLTF.preload(project.thumbModel!, '/draco/')
-  }, [preparedProjects])
+  }, [isMobile, preparedProjects])
   useEffect(() => {
     const update = () => setTabVisible(!document.hidden)
     document.addEventListener('visibilitychange', update)
     return () => document.removeEventListener('visibilitychange', update)
   }, [])
   useEffect(() => {
-    if (!navigationReady || !tabVisible) return
+    if (!navigationReady || !tabVisible || isMobile) return
     // Complete one actual model render at a time while Behold is still covering the page.
     const frame = requestAnimationFrame(() => setProjectCount(Math.min(projectModels.length, preparedProjects + 1)))
     return () => cancelAnimationFrame(frame)
@@ -445,10 +452,20 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
     // clicks before the canvas sees them, so keeping the canvas interactive
     // doesn't break card interactions and allows drag to restart after a snap.
     pointerEvents: 'auto',
-    // Stops the browser from treating a drag-to-rotate touch as a page-scroll
-    // gesture — the canvas handles the touch itself (rotation), so native
-    // panning/zooming on this element must be disabled.
-    touchAction: 'none',
+    // Desktop: block all native panning — the canvas owns drag-to-rotate
+    // fully, and there's no page scroll to preserve (html/body is
+    // overflow:hidden there).
+    // Mobile: the canvas is a full-page fixed layer sitting on top of real
+    // document scroll (see globals.css's overflow-y:auto @768px block), and
+    // .mobileProjectGrid/.mobileProjectSlot are deliberately pointer-events:
+    // none so taps reach the mesh raycast underneath — meaning most scroll
+    // gestures actually start ON this canvas. 'pan-y' lets the browser
+    // recognize and own any vertical-intent touch natively (independent of
+    // JS), while horizontal drags stay fully scriptable for rotation — see
+    // Model.tsx's isMobile-gated yaw-only drag, which keeps rotation
+    // strictly horizontal so a vertical swipe never visibly rotates the
+    // model before the browser commits to scrolling.
+    touchAction: isMobile ? 'pan-y' : 'none',
   }
 
   return (
@@ -469,7 +486,13 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
       <directionalLight position={[-4, 2, -4]} intensity={0.4} />
 
       {/* Project-only studio rig. A separate layer keeps the navigation's
-          lighting unchanged; the compositor renders these models separately. */}
+          lighting unchanged; the compositor renders these models separately.
+
+          Desktop only — these values are tuned for the PostProcessing
+          composite below. app/capture-mobile-thumbs/page.tsx renders the same
+          models raw (no post pass) to generate the mobile grid's static
+          thumbnails and deliberately runs a SOFTER exposure of its own; the
+          two rigs are not meant to match, so don't sync them. */}
       <directionalLight name="Project key" position={[-5, 3, 2]} intensity={3} color="#fff4e8"
         castShadow shadow-mapSize={[2048, 2048]} shadow-bias={-0.0001} shadow-normalBias={0.005}
         shadow-camera-left={-6} shadow-camera-right={6} shadow-camera-top={6} shadow-camera-bottom={-6}
@@ -490,14 +513,16 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
         <CameraFov isMobile={isMobile} />
         <CameraZoom isContentMode={isContentMode} />
         <ScrollingGroup baseY={modelYOffset} isMobile={isMobile}>
-          <Model onZoneChange={onZoneChange} onZoneReset={onZoneReset} onAsciiToggle={onAsciiToggle} onModelClick={onModelClick} isContentMode={isContentMode} yOffset={modelYOffset} />
+          <Model onZoneChange={onZoneChange} onZoneReset={onZoneReset} onAsciiToggle={onAsciiToggle} onModelClick={onModelClick} isContentMode={isContentMode} yOffset={modelYOffset} isMobile={isMobile} />
         </ScrollingGroup>
         {/* Prepare actual model, texture and shadow rendering behind Behold.
-            A broken optional model must not block the rest of the site. */}
-        {projectModels.slice(0, projectCount).map(({ project: p, index: i }) => (
+            A broken optional model must not block the rest of the site.
+            Desktop only — mobile's Projects grid uses a static captured
+            image per project instead (see MobilePage.tsx). */}
+        {!isMobile && projectModels.slice(0, projectCount).map(({ project: p, index: i }) => (
           <ProjectLoadBoundary key={i} onPrepared={projectReady}>
             <Suspense fallback={null}>
-              <InSceneProjectModel index={i} src={p.thumbModel!} baseRotationYDeg={p.bigModelBaseRotationYDeg} sizeBoost={isMobile ? MOBILE_PROJECT_SIZE_BOOST_OVERRIDES[i] : 1} onPrepared={projectReady} />
+              <InSceneProjectModel index={i} src={p.thumbModel!} baseRotationYDeg={p.bigModelBaseRotationYDeg} onPrepared={projectReady} />
             </Suspense>
           </ProjectLoadBoundary>
         ))}
