@@ -49,7 +49,7 @@ export default function InSceneProjectModel({ index, src, baseRotationYDeg = 0, 
   const paperNormal = useMemo(() => src.includes('verified-magazine') ? createPaperNormal() : null, [src])
   useEffect(() => () => paperNormal?.dispose(), [paperNormal])
   const { scene: source } = useGLTF(src, '/draco/')
-  const [screenMap, labelMap] = useTexture(src.includes('surfthespike') ? ['/models/surf-phone-screen.jpg', '/generated/surf-can-label-8c79184d109a.webp'] : [])
+  const [screenMap, labelMap] = useTexture(src.includes('surfthespike') ? ['/generated/surf-phone-screen-ca32a25120de.webp', '/generated/surf-can-label-bd01258518b0.webp'] : [])
   const [canRoughness, popperNormal, flashNormal, canNormal] = useTexture(src.includes('surfthespike') ? ['/models/surf-can-roughness.png', '/models/surf-popper-normal.png', '/models/surf-flash-normal.png', '/models/surf-can-metal-normal.png'] : [])
   const sheenMaps = useTexture(src.includes('duolingo') ? Object.values(duoSheen).map(entry => entry.src) : [])
   const scene = useMemo(() => {

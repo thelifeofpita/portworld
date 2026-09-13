@@ -11,7 +11,7 @@
   padding: 0 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
+  gap: var(--case-gap);
 }
 .navigation { position: relative; display: flex; align-items: center; justify-content: space-between; }
 .navigation button {
@@ -32,6 +32,14 @@
 .navBtn { display: flex; align-items: center; gap: 0.4em; }
 .navArrow { font-size: 1.1em; line-height: 1; }
 .close { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); }
+/* Breathing room before the closing nav. The nav is the last child of .inner,
+   which lays its children out on the shared --case-gap rhythm — at that gap the
+   Previous/[X]/Next row sat as tight to the final image as two images sit to
+   each other, reading as one more item in the sequence instead of the end of
+   the page. Kept as a multiple of the token so it tracks the rhythm rather than
+   becoming a second, independent spacing value. */
+.navigation:last-child { margin-top: calc(var(--case-gap) * 3); }
+
 .hero { text-align: center; padding-bottom: 0.25rem; }
 .title {
   font-family: var(--font-display);
@@ -56,7 +64,7 @@
 .pair, .vendors, .executionPair, .socials, .posters, .stills {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
-  gap: 1rem;
+  gap: var(--case-gap);
   align-items: center;
 }
 .posters { grid-template-columns: 1fr 1.98fr 1fr; align-items: stretch; }
@@ -66,7 +74,7 @@
 .vendors .image:first-child { object-position: 59% 50%; }
 .vendors .image:last-child { object-position: 52% 50%; }
 .executionPair .image { aspect-ratio: 4 / 3; object-fit: cover; object-position: center; }
-.tweets { display: flex; flex-direction: column; gap: 1rem; min-width: 0; }
+.tweets { display: flex; flex-direction: column; gap: var(--case-gap); min-width: 0; }
 .socials > .image:last-child { max-width: 240px; justify-self: center; }
 .stills { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 /* Individual focal points keep the engraved message, rather than empty space. */
@@ -84,12 +92,25 @@
 .loop { position: relative; min-width: 0; aspect-ratio: 16 / 9; background: #fff; }
 .loop video { display: block; width: 100%; height: 100%; }
 @media (min-width: 700px) {
-  .inner { padding: 0 3rem; gap: 2.25rem; }
+  .inner { padding: 0 3rem; }
   .pair, .executionPair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .vendors { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .socials { grid-template-columns: 1.5fr 1.2fr 0.523fr; }
-  .stills { grid-template-columns: repeat(6, minmax(0, 1fr)); }
-  .pair, .executionPair, .vendors, .socials, .posters, .stills, .tweets { gap: 1.25rem; }
+  .stills { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  /* Plain crop, no magnification. The per-still --crop-width values above (200
+     to 430%) were tuned for the old 6-up row, where each cell was ~193px and a
+     message had to be enlarged to read at all. At 3-up the cell is 406px, so
+     the frame carries itself: 133.34% is exactly (16/9) / (4/3), the smallest
+     scale that fills a 4:3 cell from a 16:9 source — full height, ~75% of the
+     width, nothing blown up. crop-x/y must both be -50% at that scale, because
+     the window now spans the whole frame height and any offset would pull an
+     empty edge into the cell. */
+  .stills .stillCrop[data-duo-crop] {
+    aspect-ratio: 4 / 3;
+    --crop-width: 133.34%;
+    --crop-x: -50%;
+    --crop-y: -50%;
+  }
   .socials > .image:last-child { max-width: 100%; }
 }
 @media (max-width: 699px) {
@@ -104,13 +125,13 @@
      The desktop row is 1fr 1.98fr 1fr with cover-cropped full-height cells;
      three of those across 350px gave each poster ~90-180px and about 105px of
      height, at which their copy is unreadable. */
-  .posters { grid-template-columns: 1fr; gap: 0.75rem; }
+  .posters { grid-template-columns: 1fr; }
   .posters .image { height: auto; object-fit: contain; }
 
   /* Same reasoning: the vendors' reference cards are the product. Forcing
      three across (which this block previously did explicitly) left each
      portrait ~105px wide with the card illegible. */
-  .vendors { grid-template-columns: 1fr; gap: 0.75rem; }
+  .vendors { grid-template-columns: 1fr; }
   .vendors .image { aspect-ratio: auto; object-fit: contain; }
 
   /* Socials keep every asset but compose as one block rather than a plain
@@ -131,13 +152,12 @@
     grid-template-areas:
       "ig     ig"
       "tiktok tweets";
-    gap: 0.5rem;
+    gap: var(--case-gap);
     align-items: start;
   }
   .socials > :first-child { grid-area: ig; }
   .socials > .tweets { grid-area: tweets; align-self: center; }
   .socials > .image:last-child { grid-area: tiktok; max-width: 100%; justify-self: stretch; }
-  .tweets { gap: 0.5rem; }
 
   /* ─── Duolingo stills: two columns, re-framed ──────────────────────────
      The desktop framing is percentage-based and therefore scale-invariant, so
@@ -160,7 +180,7 @@
      the two columns stay aligned; crop-width is then set per still by
      whichever axis its message is longest on. Desktop (>=700px) keeps its
      6-up 8:9 cells untouched. */
-  .stills { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem; }
+  .stills { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .stillCrop { aspect-ratio: 1; }
 
   /* Side-on sticks, message at x 0.18-0.55, y 0.40-0.57 — width-limited. */

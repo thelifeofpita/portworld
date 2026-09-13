@@ -6,7 +6,7 @@ const adaptiveUrl=`data:text/javascript;base64,${Buffer.from(stripTypeScriptType
 const load=async path=>import(`data:text/javascript;base64,${Buffer.from(stripTypeScriptTypes(readFileSync(path,'utf8')).replace("'./adaptiveCollection'",JSON.stringify(adaptiveUrl))).toString('base64')}`)
 const {fitCollection}=await load('lib/fitCollection.ts')
 const {playgroundContent}=await load('content/playgroundContent.ts')
-for(const title of ['Cooler Venus','Album cover collection','Woodstock 29']){
+for(const title of ['Cooler Venus','Music covers','Woodstock 29']){
   const item=playgroundContent.find(item=>item.title===title)
   const ratios=await Promise.all(item.media.map(async p=>{const m=await sharp(`public${p.src}`).metadata();return p.crop?.aspectRatio ?? m.width/m.height}))
   for(const [w,h] of [[1504,876],[940,526],[366,650]]){

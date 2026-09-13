@@ -5,6 +5,11 @@ import DitherReveal from './DitherReveal'
 import styles from './BackInSmoothly.module.css'
 
 const YOUTUBE_ID = 'ZOVg5GCUxqs'
+// Violet, not the old #FFE500: that yellow sat 10 degrees from McDonald's yellow,
+// which cannot move (its mockup mp4s are baked over #FFC72C). The page's own
+// magenta stays as the CTA field, and the outgoing yellow survives as the accent.
+const PAGE_COLOR = '#6A2FD9'
+
 const PLAY_URL = 'https://thelifeofpita.github.io/backingame/'
 
 interface BackInSmoothlyDetailProps {
@@ -45,7 +50,7 @@ export default function BackInSmoothlyDetail({ onPrev, onNext, onClose }: BackIn
           </p>
         </header>
 
-        <DitherReveal overlayColor="#FFE500" className={styles.videoBanner}>
+        <DitherReveal overlayColor={PAGE_COLOR} className={styles.videoBanner}>
           <iframe
             src={`https://www.youtube.com/embed/${YOUTUBE_ID}`}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -55,7 +60,7 @@ export default function BackInSmoothlyDetail({ onPrev, onNext, onClose }: BackIn
           />
         </DitherReveal>
 
-        <DitherReveal overlayColor="#FFE500" className={styles.gifRow}>
+        <DitherReveal overlayColor={PAGE_COLOR} className={styles.gifRow}>
           <video className={styles.gifBox} autoPlay loop muted playsInline poster="/projects/proj5/gif1-poster.webp">
             <source src="/projects/proj5/gif1.mp4" type="video/mp4" />
           </video>
@@ -70,7 +75,7 @@ export default function BackInSmoothlyDetail({ onPrev, onNext, onClose }: BackIn
             unknown until decode, so the mask <rect> measured height="0" and
             the reveal never played — and the page grew under the reader as
             they loaded. */}
-        <DitherReveal overlayColor="#FFE500" className={styles.stickerRow}>
+        <DitherReveal overlayColor={PAGE_COLOR} className={styles.stickerRow}>
           {([
             ['/projects/proj5/sticker1.webp', 517, 555],
             ['/projects/proj5/sticker2.webp', 514, 515],
@@ -82,7 +87,7 @@ export default function BackInSmoothlyDetail({ onPrev, onNext, onClose }: BackIn
           ))}
         </DitherReveal>
 
-        <DitherReveal overlayColor="#FFE500" className={styles.ctaRow}>
+        <DitherReveal overlayColor={PAGE_COLOR} className={styles.ctaRow}>
           <img className={styles.phoneBox} src={media['gif3.transparent'].src} width={608} height={1080}
             alt="Back in smoothly — updated mobile game demo 1" />
 
@@ -101,7 +106,7 @@ export default function BackInSmoothlyDetail({ onPrev, onNext, onClose }: BackIn
             alt="Back in smoothly — updated mobile game demo 2" />
         </DitherReveal>
 
-        <DitherReveal overlayColor="#FFE500" className={styles.mockupRow}>
+        <DitherReveal overlayColor={PAGE_COLOR} className={styles.mockupRow}>
           {(['park1.webp', 'park2.webp', 'park3.webp'] as const).map((name, i) => (
             <img key={name} src={media[name].src} width={media[name].width} height={media[name].height}
               alt={`Back in smoothly — ${['star', 'flower', 'burst'][i]} sticker seen through a parking garage rear-view camera`} />

@@ -16,6 +16,7 @@ import { cursorStore, ensureCursorTracking } from '@/lib/cursorStore'
 import { projectCardCorners } from '@/lib/cardGlowStore'
 import { playgroundGlowStore } from '@/lib/playgroundGlowStore'
 import { lockScroll } from '@/lib/scrollLock'
+import { reportLoadProgress } from '@/lib/loadProgressStore'
 
 function useSize() {
   const ref = useRef<HTMLDivElement>(null)
@@ -29,8 +30,8 @@ function useSize() {
   return { ref, ...size }
 }
 
-function Media({ piece, visible = true, active = visible, load = active, detail = false, onRatio, onReady, onDecoded }: {
-  piece: PlaygroundMediaItem; visible?: boolean; active?: boolean; load?: boolean; detail?: boolean;
+function Media({ piece, visible = true, active = visible, load = active, detail = false, deferPoster = false, onRatio, onReady, onDecoded }: {
+  piece: PlaygroundMediaItem; visible?: boolean; active?: boolean; load?: boolean; detail?: boolean; deferPoster?: boolean;
   onRatio: (src: string, ratio: number) => void; onReady?: () => void; onDecoded?: () => void
 }) {
   const ref = useRef<HTMLVideoElement>(null)
@@ -54,7 +55,14 @@ function Media({ piece, visible = true, active = visible, load = active, detail 
   useEffect(() => controller.current?.setActive(active), [active])
   const style = { opacity: visible ? 1 : 0, ...(detail && piece.crop ? { objectFit: 'cover' as const, objectPosition: piece.crop.position } : {}) }
   return piece.type === 'video'
-    ? <video ref={ref} src={src} data-playback-id={piece.playbackId ?? piece.src} poster={piece.poster} muted loop playsInline preload={load ? 'auto' : 'none'} width={piece.width} height={piece.height} className={styles.media} style={style}
+    // A poster is what shows BEFORE the first frame decodes — but during the
+    // "Behold." warm-up nothing is on screen at all, and the card's own gate is
+    // that very decode (onLoadedData below), so the poster is fetched, never
+    // seen, and then superseded. On a phone that was several hundred KB of
+    // pure waste sitting on a bandwidth-saturated critical path. It comes back
+    // the moment warming ends, off the critical path, where it does its real
+    // job for reloads and re-entry.
+    ? <video ref={ref} src={src} data-playback-id={piece.playbackId ?? piece.src} poster={deferPoster ? undefined : piece.poster} muted loop playsInline preload={load ? 'auto' : 'none'} width={piece.width} height={piece.height} className={styles.media} style={style}
         onError={() => onReady?.()}
         onLoadedData={() => onDecoded?.()}
         onLoadedMetadata={e => { if (!piece.width) onRatio(piece.src, e.currentTarget.videoWidth / e.currentTarget.videoHeight) }}
@@ -62,7 +70,7 @@ function Media({ piece, visible = true, active = visible, load = active, detail 
     : <img src={src} srcSet={requested ? piece.srcSet : undefined} sizes={detail ? '(max-width: 768px) 80vw, 45vw' : '(max-width: 768px) 45vw, 25vw'} width={piece.width} height={piece.height} alt={piece.alt ?? ''} className={styles.media} style={style} draggable={false} onError={() => onReady?.()} onLoad={e => { if (!piece.width) onRatio(piece.src, e.currentTarget.naturalWidth / e.currentTarget.naturalHeight); void e.currentTarget.decode().catch(() => {}).then(() => onReady?.()) }} />
 }
 
-function Preview({ item, covered, onRatio, warming = false, onPrepared }: { item: PlaygroundItem; covered: boolean; warming?: boolean; onPrepared?: () => void; onRatio: (src: string, ratio: number) => void }) {
+function Preview({ item, covered, onRatio, warming = false, mobile = false, onPrepared }: { item: PlaygroundItem; covered: boolean; warming?: boolean; mobile?: boolean; onPrepared?: () => void; onRatio: (src: string, ratio: number) => void }) {
   const all = useMemo(() => pieces(item), [item])
   const indices = useMemo(() => item.previewIndices ?? all.map((_, i) => i), [item, all])
   const [frame, setFrame] = useState(0)
@@ -87,14 +95,35 @@ function Preview({ item, covered, onRatio, warming = false, onPrepared }: { item
     })
   }, [covered, warming, frame, indices, item.previewDuration, all])
   useEffect(() => { if (previous < 0) return; const timer = setTimeout(() => setPrevious(-1), 40); return () => clearTimeout(timer) }, [previous])
+  // Phones warm ONE piece per card instead of two. Measured on a 5Mbps/4x-CPU
+  // phone profile, the network is saturated for essentially the entire gate
+  // (12300ms of a 12307ms window), so the loading screen's length is just
+  // bytes ÷ bandwidth — and second pieces were roughly half of them. A second
+  // piece is not on screen when the loader lifts: the card shows piece 0 and
+  // only cuts to piece 1 after previewDuration (750ms default), by which point
+  // mobileWarmup has already prefetched it. If it somehow isn't ready the cycle
+  // below simply holds on piece 0 until it is (see the `ready.current.has`
+  // guard), so the failure mode is a slightly longer dwell, never a blank cut.
+  // Desktop keeps both pieces — it is not bandwidth-bound and has no equivalent
+  // post-reveal prefetch.
+  const warmPieces = mobile && warming ? 1 : 2
+  const markReady = (i: number) => {
+    ready.current.add(i)
+    if (indices.slice(0, warmPieces).every(index => ready.current.has(index))) onPrepared?.()
+  }
+  // `warming` force-loads the next piece on desktop only; on mobile that is
+  // exactly the download being deferred, and leaving it in would keep the bytes
+  // on the critical path while no longer gating on them — saving nothing.
+  const preloadNext = prepare || (warming && !mobile)
   return <>{all.map((piece, i) => <Media key={piece.src} piece={piece} visible={i === indices[frame]}
     // Loaded regardless of `covered` — a "paused" (not focused, on mobile)
     // card must still show its resting frame, not a never-requested blank.
     // Only playback/cycling actually stops when covered (see `active`).
-    load={i === indices[frame] || i === previous || ((prepare || warming) && i === indices[(frame + 1) % indices.length])}
-    active={!covered && (i === indices[frame] || i === previous || ((prepare || warming) && i === indices[(frame + 1) % indices.length]))}
-    onDecoded={warming ? () => { ready.current.add(i); if (indices.slice(0, 2).every(index => ready.current.has(index))) onPrepared?.() } : undefined}
-    onReady={() => { ready.current.add(i); if (indices.slice(0, 2).every(index => ready.current.has(index))) onPrepared?.() }} onRatio={onRatio} />)}</>
+    load={i === indices[frame] || i === previous || (preloadNext && i === indices[(frame + 1) % indices.length])}
+    active={!covered && (i === indices[frame] || i === previous || (preloadNext && i === indices[(frame + 1) % indices.length]))}
+    deferPoster={mobile && warming}
+    onDecoded={warming ? () => markReady(i) : undefined}
+    onReady={() => markReady(i)} onRatio={onRatio} />)}</>
 }
 
 function Cover({ children, mobile, disabled, isFocused = false }: { children: React.ReactNode; mobile: boolean; disabled: boolean; isFocused?: boolean }) {
@@ -215,6 +244,12 @@ export default function PlaygroundGallery({ mobile = false, active = true, warmi
     preparedCards.current.add(index)
     setPreparedCount(preparedCards.current.size)
   }, [])
+  // Drives the loading screen's fill sweep — 17 cards is the finest-grained signal
+  // the gate has, so this is what keeps the bar moving continuously rather than
+  // stepping between the two coarse 3D milestones. See lib/loadProgressStore.ts.
+  useEffect(() => {
+    if (warming) reportLoadProgress('playground', preparedCount / playgroundContent.length)
+  }, [warming, preparedCount])
   useEffect(() => {
     if (!warming || !width || !height || preparedCount !== playgroundContent.length) return
     // Let the measured layout and decoded previews paint before releasing Behold.
@@ -354,7 +389,7 @@ export default function PlaygroundGallery({ mobile = false, active = true, warmi
         onClick={() => setOpen(i)}
         aria-label={`Open ${item.title}`}
       >
-        <Cover mobile={mobile} disabled={!active || open !== null} isFocused={isFocused}><Preview item={item} covered={covered} warming={warming} onPrepared={() => prepareCard(i)} onRatio={onRatio} /></Cover>
+        <Cover mobile={mobile} disabled={!active || open !== null} isFocused={isFocused}><Preview item={item} covered={covered} warming={warming} mobile={mobile} onPrepared={() => prepareCard(i)} onRatio={onRatio} /></Cover>
         <span className={styles.caption}>{item.title}</span>
       </button>
     )

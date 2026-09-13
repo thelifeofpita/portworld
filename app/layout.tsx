@@ -44,10 +44,28 @@ export default async function RootLayout({
             preloaded (Futura PT Demi = --font-primary at weight 500, Bold =
             --font-display at 700); every other family is debug-menu-only, so
             preloading them just competed for bandwidth with the model. */}
-        <link rel="preload" href="/models/modelSeparated.glb" as="fetch" crossOrigin="anonymous" />
-        <link rel="preload" href="/env/studio_small_03_1k.hdr" as="fetch" crossOrigin="anonymous" />
+        <link rel="preload" href="/generated/modelSeparated-5ee1a08e9f62.glb" as="fetch" crossOrigin="anonymous" />
+        {/* Two probes, one per viewport — see ENV_MAP_DESKTOP/MOBILE in Scene.tsx
+            for why mobile can afford the smaller one. The queries mirror
+            MOBILE_QUERY in hooks/useIsMobile.ts, which is the source of truth for
+            which path actually renders; a portrait tablet resolves to desktop and
+            simply misses the hint rather than loading the wrong map. */}
+        <link rel="preload" href="/env/studio_small_03_512.hdr" as="fetch" crossOrigin="anonymous" media="(max-width: 768px), (max-height: 768px) and (pointer: coarse)" />
+        <link rel="preload" href="/env/studio_small_03_1k.hdr" as="fetch" crossOrigin="anonymous" media="(min-width: 769px) and (pointer: fine)" />
         <link rel="preload" href="/fonts/FuturaPT-Demi.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
         <link rel="preload" href="/fonts/FuturaPT-Bold.ttf" as="font" type="font/ttf" crossOrigin="anonymous" />
+        {/* The first project model and the Draco decoder are both on the loader's
+            critical path but discovered late — the model only once the Scene chunk
+            has parsed, the decoder only at the first Draco parse. Both models are
+            Draco-compressed now, so the decoder is needed for the navigation model
+            too, i.e. on every single visit. */}
+        {/* Desktop-gated: mobile's Projects grid uses static captured images and
+            never renders this model, so preloading it there would just steal
+            bandwidth from the Playground previews mobile DOES wait on. A tablet
+            that resolves to the desktop path merely misses the hint. */}
+        <link rel="preload" href="/generated/surfthespike-phone-b4b8dc867e5e.glb" as="fetch" crossOrigin="anonymous" media="(min-width: 769px) and (pointer: fine)" />
+        <link rel="preload" href="/draco/draco_wasm_wrapper.js" as="fetch" crossOrigin="anonymous" />
+        <link rel="preload" href="/draco/draco_decoder.wasm" as="fetch" crossOrigin="anonymous" />
         {/* This session's colors, before any JS runs. */}
         <style>{`:root{${paletteCssVars(palette)}}`}</style>
         {/* Same palette handed to the client so paletteStore can adopt it

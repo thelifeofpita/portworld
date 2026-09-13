@@ -304,6 +304,20 @@
   --font-primary-scale: 1.15; /* multiplies the root font-size, so every rem-based size scales with it */
   --font-display-scale: 1; /* additional multiplier applied on top, only to headings using --font-display */
   --tracking: 0em; /* added on top of each element's own letter-spacing, via calc() at each site */
+  /* The single spacing step for every project case page (SurfTheSpike,
+     PickASide, BackInSmoothly, CampaignCase and the three campaigns built on
+     it). One token drives BOTH the gap inside a media grid and the gap between
+     stacked sections, which is what keeps vertical and horizontal spacing
+     identical — they used to be authored separately per page and drifted
+     (section gaps sat at 2.25rem against in-grid gaps of 0.75-1.25rem, and each
+     page picked its own in-grid value). Anything that is NOT element-to-element
+     media spacing — a nav arrow beside its label, a caption stacked under its
+     own badge — keeps its own local value on purpose. */
+  --case-gap: 0.5rem;
+}
+
+@media (min-width: 700px) {
+  :root { --case-gap: 0.75rem; }
 }
 
 ::selection {

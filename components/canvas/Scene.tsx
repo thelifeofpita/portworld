@@ -2,7 +2,7 @@
 
 import React, { Suspense, useEffect, useRef, useCallback, useState, useReducer } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { Environment, useGLTF } from '@react-three/drei'
+import { Environment, useGLTF, useProgress } from '@react-three/drei'
 import * as THREE from 'three'
 import Model, { CHROME_MATERIAL } from './Model'
 const InSceneProjectModel = React.lazy(() => import('./InSceneProjectModel'))
@@ -16,9 +16,20 @@ import { MOBILE_CANVAS_VH, mobileOverlayStore } from '@/lib/mobileLayout'
 import { cameraStore } from '@/lib/cameraStore'
 import { debugStore } from '@/lib/debugStore'
 import { getThemeColors, subscribePalette } from '@/lib/paletteStore'
+import { activateLoadSignal, reportLoadProgress } from '@/lib/loadProgressStore'
 import type { Zone } from '@/types'
 
 const projectModels = projectsContent.map((project, index) => ({ project, index })).filter(({ project }) => project.bigModel && project.thumbModel)
+
+// Desktop keeps the 1k probe: the in-scene project models are highly reflective,
+// and downsampling an HDR probe halves the small, very bright specular highlight
+// that makes metal read as metal — a 512 map visibly dulled the Surf the Spike can
+// from silver to near-black. Mobile never renders those models (its Projects grid
+// uses static captured images), so the only thing sampling the environment there
+// is the chrome navigation model, which is posterized through the dither pass
+// anyway. At 1.68MB the probe was ~23% of everything mobile waits on.
+export const ENV_MAP_DESKTOP = '/env/studio_small_03_1k.hdr'
+export const ENV_MAP_MOBILE  = '/env/studio_small_03_512.hdr'
 
 class ProjectLoadBoundary extends React.Component<{ children: React.ReactNode; onPrepared: () => void }, { failed: boolean }> {
   state = { failed: false }
@@ -35,6 +46,18 @@ function OnLoad({ onLoad }: { onLoad: () => void }) {
   useEffect(() => {
     onLoad()
   }, [onLoad])
+  return null
+}
+
+// Byte-level progress for the loading screen's navigation term. Without it that
+// term is binary, and the fill sat at a dead 0% for the whole multi-second model
+// + environment download before jumping most of the bar in one step. Capped below
+// 1 so only the real Suspense resolution (NavigationProgress's sibling OnLoad)
+// completes it — three's LoadingManager reports 100% each time its queue drains,
+// which happens more than once as project models join.
+function NavigationProgress() {
+  const { progress } = useProgress()
+  useEffect(() => { reportLoadProgress('navigation', Math.min(progress / 100, 0.95)) }, [progress])
   return null
 }
 
@@ -358,7 +381,14 @@ interface SceneProps {
 }
 
 export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad, isMobile = false, canvasStyle, isContentMode = false }: SceneProps) {
-  const [projectCount, setProjectCount] = useState(0)
+  // Seeded to 1 on desktop so project model #1 starts fetching alongside the
+  // navigation model instead of after it. It used to start at 0, which meant the
+  // rAF chain below could not raise it until the nav-model + environment Suspense
+  // boundary had already resolved — so two independent downloads that gate the
+  // same loading screen ran strictly one after the other. Models 2..6 still warm
+  // one-at-a-time through that chain; that serialization is deliberate (it keeps
+  // shader compilation off any single frame) and is left alone.
+  const [projectCount, setProjectCount] = useState(isMobile ? 0 : Math.min(1, projectModels.length))
   const [navigationReady, setNavigationReady] = useState(false)
   const [tabVisible, setTabVisible] = useState(true)
   const [preparedProjects, setPreparedProjects] = useState(0)
@@ -381,6 +411,13 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
       onLoad()
     }
   }, [navigationReady, isMobile, preparedProjects, onLoad])
+  // Feed the loading screen's fill sweep (see lib/loadProgressStore.ts). Only the
+  // first project model gates the reveal, so that is what the fraction measures —
+  // reporting against all six would leave the bar short of full at the moment the
+  // screen actually lifts.
+  useEffect(() => { if (!isMobile && projectModels.length > 0) activateLoadSignal('projects') }, [isMobile])
+  useEffect(() => { reportLoadProgress('navigation', navigationReady ? 1 : 0) }, [navigationReady])
+  useEffect(() => { reportLoadProgress('projects', Math.min(1, preparedProjects)) }, [preparedProjects])
   // Once the first model is warm, pull the remaining GLBs in parallel so the
   // background warm-chain below is compile-bound (a few frames each) rather than
   // waiting on serial network fetches. Desktop only — mobile never renders
@@ -508,7 +545,7 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
             OnLoad below, every slow CDN response held the loading screen open
             for as long as it took. Same asset, served from our own origin
             (and preloaded in layout.tsx alongside the model). */}
-        <Environment files="/env/studio_small_03_1k.hdr" />
+        <Environment files={isMobile ? ENV_MAP_MOBILE : ENV_MAP_DESKTOP} />
         <EnvironmentTracker />
         <CameraFov isMobile={isMobile} />
         <CameraZoom isContentMode={isContentMode} />
@@ -526,6 +563,7 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
             </Suspense>
           </ProjectLoadBoundary>
         ))}
+        <NavigationProgress />
         <OnLoad onLoad={ready} />
         <PostProcessing mode={shaderMode} isMobile={isMobile} />
       </Suspense>

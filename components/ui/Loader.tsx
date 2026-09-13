@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import { pickPalette } from '@/lib/paletteSource'
+import { subscribeLoadProgress } from '@/lib/loadProgressStore'
 import { motion, AnimatePresence } from 'framer-motion'
 import styles from './Loader.module.css'
 
@@ -11,7 +12,21 @@ interface LoaderProps {
 
 export default function Loader({ visible }: LoaderProps) {
   const ref = useRef<HTMLDivElement>(null)
+  const fillRef = useRef<HTMLSpanElement>(null)
   const [shown, setShown] = useState(visible)
+
+  // The sweep tracks what the gate is actually waiting on rather than running a
+  // fixed-duration animation. Held just short of full while the gate is still
+  // closed — arriving at 100% and then sitting there reads as a hang — and
+  // released to 100% as the screen begins to fade, so it always completes.
+  useEffect(() => {
+    const fill = fillRef.current
+    if (!fill) return
+    if (!visible) { fill.style.width = '100%'; return }
+    return subscribeLoadProgress(progress => {
+      fill.style.width = `${Math.min(progress, 0.95) * 100}%`
+    })
+  }, [visible, shown])
   useEffect(() => {
     const el = ref.current
     if (!el) return
@@ -55,7 +70,7 @@ export default function Loader({ visible }: LoaderProps) {
           className={styles.loader}
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.6, ease: 'easeOut' }}
+          transition={{ duration: 0.4, ease: 'easeOut' }}
           aria-label="Loading"
           role="status"
         >
@@ -63,7 +78,7 @@ export default function Loader({ visible }: LoaderProps) {
             {/* Base layer — unfilled colour */}
             <span className={styles.textBase}>Behold.</span>
             {/* Fill layer — clips from left to right */}
-            <span className={styles.textFill} aria-hidden="true">Behold.</span>
+            <span ref={fillRef} className={styles.textFill} aria-hidden="true">Behold.</span>
           </div>
         </motion.div>
       )}

@@ -17,7 +17,7 @@
   padding: 0 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
+  gap: var(--case-gap);
 }
 
 /* ─── Prev / next project nav (top + bottom) ──────────────────────────── */
@@ -76,6 +76,14 @@
   font-size: 1.1em;
   line-height: 1;
 }
+
+/* Breathing room before the closing nav. The nav is the last child of .inner,
+   which lays its children out on the shared --case-gap rhythm — at that gap the
+   Previous/[X]/Next row sat as tight to the final image as two images sit to
+   each other, reading as one more item in the sequence instead of the end of
+   the page. Kept as a multiple of the token so it tracks the rhythm rather than
+   becoming a second, independent spacing value. */
+.projectNav:last-child { margin-top: calc(var(--case-gap) * 3); }
 
 /* ─── Hero ─────────────────────────────────────────────────────────────── */
 
@@ -159,12 +167,18 @@
 .photoRow {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
+  gap: var(--case-gap);
 }
 
 .photoCell {
   width: 100%;
   aspect-ratio: 3 / 4;
+  /* `aspect-ratio` only governs a replaced element when the other dimension is
+     auto, and these <img>s carry a height="1012" attribute — which counts as a
+     specified height, so without this the 3/4 was inert and every cell rendered
+     a fixed 1012px tall whatever its width. The ≤699px block below already sets
+     height:auto for the same reason. */
+  height: auto;
   object-fit: cover;
   object-position: center;
   display: block;
@@ -174,9 +188,16 @@
 /* ─── Wider viewports ────────────────────────────────────────────────── */
 
 @media (min-width: 700px) {
-  .inner { padding: 0 3rem; gap: 2.25rem; }
+  .inner { padding: 0 3rem; }
 
-  .photoRow { grid-template-columns: repeat(4, 1fr); gap: 0.75rem; }
+  .photoRow { grid-template-columns: repeat(2, 1fr); }
+
+  /* Square cells in the 2x2. The base 3/4 is kept for the ≤699px fallback path;
+     at two-up on a wide viewport a portrait cell made each photo 830px tall and
+     the block 1673px. A square crops these 900x1012 sources vertically (~11%)
+     rather than horizontally (~16%), so the campaign posters — which sit across
+     the middle of every frame — stay fully in shot. */
+  .photoCell { aspect-ratio: 1 / 1; }
 }
 
 /* ─── Comfortable tap targets on phones ──────────────────────────────────
@@ -204,7 +225,7 @@
      with only `aspect-ratio: auto` the height attribute won — 155x1012 boxes
      with the photo contained in a sliver at the top. Same trap as the <video>
      mockups on the Pick a Side page. */
-  .photoRow { grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+  .photoRow { grid-template-columns: repeat(2, 1fr); }
   .photoCell { aspect-ratio: auto; height: auto; object-fit: contain; background: transparent; }
 
   /* Keep the three handsets in one row, but swap the composite for the three

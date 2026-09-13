@@ -1,18 +1,19 @@
-.defs {
-  position: absolute;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-}
-
 /* Sits on top of the real content, painted in a solid color that matches
    whatever's behind this block, masked by the pattern below. Never touches
    the actual content's own compositing — see DitherReveal.tsx's comment on
-   why that distinction is the whole point. */
+   why that distinction is the whole point.
+
+   This is the <svg> element itself (it both holds the defs and paints the
+   overlay rect), so it must fill the block: without explicit 100% sizing an
+   inline SVG falls back to its default 300x150 intrinsic size and the overlay
+   would only cover the top-left corner. */
 .overlay {
   position: absolute;
   inset: 0;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
+  overflow: visible;
 }
 
 /* Cells are holes drawn in black over the pattern's white base — appearing

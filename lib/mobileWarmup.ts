@@ -27,24 +27,33 @@ function primeImage(src: string) {
 }
 
 // Every playground media source beyond what PlaygroundGallery's own warm-up
-// already decoded. Must mirror Preview's onDecoded gate EXACTLY
-// (`indices.slice(0, 2)`, not the whole previewIndices array) — an item like
-// Cooler Venus (`previewIndices:[0,1,2,3]`) only actually warms positions
-// 0-1 today; 2-3 still need prefetching here.
+// already decoded. Must mirror Preview's onDecoded gate EXACTLY — which on
+// mobile is now `indices.slice(0, 1)`, one piece per card, so that second
+// pieces stay off the critical path while the loader is up. That makes index 1
+// this function's job, and an urgent one: it is the very next piece each card
+// cuts to, ~750ms after the reveal. It is deliberately first in the returned
+// order so it leads the chunked queue below.
 function remainingPlaygroundMedia(): string[] {
-  const out: string[] = []
+  // Ordered by how soon each piece is actually needed, not by card: every
+  // card's next-up piece before any card's third, so the queue below spends its
+  // first chunks on what the previews are about to cut to.
+  const ranked: { src: string; position: number }[] = []
   for (const item of playgroundContent) {
     const all = pieces(item)
     const indices = item.previewIndices ?? all.map((_, i) => i)
-    const warmed = new Set(indices.slice(0, 2))
+    const warmed = new Set(indices.slice(0, 1))
     all.forEach((piece, i) => {
       if (warmed.has(i)) return
       // Full video bytes are disproportionate for a "reduce pop-in" nicety —
       // the poster frame is what actually shows before playback starts.
-      out.push(piece.type === 'video' ? (piece.poster ?? piece.src) : piece.src)
+      const src = piece.type === 'video' ? (piece.poster ?? piece.src) : piece.src
+      // Pieces outside previewIndices never cycle into view on their own; they
+      // only matter once the collection is opened, so they sort last.
+      const position = indices.indexOf(i)
+      ranked.push({ src, position: position === -1 ? Number.MAX_SAFE_INTEGER : position })
     })
   }
-  return out
+  return ranked.sort((a, b) => a.position - b.position).map(r => r.src)
 }
 
 // Every project detail image not already warmed by the 3D thumbnail's own

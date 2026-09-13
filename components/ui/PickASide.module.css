@@ -19,7 +19,7 @@
   padding: 0 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
+  gap: var(--case-gap);
 }
 
 /* ─── Prev / next project nav (top + bottom) ──────────────────────────── */
@@ -79,6 +79,14 @@
   line-height: 1;
 }
 
+/* Breathing room before the closing nav. The nav is the last child of .inner,
+   which lays its children out on the shared --case-gap rhythm — at that gap the
+   Previous/[X]/Next row sat as tight to the final image as two images sit to
+   each other, reading as one more item in the sequence instead of the end of
+   the page. Kept as a multiple of the token so it tracks the rhythm rather than
+   becoming a second, independent spacing value. */
+.projectNav:last-child { margin-top: calc(var(--case-gap) * 3); }
+
 /* ─── Hero ─────────────────────────────────────────────────────────────── */
 
 .hero {
@@ -130,12 +138,20 @@
 .mockGrid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1rem;
+  gap: var(--case-gap);
 }
 
 .mockCell {
   width: 100%;
   aspect-ratio: 3 / 4;
+  /* Without this the 3/4 never applied: a <video>'s height attribute is a
+     specified height, and aspect-ratio only governs a replaced element when the
+     other dimension is auto. Cells rendered at their raw source heights instead
+     (922 / 898 / 626 / 990), so the second row was 990px tall to fit the app
+     mockup while the fries carton's box was 626px — ~364px of void beneath it.
+     A uniform 3/4 cell is what this rule always meant; the ≤699px block below
+     overrides it with each frame's true ratio for the same underlying reason. */
+  height: auto;
   object-fit: contain;
   object-position: center;
   display: block;
@@ -144,9 +160,9 @@
 /* ─── Wider viewports ────────────────────────────────────────────────── */
 
 @media (min-width: 700px) {
-  .inner { padding: 0 3rem; gap: 2.25rem; }
+  .inner { padding: 0 3rem; }
 
-  .mockGrid { grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+  .mockGrid { grid-template-columns: 1fr 1fr; }
 }
 
 /* ─── Comfortable tap targets on phones ──────────────────────────────────

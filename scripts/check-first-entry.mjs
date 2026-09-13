@@ -1,12 +1,13 @@
 import { chromium } from 'playwright'
 import { writeFile } from 'node:fs/promises'
+const BASE=process.env.TEST_BASE_URL||'http://localhost:3001'
 const browser=await chromium.launch({channel:'chrome'})
 const results=[]
 try {
  for(const width of [1440,390]) {
   const page=await browser.newPage({viewport:{width,height:900}})
   await page.addInitScript(()=>{window.__long=[];new PerformanceObserver(l=>window.__long.push(...l.getEntries().map(e=>({start:e.startTime,duration:e.duration})))).observe({entryTypes:['longtask']})})
-  await page.goto('http://localhost:3001',{waitUntil:'domcontentloaded'})
+  await page.goto(BASE,{waitUntil:'domcontentloaded'})
   await page.getByRole('status',{name:'Loading'}).waitFor({state:'hidden',timeout:120000})
   const ready=await page.evaluate(()=>performance.now())
   for(const section of ['Playground','Projects']) {

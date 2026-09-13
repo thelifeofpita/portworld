@@ -23,7 +23,13 @@ const ACCENT_ZONE: Record<string, Zone> = {
   head:      2, // Playground
 }
 
-useGLTF.preload('/models/modelSeparated.glb')
+// Draco-compressed (1.4MB of raw geometry → 194KB), so the decoder path is
+// required at BOTH call sites — without it drei silently falls back to fetching
+// its decoder from a Google CDN, putting a third-party round trip on the
+// critical path. Same '/draco/' the project models already use.
+export const NAV_MODEL = '/generated/modelSeparated-5ee1a08e9f62.glb'
+
+useGLTF.preload(NAV_MODEL, '/draco/')
 
 export const CHROME_MATERIAL = new THREE.MeshStandardMaterial({
   metalness: 1,
@@ -68,7 +74,7 @@ interface ModelProps {
 }
 
 export default function Model({ onZoneChange, onZoneReset, onAsciiToggle, onModelClick, isContentMode = false, yOffset = 0, isMobile = false }: ModelProps) {
-  const { scene } = useGLTF('/models/modelSeparated.glb')
+  const { scene } = useGLTF(NAV_MODEL, '/draco/')
   const groupRef = useRef<THREE.Group>(null)
   const { gl, camera } = useThree()
   const cameraRef = useRef(camera)

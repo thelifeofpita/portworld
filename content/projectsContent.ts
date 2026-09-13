@@ -63,8 +63,17 @@ export interface ProjectItem {
   iconLabel?:     string
   defaultFeatured?: 'video' | 'img0' | 'img1'
   thumbScale?:      number  // CSS scale applied to the thumbnail image, e.g. 1.2 for 20% zoom
-  accentColor?:     string  // brand color for the 3D card mode's extruded frame (debug menu)
-  detailBackground?: string // custom page background when different from the model accent
+  // The project's identity color. Every project is a `bigModel` now, so the old
+  // ProjectCard/--extrude-face path this used to describe is never rendered, and
+  // the in-scene hover glow is the sitewide palette accent rather than this (see
+  // PostProcessing's uPgGlowColor). What it actually drives today is the backdrop
+  // the card expands into — ContentPanel's detail panel and MobilePage's overlay —
+  // so it MUST match its case page's own color constant or the open transition
+  // flashes a different color mid-way.
+  // The six are kept far apart in hue on purpose; see the table in
+  // components/ui/CampaignCase.module.css's header before changing one.
+  accentColor?:     string
+  detailBackground?: string // page background when deliberately different from accentColor
   customLayout?:    'backInSmoothly' | 'surfTheSpike' | 'pickASide' | 'hatTwix' | 'duolingo' | 'verified'
 }
 
@@ -74,7 +83,7 @@ export const projectsContent: ProjectItem[] = [
     description: `Google needed a new and creative use of their Gemini AI for students, professors or classrooms. Surf the Spike helps college students take full advantage of their late-night caffeine-filled study sessions.`,
     youtubeId:   'nf5xLDfsp5k',
     thumb:       '/projects/proj1/thumb.webp',
-    thumbModel:  '/generated/surfthespike-phone-3f870e359f6d.glb',
+    thumbModel:  '/generated/surfthespike-phone-b4b8dc867e5e.glb',
     bigModel:    true,
     mobileThumb: '/projects/mobile-thumbs/surf-the-spike-2a12c67849ca.webp',
     mobileThumbWidthPct: 47.1,
@@ -124,7 +133,10 @@ export const projectsContent: ProjectItem[] = [
     images:      ['/projects/proj2/image1.webp', '/projects/proj2/image2.webp'],
     icon:        '/icons/DNADShortlist.svg',
     iconLabel:   'D&AD New Blood Pencil Winner',
-    accentColor: '#E30613', // Big Issue red
+    // Sampled off giffgaff.com's own page background (125k px of flat #DA688D).
+    // The campaign is giffgaff x Big Issue, and Big Issue red sat 2 degrees
+    // from Twix red. It is a light rose, so this page takes DARK ink.
+    accentColor: '#DA688D',
     customLayout: 'verified',
   },
   {
@@ -141,8 +153,9 @@ export const projectsContent: ProjectItem[] = [
     mobileThumbHeight: 527,
     youtubeId:   'VykD83mmSTo',
     images:      ['/projects/proj4/image1.webp', '/projects/proj4/image2.webp'],
-    accentColor: '#ED1C24', // Twix red
-    detailBackground: '#F4C145',
+    accentColor: '#ED1C24', // Twix red — now the page too; the gold it replaced sat
+                            // 1 degree from McDonald's yellow. Gold survives as the
+                            // page's hover accent (see HatTwix.tsx).
     customLayout: 'hatTwix',
   },
   {
@@ -181,7 +194,10 @@ export const projectsContent: ProjectItem[] = [
     thumb:          '/projects/proj5/thumb.webp',
     images:         ['/projects/proj5/image1.webp', '/projects/proj5/image2.webp'],
     defaultFeatured: 'img0',
-    accentColor:     '#FFE500', // matches the custom detail page's background exactly
+    accentColor:     '#6A2FD9', // violet — the outgoing #FFE500 sat 10 degrees from
+                                // McDonald's yellow, which cannot move (its mockup mp4s
+                                // are baked over #FFC72C). Sits beside the magenta the
+                                // page already uses as its accent.
     customLayout:    'backInSmoothly',
   },
 ]

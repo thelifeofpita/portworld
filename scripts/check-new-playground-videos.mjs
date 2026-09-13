@@ -8,7 +8,7 @@ try {
   await page.locator('nav[aria-label="Sections"]').getByText('Playground',{exact:true}).dispatchEvent('click')
   await page.waitForTimeout(3000)
   await page.mouse.move(0,0)
-  for (const [title,file,duration] of [['Stickers','stickers-loop.mp4',2],['Jewellery in motion','bracelet.mp4',10],['Jewellery in motion','neck-chain.mp4',10],['Swords, wings & bassball','wings.mp4',2.08]]) {
+  for (const [title,file,duration] of [['Stickers','stickers-loop.mp4',2],['Jewelry','bracelet.mp4',10],['Jewelry','neck-chain.mp4',10],['Lofi','wings.mp4',2.08]]) {
     const card=page.getByRole('button',{name:`Open ${title}`,exact:true})
     const selector=`video[data-playback-id="/playground/${file}"]`
     const video=card.locator(selector)
@@ -26,7 +26,7 @@ try {
       const v=[...document.querySelectorAll('[role="dialog"] video')].find(v=>v.dataset.playbackId?.endsWith(file))
       return v && !v.paused && v.readyState>=2
     },file,{timeout:30000})
-    if(title==='Jewellery in motion') {
+    if(title==='Jewelry') {
       const videos=page.getByRole('dialog').locator('video')
       await page.waitForFunction(()=>[...document.querySelectorAll('[role="dialog"] video')].every(v=>!v.paused && v.readyState>=2),null,{timeout:30000})
       const states=await videos.evaluateAll(vs=>vs.map(v=>({paused:v.paused,ready:v.readyState})))

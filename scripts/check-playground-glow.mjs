@@ -6,7 +6,7 @@ try {
   await page.goto('http://localhost:3000/?materialAudit=1')
   await page.getByRole('status', { name: 'Loading' }).waitFor({ state: 'hidden', timeout: 90000 })
   await page.getByText('Playground', { exact: true }).dispatchEvent('click')
-  const card = page.getByRole('button', { name: 'Open Captive worlds', exact: true })
+  const card = page.getByRole('button', { name: 'Open Isolation', exact: true })
   await card.waitFor()
   await page.waitForTimeout(4000)
   async function check(label) {

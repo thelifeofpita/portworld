@@ -1,10 +1,11 @@
 import {chromium} from 'playwright'
 import fs from 'node:fs/promises'
+const BASE=process.env.TEST_BASE_URL||'http://localhost:3001'
 const browser=await chromium.launch({channel:'chrome',headless:true})
 const results=[]
 try{
  const page=await browser.newPage({viewport:{width:1440,height:900}})
- await page.goto('http://localhost:3001')
+ await page.goto(BASE)
  await page.getByRole('status',{name:'Loading'}).waitFor({state:'hidden'})
  for(const section of ['Projects','Playground','Projects']){
   await page.getByText(section,{exact:true}).dispatchEvent('click');await page.waitForTimeout(12000)

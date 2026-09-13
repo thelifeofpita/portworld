@@ -19,7 +19,9 @@ try {
     await page.getByText('Projects',{exact:true}).dispatchEvent('click')
     await page.waitForTimeout(2500)
     await page.screenshot({path:`${output}/${width}-overview.png`})
-    if(width<700) await page.getByAltText('Duolingo: Your Coolest Lesson Yet.',{exact:true}).click()
+    // The mobile thumbs render with alt="" (the accessible name is the button's
+    // aria-label), so getByAltText matched nothing and this timed out.
+    if(width<700) await page.getByRole('button',{name:'Open Duolingo: Your Coolest Lesson Yet.',exact:true}).click()
     else {
       const slot=page.locator('[class*="bigProjectModelSlot"]').nth(1)
       for(const offset of [0,-20,20]) {
@@ -33,8 +35,8 @@ try {
     }
     const campaigns = [
       ['duolingo','Your Coolest Lesson Yet.','bWRIjCEHXJk',6,'rgb(88, 204, 2)'],
-      ['verified','Verified.','HwCWeJ_ZcvQ',6,'rgb(227, 6, 19)'],
-      ['hatTwix','Hat Twix.','VykD83mmSTo',8,'rgb(244, 193, 69)'],
+      ['verified','Verified.','HwCWeJ_ZcvQ',6,'rgb(218, 104, 141)'],
+      ['hatTwix','Hat Twix.','VykD83mmSTo',8,'rgb(237, 28, 36)'],
     ]
     for (const [id,title,film,count,color] of campaigns) {
       const heading=page.getByRole('heading',{level:1,name:title,exact:true})
@@ -49,13 +51,16 @@ try {
       assert.equal(await panel.locator('h2').count(),0,'No extra section headings')
       assert.equal(await panel.locator('p').count(),1,'Only the introductory subtitle remains')
       const nav=panel.getByRole('navigation',{name:'Project navigation'}).first()
-      assert(await nav.locator('button').evaluateAll(bs=>bs.every(b=>getComputedStyle(b).padding==='0px')),'Navigation matches reference button spacing')
+      // Desktop only: the <=699px block deliberately pads these to 44px tap targets
+      // (see CampaignCase.module.css's "Comfortable tap targets" rule), so a flat
+      // 0px assertion only describes the cursor layout.
+      if(width>=700) assert(await nav.locator('button').evaluateAll(bs=>bs.every(b=>getComputedStyle(b).padding==='0px')),'Navigation matches reference button spacing')
       const alignment=await nav.evaluate(el=>{const r=el.getBoundingClientRect();return [...el.querySelectorAll('button')].map(b=>{const q=b.getBoundingClientRect();return {centerX:q.x+q.width/2-(r.x+r.width/2),centerY:q.y+q.height/2-(r.y+r.height/2)}})})
       assert(alignment.every(b=>Math.abs(b.centerY)<1) && Math.abs(alignment[1].centerX)<1,'Navigation buttons align with a centered close')
       const innerWidth=await panel.locator('header').evaluate(el=>el.getBoundingClientRect().width)
       await page.screenshot({path:`${output}/${width}-${id}-top.png`})
       if(id==='hatTwix' && width>=700) {
-        assert.equal(await panel.evaluate(el=>getComputedStyle(el.closest('[role=dialog]')).backgroundColor),color,'Outer panel and page must share the gold background')
+        assert.equal(await panel.evaluate(el=>getComputedStyle(el.closest('[role=dialog]')).backgroundColor),color,'Outer panel and page must share the same background')
       }
       if(id==='duolingo') {
         const videos=panel.locator('video')
@@ -75,7 +80,16 @@ try {
         await page.evaluate(()=>{Object.defineProperty(document,'hidden',{configurable:true,value:true});document.dispatchEvent(new Event('visibilitychange'))})
         assert(await videos.evaluateAll(vs=>vs.every(v=>v.paused)),'Hidden tab suspends both decoders')
         await page.evaluate(()=>{delete document.hidden;document.dispatchEvent(new Event('visibilitychange'))})
-        if(width<700) await page.evaluate(()=>window.scrollTo(0,0))
+        // On phones the case page scrolls inside MobilePage's own overflow-y:auto
+        // overlay, not the window, so window.scrollTo did nothing. Scrolling to the
+        // TOP also cannot satisfy this assertion: at 390x844 the loops sit at
+        // y~412/599, i.e. already on screen at scrollTop 0. Scroll past them instead.
+        if(width<700) await page.evaluate(()=>{
+          const el=document.querySelector('[data-campaign]')
+          let a=el?.parentElement
+          while(a){const st=getComputedStyle(a);if(st.overflowY==='auto'||st.overflowY==='scroll'){a.scrollTo(0,a.scrollHeight);return}a=a.parentElement}
+          window.scrollTo(0,document.body.scrollHeight)
+        })
         else await heading.scrollIntoViewIfNeeded()
         await page.waitForTimeout(500)
         assert(await videos.evaluateAll(vs=>vs.every(v=>v.paused)),'Offscreen loops pause')
@@ -115,8 +129,16 @@ try {
       }
       if(id==='duolingo') {
         assert.equal(await panel.locator('img[src*="duoLessons"]').count(),0,'No baked triptych')
-        assert(boxes.every(b=>Math.abs(b.w/b.h-8/9)<0.01),'All stills use taller crops')
-        if(width>=700) assert(Math.max(...boxes.map(b=>b.y))-Math.min(...boxes.map(b=>b.y))<1,'Individual stills share one row')
+        // Desktop is a 3x2 grid of 4:3 cells (was a 6-up row of 8:9); phones keep
+        // their own 2-up square cells. Both are asserted explicitly so a future
+        // layout change has to come here rather than silently passing.
+        const stillAspect = width>=700 ? 4/3 : 1
+        assert(boxes.every(b=>Math.abs(b.w/b.h-stillAspect)<0.01),`All stills use ${width>=700?'4:3':'square'} cells`)
+        if(width>=700) {
+          const rows=[...new Set(boxes.map(b=>Math.round(b.y)))]
+          assert.equal(rows.length,2,'Stills form two rows')
+          assert.equal(boxes.filter(b=>Math.round(b.y)===rows[0]).length,3,'Three stills per row')
+        }
       }
       const next=panel.getByRole('button',{name:'Next project',exact:true}).last()
       await next.scrollIntoViewIfNeeded()

@@ -1,10 +1,18 @@
 /* ─── PlatanoMelón: Back in smoothly — custom case-study layout ──────────── */
-/* Forced brand yellow, independent of the site's light/dark toggle — this
-   page recreates the actual ad campaign artwork, not the portfolio chrome. */
+/* Forced brand colour, independent of the site's light/dark toggle — this page
+   recreates the actual ad campaign artwork, not the portfolio chrome.
+   Violet rather than the original #FFE500 yellow: that yellow sat 10 degrees
+   from McDonald's yellow on Pick a Side, and Pick a Side cannot move (its
+   mockup mp4s are encoded composited over #FFC72C). Violet sits beside the
+   magenta this page already used as its accent, so it still reads as
+   PlatanoMelón. It is dark, so the ink flips to white — and the outgoing
+   yellow is kept as the hover accent and the CTA lettering, which is the one
+   place the campaign's yellow survives. Must stay in sync with PAGE_COLOR in
+   BackInSmoothly.tsx and accentColor in content/projectsContent.ts. */
 
 .page {
   width: 100%;
-  background: #FFE500;
+  background: #6A2FD9;
   padding: 1.5rem 0 2.5rem;
 }
 
@@ -15,7 +23,7 @@
   padding: 0 1.5rem;
   display: flex;
   flex-direction: column;
-  gap: 1.75rem;
+  gap: var(--case-gap);
 }
 
 /* ─── Prev / next project nav (top + bottom) ──────────────────────────── */
@@ -37,7 +45,7 @@
   letter-spacing: calc(-0.01em + var(--tracking));
   font-size: max(0.7rem, 1.5cqw);
   text-transform: uppercase;
-  color: #0d0d0d;
+  color: #ffffff;
   background: none;
   border: none;
   padding: 0;
@@ -46,7 +54,7 @@
 }
 
 .navClose:hover {
-  color: #FF30AC;
+  color: #FFE500;
 }
 
 .navBtn {
@@ -58,7 +66,7 @@
   letter-spacing: calc(-0.01em + var(--tracking));
   font-size: max(0.7rem, 1.5cqw);
   text-transform: uppercase;
-  color: #0d0d0d;
+  color: #ffffff;
   background: none;
   border: none;
   padding: 0;
@@ -67,13 +75,21 @@
 }
 
 .navBtn:hover {
-  color: #FF30AC;
+  color: #FFE500;
 }
 
 .navArrow {
   font-size: 1.1em;
   line-height: 1;
 }
+
+/* Breathing room before the closing nav. The nav is the last child of .inner,
+   which lays its children out on the shared --case-gap rhythm — at that gap the
+   Previous/[X]/Next row sat as tight to the final image as two images sit to
+   each other, reading as one more item in the sequence instead of the end of
+   the page. Kept as a multiple of the token so it tracks the rhythm rather than
+   becoming a second, independent spacing value. */
+.projectNav:last-child { margin-top: calc(var(--case-gap) * 3); }
 
 /* ─── Hero ─────────────────────────────────────────────────────────────── */
 
@@ -89,7 +105,7 @@
   text-transform: uppercase;
   font-size: max(2.1rem, 8.5cqw);
   line-height: 0.95;
-  color: #0d0d0d;
+  color: #ffffff;
 }
 
 .subtitle {
@@ -100,7 +116,7 @@
   letter-spacing: calc(-0.01em + var(--tracking));
   font-size: max(0.7rem, 1.5cqw);
   line-height: 1.2;
-  color: #0d0d0d;
+  color: #ffffff;
 }
 
 /* ─── Video banner — real embedded YouTube player ─────────────────────── */
@@ -119,7 +135,7 @@
 .gifRow {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: var(--case-gap);
 }
 
 .gifBox {
@@ -136,7 +152,7 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 2%;
+  gap: var(--case-gap);
 }
 
 .sticker {
@@ -151,7 +167,7 @@
 .ctaRow {
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: var(--case-gap);
 }
 
 .phoneBox {
@@ -171,7 +187,7 @@
   flex-direction: column;
   align-items: center;
   text-align: center;
-  gap: 0.85rem;
+  gap: var(--case-gap);
 }
 
 .ctaBadge {
@@ -217,31 +233,37 @@
   font-family: var(--font-primary);
   font-weight: 700;
   font-size: max(0.7rem, 2cqw);
-  color: #0d0d0d;
+  color: #ffffff;
   white-space: nowrap;
 }
 
 .qr {
-  filter: brightness(0);
+  /* The source SVG's modules are #f2f2ea. brightness(0) crushes them to pure
+     black, invert(1) flips that to pure #ffffff — matching .ctaCaption's white
+     rather than leaving the SVG's slightly cream original. Done as a filter
+     because this is an <img>, so the path's fill isn't reachable from CSS.
+     Black modules were right on the old yellow page; on violet they only
+     reached 2.8:1, where white reaches 6.95:1. */
+  filter: brightness(0) invert(1);
   width: max(64px, 7.7cqw);
   height: auto;
   display: block;
 }
 
 /* Three complete sticker mockups, stacked on small screens. */
-.mockupRow { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+.mockupRow { display: grid; grid-template-columns: 1fr; gap: var(--case-gap); }
 .mockupRow img { display: block; width: 100%; height: auto; }
 
 /* ─── Wider viewports — match the reference layout's row arrangements ──── */
 
 @media (min-width: 700px) {
-  .inner { padding: 0 3rem; gap: 2.25rem; }
+  .inner { padding: 0 3rem; }
 
   .mockupRow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .gifRow { flex-direction: row; }
-  .gifBox { width: calc(50% - 0.625rem); }
+  .gifBox { width: calc(50% - var(--case-gap) / 2); }
 
-  .ctaRow { flex-direction: row; align-items: center; gap: 1.5rem; }
+  .ctaRow { flex-direction: row; align-items: center; }
   .ctaRow .phoneBox { flex: 1 1 0; max-width: none; }
   .ctaCenter { order: 0; flex: 1.1 1 0; }
 }
@@ -261,7 +283,7 @@
   .stickerRow {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    gap: 0.5rem;
+    gap: var(--case-gap);
     justify-content: initial;
   }
   .sticker { width: 100%; }

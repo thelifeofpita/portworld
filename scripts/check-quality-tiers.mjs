@@ -3,6 +3,7 @@
 import {chromium} from 'playwright'
 import assert from 'node:assert/strict'
 import sharp from 'sharp'
+const BASE=process.env.TEST_BASE_URL||'http://localhost:3001'
 const browser=await chromium.launch({channel:'chrome',headless:true})
 try{
 for(const mobile of [false,true]){
@@ -18,7 +19,7 @@ for(const mobile of [false,true]){
   window.requestAnimationFrame=callback=>raf(t=>{if(window.__slowFrames)setTimeout(()=>callback(performance.now()),30);else callback(t)})
   localStorage.setItem('portworld-debug-state',JSON.stringify({bgColor:'#fff8ed',fgColor:'#241b2b'}))
  },mobile)
- await page.goto('http://localhost:3001')
+ await page.goto(BASE)
  await page.getByRole('status',{name:'Loading'}).waitFor({state:'hidden',timeout:60000})
  if(!mobile) await page.getByText('Projects',{exact:true}).dispatchEvent('click')
  await page.waitForTimeout(mobile?22000:15000)

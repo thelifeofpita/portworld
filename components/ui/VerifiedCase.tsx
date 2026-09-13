@@ -3,10 +3,10 @@
 import CampaignCase, { CampaignImage as Artwork, CampaignSection as Section, type CampaignNavigation } from './CampaignCase'
 import styles from './CampaignCase.module.css'
 
-const COLOR = '#E30613'
+const COLOR = '#DA688D' // giffgaff pink (see projectsContent idx 2)
 
 export default function VerifiedCase(props: CampaignNavigation) {
-  return <CampaignCase {...props} projectIndex={2} title="Verified." color={COLOR} ink="#ffffff" accent="#151515"
+  return <CampaignCase {...props} projectIndex={2} title="Verified." color={COLOR} accent="#205086"
     introduction="Big Issue vendors already have people who can vouch for them: their customers. giffgaff helps turn those everyday connections into references for work.">
     <Section color={COLOR} className={styles.vendors}>
       <Artwork id="verifiedVendor1" sizes="(min-width: 700px) 30vw, 90vw" />

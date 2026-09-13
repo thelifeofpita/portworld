@@ -177,33 +177,40 @@ export default function DitherReveal({ className, overlayColor, children }: Dith
     )
   })
 
+  // The overlay is an <svg> whose painted rect carries `mask` as an SVG
+  // ATTRIBUTE, rather than an HTML <div> carrying CSS `mask-image: url(#id)`.
+  // The CSS form silently does nothing in WebKit — a fragment reference to an
+  // SVG <mask> never resolves there, so the overlay painted fully opaque and
+  // covered the content outright until the reveal timer unmounted it, at which
+  // point everything popped in with no dither at all. Verified directly in
+  // Playwright WebKit at a phone viewport: solid colour over every block at
+  // t+120ms, where Chrome showed the bayer cells mid-dissolve. SVG-internal
+  // masking is core SVG 1.1 and renders identically in both engines.
+  //
+  // No viewBox on purpose: user units then equal CSS pixels, which is what the
+  // userSpaceOnUse pattern and the ResizeObserver-measured rects below assume.
   return (
     <div ref={ref} className={className} style={{ position: 'relative' }}>
       {children}
       {phase !== 'revealed' && (
-        <>
-          <div
-            className={styles.overlay}
-            style={{
-              backgroundColor: overlayColor,
-              WebkitMaskImage: `url(#${maskId})`,
-              maskImage: `url(#${maskId})`,
-            }}
+        <svg className={styles.overlay} aria-hidden="true">
+          <defs>
+            <pattern id={patternId} patternUnits="userSpaceOnUse" width={tilePx} height={tilePx}>
+              <rect x="0" y="0" width={tilePx} height={tilePx} fill="#fff" />
+              <g className={phase === 'revealing' ? styles.go : undefined}>
+                {cells}
+              </g>
+            </pattern>
+            <mask id={maskId}>
+              <rect x="0" y="0" width={size.width} height={size.height} fill={`url(#${patternId})`} />
+            </mask>
+          </defs>
+          <rect
+            x="0" y="0" width={size.width} height={size.height}
+            fill={overlayColor}
+            mask={`url(#${maskId})`}
           />
-          <svg className={styles.defs} aria-hidden="true">
-            <defs>
-              <pattern id={patternId} patternUnits="userSpaceOnUse" width={tilePx} height={tilePx}>
-                <rect x="0" y="0" width={tilePx} height={tilePx} fill="#fff" />
-                <g className={phase === 'revealing' ? styles.go : undefined}>
-                  {cells}
-                </g>
-              </pattern>
-              <mask id={maskId}>
-                <rect x="0" y="0" width={size.width} height={size.height} fill={`url(#${patternId})`} />
-              </mask>
-            </defs>
-          </svg>
-        </>
+        </svg>
       )}
     </div>
   )
