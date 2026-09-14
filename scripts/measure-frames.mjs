@@ -102,6 +102,7 @@ async function run(profileName) {
   }
 
   const results = []
+  let displayIntervalMs = null
   async function sample(name, action, ms = 4000) {
     if (only && !only.test(name)) { await action?.(); return }
     await page.evaluate(() => { window.__perfAudit?.reset(); Object.assign(window.__frames, { on: true, frames: [], loaf: [] }) })
@@ -128,11 +129,20 @@ async function run(profileName) {
     })
     const s = stats(data.frames)
     const longest = data.loaf.reduce((m, e) => Math.max(m, e.duration), 0)
+    // The first (landing, no video) sample establishes the display's own frame
+    // interval. Chrome lowers the page's frame rate while playing video is the
+    // only thing changing and no input arrives: frames then lock to a steady
+    // multiple of that interval with no long frames and no script cost. WebKit
+    // does not, and a moving pointer restores full rate. Such samples are
+    // flagged rather than reported as jank.
+    if (displayIntervalMs === null && s) displayIntervalMs = s.p50
+    const chromeVideoThrottle = engine === 'chrome' && !!s && data.playingVideos > 0 && longest === 0 && displayIntervalMs !== null &&
+      s.p50 > displayIntervalMs * 1.8 && s.p95 - s.p50 < 2
     const result = { profile: profileName, name, ...s, loafCount: data.loaf.length, longestLoaf: longest,
-      pass: !!s && s.fps >= 59 && s.droppedPct < 1 && s.p99 <= BUDGET_MS * 1.5 && longest <= 50, scale: data.scale, audit: data.audit,
+      pass: !!s && s.fps >= 59 && s.droppedPct < 1 && s.p99 <= BUDGET_MS * 1.5 && longest <= 50, chromeVideoThrottle, displayIntervalMs, scale: data.scale, audit: data.audit,
       playingVideos: data.playingVideos, where: data.where, error, loaf: data.loaf.slice(0, 20) }
     results.push(result)
-    console.log(`${result.pass ? 'PASS' : 'FAIL'} ${profileName.padEnd(7)} ${name.padEnd(28)} fps=${s?.fps} p95=${s?.p95} p99=${s?.p99} max=${s?.max} dropped=${s?.droppedPct}% loaf>50=${data.loaf.filter(e => e.duration > 50).length} longest=${longest} scale=${data.scale} shadow=${data.audit?.shadowRedraws}/${data.audit?.layer1Frames} gpu95=${data.audit?.gpuP95}${data.where ? ` [${data.where}]` : ''}${error ? ' ERROR ' + error : ''}`)
+    console.log(`${result.pass ? 'PASS' : chromeVideoThrottle ? 'THRT' : 'FAIL'} ${profileName.padEnd(7)} ${name.padEnd(28)} fps=${s?.fps} p95=${s?.p95} p99=${s?.p99} max=${s?.max} dropped=${s?.droppedPct}% loaf>50=${data.loaf.filter(e => e.duration > 50).length} longest=${longest} scale=${data.scale} shadow=${data.audit?.shadowRedraws}/${data.audit?.layer1Frames} gpu95=${data.audit?.gpuP95}${data.where ? ` [${data.where}]` : ''}${error ? ' ERROR ' + error : ''}`)
   }
 
   async function load() {
@@ -142,8 +152,13 @@ async function run(profileName) {
   }
   const { width, height } = profile.viewport
   const park = () => page.mouse.move(width - 8, height - 8)
-  const nav = section => page.locator('nav[aria-label="Sections"]').getByText(section, { exact: true }).first().dispatchEvent('click')
-  const byline = () => page.locator('[aria-label^="THELIFEOFPITA"]').first().dispatchEvent('click')
+  // A visitor reaches every control with the pointer, and Chrome treats that
+  // input as a reason to present at full rate. dispatchEvent() is not input, so
+  // synthetic clicks are preceded by a small real pointer move.
+  const nudge = async () => { await page.mouse.move(width / 2 + 3, height / 2 + 3); await page.mouse.move(width / 2, height / 2) }
+  const nav = async section => { await nudge(); await page.locator('nav[aria-label="Sections"]').getByText(section, { exact: true }).first().dispatchEvent('click') }
+  const byline = async () => { await nudge(); await page.locator('[aria-label^="THELIFEOFPITA"]').first().dispatchEvent('click') }
+  const realClick = async locator => { await locator.scrollIntoViewIfNeeded({ timeout: 3000 }); await locator.click({ timeout: 3000 }) }
   const wheel = async (ms, dy = 120) => { const end = Date.now() + ms; let dir = 1; while (Date.now() < end) { for (let i = 0; i < 12 && Date.now() < end; i++) { await page.mouse.wheel(0, dy * dir); await wait(40) } dir = -dir } }
 
   try {
@@ -178,9 +193,9 @@ async function run(profileName) {
         for (let i = 0; i < 6; i++) {
           await page.mouse.move(width / 2, height / 2)
           await sample(`case-page-${i}-scroll`, () => wheel(3500), 4000)
-          await sample(`case-page-${i}-next`, () => page.getByRole('button', { name: 'Next project' }).first().dispatchEvent('click'), 3000)
+          await sample(`case-page-${i}-next`, () => realClick(page.getByRole('button', { name: 'Next project' }).first()), 3000)
         }
-        await sample('close-project', () => page.getByRole('button', { name: 'Close', exact: true }).first().dispatchEvent('click'), 2500)
+        await sample('close-project', () => realClick(page.getByRole('button', { name: 'Close', exact: true }).first()), 2500)
       }
       await park()
       await sample('enter-playground', () => nav('Playground'), 3500)
