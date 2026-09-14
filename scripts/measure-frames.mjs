@@ -22,6 +22,11 @@ const label   = process.env.PERF_LABEL || 'baseline'
 const only    = process.env.FRAMES_ONLY ? new RegExp(process.env.FRAMES_ONLY) : null
 const profiles = (process.env.FRAMES_PROFILE || 'desktop,proxy,mobile').split(',')
 const headless = process.env.FRAMES_HEADLESS === '1'
+// GPU timer queries (FRAMES_GPU=1) poll query results every frame, which can
+// stall the GPU pipeline: on a 60Hz display GPU-heavy pages then locked to
+// every other vsync (~30fps) under measurement while a plain trace of the
+// same interaction presented at 60. Off by default; gpu95 is then empty.
+const GPU_TIMER = process.env.FRAMES_GPU === '1'
 
 const PROFILES = {
   desktop: { viewport: { width: 1440, height: 900 }, mobile: false, cpu: 1 },
@@ -34,7 +39,7 @@ const PROFILES = {
 
 const browser = await (engine === 'webkit'
   ? webkit.launch({ headless })
-  : chromium.launch({ channel: 'chrome', headless, args: ['--enable-privileged-webgl-extensions', '--ignore-gpu-blocklist'] }))
+  : chromium.launch({ channel: 'chrome', headless, args: ['--ignore-gpu-blocklist', ...(GPU_TIMER ? ['--enable-privileged-webgl-extensions'] : [])] }))
 
 const wait = ms => new Promise(r => setTimeout(r, ms))
 const BUDGET_MS = 1000 / 60

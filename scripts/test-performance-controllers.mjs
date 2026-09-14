@@ -30,7 +30,8 @@ let time=0
 Object.defineProperty(globalThis,'performance',{value:{now:()=>time*1000},configurable:true})
 const document=new EventTarget();document.hidden=false;globalThis.document=document
 class Video extends EventTarget {
- currentTime=0;duration=10;readyState=4;paused=true;muted=true
+ currentTime=0;duration=10;readyState=4;paused=true;muted=true;seeks=0
+ get seekable(){const video=this;return video.unseekable?{length:0}:{length:1,start:()=>0,end:()=>video.duration}}
  play(){this.paused=false;return Promise.resolve()}
  pause(){this.paused=true}
 }
@@ -43,4 +44,21 @@ time=12;b.dispose();a.setActive(true);assert.equal(preview.currentTime,2,'Previe
 document.hidden=true;document.dispatchEvent(new Event('visibilitychange'));assert(preview.paused&&second.paused)
 time=25;document.hidden=false;document.dispatchEvent(new Event('visibilitychange'));assert.equal(preview.currentTime,5)
 a.dispose();c.dispose();assert(preview.paused&&second.paused)
+{
+  // A seek re-fires canplay; a clip that cannot land where it was sent must not re-seek in a loop.
+  const stuck=new Video();stuck.unseekable=true
+  const d=registerMedia(stuck,'stuck',true,10)
+  time=40;stuck.dispatchEvent(new Event('canplay'));stuck.dispatchEvent(new Event('canplay'))
+  assert.equal(stuck.currentTime,0,'An unseekable clip is never seeked')
+  d.dispose()
+  const looping=new Video()
+  let sets=0
+  Object.defineProperty(looping,'currentTime',{get:()=>0,set:()=>{sets++}})
+  const e=registerMedia(looping,'looping',true,10)
+  for(let i=0;i<20;i++){time+=.01;looping.dispatchEvent(new Event('canplay'))}
+  assert(sets<=1,'A seek that does not land is not re-issued on every canplay')
+  time+=1;looping.dispatchEvent(new Event('canplay'))
+  assert.equal(sets,2,'It retries after the backoff')
+  e.dispose()
+}
 console.log('PASS: adaptive hysteresis, cooldown, logical clocks, simultaneous detail playback, background resume, cleanup')
