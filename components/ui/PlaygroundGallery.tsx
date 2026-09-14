@@ -12,6 +12,8 @@ import projectNavStyles from './SurfTheSpike.module.css'
 import { motion, useMotionValue, useSpring } from 'framer-motion'
 import { EASE_OUT } from '@/lib/motionEasing'
 import { fitOrbit } from '@/lib/fitOrbit'
+import { cachedCollectionLayout, requestCollectionLayout } from '@/lib/collectionLayout'
+import type { MasonryRect } from '@/lib/fitMasonry'
 import { cursorStore, ensureCursorTracking } from '@/lib/cursorStore'
 import { projectCardCorners } from '@/lib/cardGlowStore'
 import { playgroundGlowStore } from '@/lib/playgroundGlowStore'
@@ -23,7 +25,12 @@ function useSize() {
   const [size, setSize] = useState({ width: 0, height: 0 })
   useEffect(() => {
     if (!ref.current) return
-    const observer = new ResizeObserver(([entry]) => setSize({ width: entry.contentRect.width, height: entry.contentRect.height }))
+    const observer = new ResizeObserver(([entry]) => {
+      const { width, height } = entry.contentRect
+      // Unchanged sizes must not re-render: every Collection render re-derives
+      // its layout inputs.
+      setSize(previous => previous.width === width && previous.height === height ? previous : { width, height })
+    })
     observer.observe(ref.current)
     return () => observer.disconnect()
   }, [])
@@ -167,12 +174,32 @@ function Cover({ children, mobile, disabled, isFocused = false }: { children: Re
   return <motion.div ref={ref} className={styles.art} data-tilt style={{ rotateX:x, rotateY:y, transformPerspective:900 }}>{children}</motion.div>
 }
 
+// The ratio each piece is laid out with, shared by a Collection and the idle
+// precompute in PlaygroundGallery so both produce the same layout cache key.
+function collectionRatios(item: PlaygroundItem, ratios: Record<string, number>): number[] {
+  return pieces(item).map(p => p.crop?.aspectRatio ?? (p.width && p.height ? p.width / p.height : ratios[p.src]) ?? 1)
+}
+
 function Collection({ item, ratios, onRatio, close, navigate, visible = true }: {
   visible?: boolean; item: PlaygroundItem; ratios: Record<string, number>; onRatio: (src: string, ratio: number) => void; close: () => void; navigate: (dir: number) => void
 }) {
   const { ref, width, height } = useSize()
   const all = pieces(item)
-  const rects = useMemo(() => fitOrbit(pieces(item).map(p => p.crop?.aspectRatio ?? (p.width && p.height ? p.width / p.height : ratios[p.src]) ?? 1), width, height, true), [item,ratios,width,height])
+  // Keyed on this collection's own ratios, not the shared `ratios` object, so
+  // another piece reporting its natural size never re-lays-out this one.
+  const ratiosKey = collectionRatios(item, ratios).join(',')
+  const [layout, setLayout] = useState<MasonryRect[] | null>(null)
+  useEffect(() => {
+    if (!width || !height) return
+    let cancelled = false
+    void requestCollectionLayout(ratiosKey.split(',').map(Number), width, height).then(rects => { if (!cancelled) setLayout(rects) })
+    return () => { cancelled = true }
+  }, [ratiosKey, width, height])
+  // A cached layout for the current inputs wins; while a refined one computes
+  // (a piece reported its natural ratio) the previous layout stays up rather
+  // than leaving the pieces unpositioned.
+  const rects: (MasonryRect | undefined)[] = (width && height ? cachedCollectionLayout(ratiosKey.split(',').map(Number), width, height) : undefined) ?? layout ?? []
+  const layoutReady = rects.length > 0
 
   const [showScreenshots, setShowScreenshots] = useState(false)
   const gameRef = useRef<HTMLIFrameElement>(null)
@@ -211,7 +238,10 @@ function Collection({ item, ratios, onRatio, close, navigate, visible = true }: 
   // needing to actually remove it from the DOM.
   return createPortal(<motion.div className={styles.dialog}
     initial={{ opacity: 0, y: 24 }}
-    animate={{ opacity: visible ? 1 : 0, y: visible ? 0 : 24 }}
+    // The entrance waits for the first layout. It used to be computed
+    // synchronously before this could paint at all; now it arrives from a
+    // worker while the rest of the page keeps animating.
+    animate={{ opacity: visible && layoutReady ? 1 : 0, y: visible && layoutReady ? 0 : 24 }}
     transition={{ duration: 0.3, ease: EASE_OUT }}
     style={{ pointerEvents: visible ? 'auto' : 'none' }}
     inert={!visible}
@@ -307,6 +337,27 @@ export default function PlaygroundGallery({ mobile = false, active = true, warmi
     setRatios(previous => previous[src] === ratio ? previous : { ...previous, [src]: ratio })
   }, [])
   const close = useCallback(() => setOpen(null), [])
+  // Desktop: lay out every collection in idle time once the gallery is being
+  // viewed, so opening one finds its layout already cached. The stage size
+  // mirrors .collection in PlaygroundGallery.module.css (inside the fixed
+  // full-viewport .dialog, inset 76px / clamp(12px, 3vw, 48px) / 48px); if it
+  // ever disagrees, the Collection just computes its own layout on open.
+  useEffect(() => {
+    if (mobile || warming || !active) return
+    const stageWidth = innerWidth - 2 * Math.min(48, Math.max(12, innerWidth * .03))
+    const stageHeight = innerHeight - 76 - 48
+    let cancelled = false, index = 0
+    const idle = (callback: () => void) => typeof requestIdleCallback === 'function'
+      ? requestIdleCallback(callback, { timeout: 2000 })
+      : window.setTimeout(callback, 200)
+    const next = () => {
+      if (cancelled || index >= playgroundContent.length) return
+      const item = playgroundContent[index++]
+      void requestCollectionLayout(collectionRatios(item, ratios), stageWidth, stageHeight).then(() => idle(next))
+    }
+    idle(next)
+    return () => { cancelled = true }
+  }, [mobile, warming, active, ratios])
   // One fresh layout seed per mount: the orbit arrangement is scrambled (shape-
   // aware) on every visit, but stays put for the life of this view.
   const [seed] = useState(() => 1 + Math.floor(Math.random() * 2_000_000_000))

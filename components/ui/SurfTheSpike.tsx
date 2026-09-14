@@ -2,6 +2,7 @@
 
 import DitherReveal from './DitherReveal'
 import styles from './SurfTheSpike.module.css'
+import LazyLoopVideo from './LazyLoopVideo'
 
 // Content order mirrors the "Surf the Spike" case on ideasfor.sale
 // (#c/surf-the-spike). The in-project nav + typography are the same as
@@ -63,6 +64,7 @@ export default function SurfTheSpikeDetail({ onPrev, onNext, onClose }: SurfTheS
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
             title="Surf the Spike"
+            loading="lazy"
             style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
           />
         </DitherReveal>
@@ -99,16 +101,7 @@ export default function SurfTheSpikeDetail({ onPrev, onNext, onClose }: SurfTheS
         </DitherReveal>
 
         <DitherReveal overlayColor={PAGE_COLOR} className={styles.mediaBlock}>
-          <video
-            className={styles.uiVideo}
-            autoPlay
-            loop
-            muted
-            playsInline
-            poster="/projects/proj1/ui-poster.webp"
-          >
-            <source src="/projects/proj1/ui.mp4" type="video/mp4" />
-          </video>
+          <LazyLoopVideo className={styles.uiVideo} poster="/projects/proj1/ui-poster.webp" src="/projects/proj1/ui.mp4" />
         </DitherReveal>
 
         <DitherReveal overlayColor={PAGE_COLOR} className={styles.photoRow}>

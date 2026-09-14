@@ -60,7 +60,7 @@ export default function CampaignCase({ title, introduction, projectIndex, color,
         <p className={styles.subtitle}>{introduction}</p>
       </header>
       <CampaignSection color={color} className={styles.film}>
-        <iframe src={`https://www.youtube.com/embed/${project.youtubeId}`} title={`${title} — case film`}
+        <iframe src={`https://www.youtube.com/embed/${project.youtubeId}`} title={`${title} — case film`} loading="lazy"
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen />
       </CampaignSection>

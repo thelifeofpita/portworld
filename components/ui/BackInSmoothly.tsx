@@ -3,6 +3,7 @@
 import media from '@/content/back-in-smoothly-media.json'
 import DitherReveal from './DitherReveal'
 import styles from './BackInSmoothly.module.css'
+import LazyLoopVideo from './LazyLoopVideo'
 
 const YOUTUBE_ID = 'ZOVg5GCUxqs'
 // Violet, not the old #FFE500: that yellow sat 10 degrees from McDonald's yellow,
@@ -56,17 +57,14 @@ export default function BackInSmoothlyDetail({ onPrev, onNext, onClose }: BackIn
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
             title="Back in smoothly"
+            loading="lazy"
             style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
           />
         </DitherReveal>
 
         <DitherReveal overlayColor={PAGE_COLOR} className={styles.gifRow}>
-          <video className={styles.gifBox} autoPlay loop muted playsInline poster="/projects/proj5/gif1-poster.webp">
-            <source src="/projects/proj5/gif1.mp4" type="video/mp4" />
-          </video>
-          <video className={styles.gifBox} autoPlay loop muted playsInline poster="/projects/proj5/gif2-poster.webp">
-            <source src="/projects/proj5/gif2.mp4" type="video/mp4" />
-          </video>
+          <LazyLoopVideo className={styles.gifBox} poster="/projects/proj5/gif1-poster.webp" src="/projects/proj5/gif1.mp4" />
+          <LazyLoopVideo className={styles.gifBox} poster="/projects/proj5/gif2-poster.webp" src="/projects/proj5/gif2.mp4" />
         </DitherReveal>
 
         {/* Each sticker carries its real pixel dimensions. These are the
@@ -88,7 +86,7 @@ export default function BackInSmoothlyDetail({ onPrev, onNext, onClose }: BackIn
         </DitherReveal>
 
         <DitherReveal overlayColor={PAGE_COLOR} className={styles.ctaRow}>
-          <img className={styles.phoneBox} src={media['gif3.transparent'].src} width={608} height={1080}
+          <img className={styles.phoneBox} src={media['gif3.transparent'].src} width={608} height={1080} loading="lazy" decoding="async"
             alt="Back in smoothly — updated mobile game demo 1" />
 
           <div className={styles.ctaCenter}>
@@ -102,13 +100,13 @@ export default function BackInSmoothlyDetail({ onPrev, onNext, onClose }: BackIn
               alt="Scan to play Back in smoothly on your phone" />
           </div>
 
-          <img className={styles.phoneBox} src={media['gif4.transparent'].src} width={608} height={1080}
+          <img className={styles.phoneBox} src={media['gif4.transparent'].src} width={608} height={1080} loading="lazy" decoding="async"
             alt="Back in smoothly — updated mobile game demo 2" />
         </DitherReveal>
 
         <DitherReveal overlayColor={PAGE_COLOR} className={styles.mockupRow}>
           {(['park1.webp', 'park2.webp', 'park3.webp'] as const).map((name, i) => (
-            <img key={name} src={media[name].src} width={media[name].width} height={media[name].height}
+            <img key={name} src={media[name].src} width={media[name].width} height={media[name].height} loading="lazy" decoding="async"
               alt={`Back in smoothly — ${['star', 'flower', 'burst'][i]} sticker seen through a parking garage rear-view camera`} />
           ))}
         </DitherReveal>

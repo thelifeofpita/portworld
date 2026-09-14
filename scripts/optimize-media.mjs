@@ -35,6 +35,12 @@ async function walk(dir){for(const entry of await fs.readdir(dir,{withFileTypes:
  execFileSync('ffmpeg',['-v','error','-y','-i',file,'-map','0:v:0',
   '-vf',`scale='min(${size},iw)':-2${fps?`,fps=${fps}`:''}`,
   '-c:v','libx264','-preset','slow','-crf',String(crf),
+  // A keyframe at least every 15 frames. Previews are paused and resumed at
+  // their shared media-clock position on every preview cut, and each resume
+  // is a seek: with x264's default GOP (up to 250 frames) a seek decodes from
+  // a keyframe up to ~8s back, which saturated the media threads with a dozen
+  // cards cycling (Playground idle ran at ~41fps). Scene cuts may add more.
+  ...(label==='preview'?['-g','15']:[]),
   ...(maxrate?['-maxrate',maxrate,'-bufsize','2400k']:[]),
   '-pix_fmt','yuv420p','-an','-movflags','+faststart',temp])
  const bytes=(await fs.stat(temp)).size

@@ -114,15 +114,16 @@ async function run(profileName) {
           gpuP50: gpu && +gpu[Math.floor(gpu.length * .5)].toFixed(2), gpuP95: gpu && +gpu[Math.floor(gpu.length * .95)].toFixed(2),
         },
         playingVideos: [...document.querySelectorAll('video')].filter(v => !v.paused).length,
+        where: document.querySelector('[role="dialog"]:not([inert]) h1, [role="dialog"]:not([inert]) h2')?.textContent?.trim().slice(0, 40) ?? null,
       }
     })
     const s = stats(data.frames)
     const longest = data.loaf.reduce((m, e) => Math.max(m, e.duration), 0)
     const result = { profile: profileName, name, ...s, loafCount: data.loaf.length, longestLoaf: longest,
       pass: !!s && s.fps >= 59 && s.droppedPct < 1 && s.p99 <= BUDGET_MS * 1.5 && longest <= 50, scale: data.scale, audit: data.audit,
-      playingVideos: data.playingVideos, error, loaf: data.loaf.slice(0, 20) }
+      playingVideos: data.playingVideos, where: data.where, error, loaf: data.loaf.slice(0, 20) }
     results.push(result)
-    console.log(`${result.pass ? 'PASS' : 'FAIL'} ${profileName.padEnd(7)} ${name.padEnd(28)} fps=${s?.fps} p95=${s?.p95} p99=${s?.p99} max=${s?.max} dropped=${s?.droppedPct}% loaf>50=${data.loaf.filter(e => e.duration > 50).length} longest=${longest} scale=${data.scale} shadow=${data.audit?.shadowRedraws}/${data.audit?.layer1Frames} gpu95=${data.audit?.gpuP95}${error ? ' ERROR ' + error : ''}`)
+    console.log(`${result.pass ? 'PASS' : 'FAIL'} ${profileName.padEnd(7)} ${name.padEnd(28)} fps=${s?.fps} p95=${s?.p95} p99=${s?.p99} max=${s?.max} dropped=${s?.droppedPct}% loaf>50=${data.loaf.filter(e => e.duration > 50).length} longest=${longest} scale=${data.scale} shadow=${data.audit?.shadowRedraws}/${data.audit?.layer1Frames} gpu95=${data.audit?.gpuP95}${data.where ? ` [${data.where}]` : ''}${error ? ' ERROR ' + error : ''}`)
   }
 
   async function load() {

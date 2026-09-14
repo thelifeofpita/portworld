@@ -4,6 +4,7 @@ import type { CSSProperties } from 'react'
 
 import DitherReveal from './DitherReveal'
 import styles from './PickASide.module.css'
+import LazyLoopVideo from './LazyLoopVideo'
 
 // Content order mirrors the "Pick a Side" case on pita-salva.com
 // (#pick-a-side). The in-project nav + typography are the same as
@@ -76,13 +77,14 @@ export default function PickASideDetail({ onPrev, onNext, onClose }: PickASideDe
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
             title="Pick a Side"
+            loading="lazy"
             style={{ width: '100%', height: '100%', border: 'none', display: 'block' }}
           />
         </DitherReveal>
 
         <DitherReveal overlayColor={PAGE_COLOR} className={styles.mockGrid}>
           {MOCKS.map(m => (
-            <video
+            <LazyLoopVideo
               key={m.src}
               className={styles.mockCell}
               width={m.w}
@@ -94,15 +96,9 @@ export default function PickASideDetail({ onPrev, onNext, onClose }: PickASideDe
               // The mobile rule consumes this; desktop keeps its own 3:4 cell.
               style={{ '--mock-aspect': `${m.w} / ${m.h}` } as CSSProperties}
               poster={m.src.replace('.mp4', '-poster.jpg')}
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="metadata"
+              src={m.src}
               aria-label={m.alt}
-            >
-              <source src={m.src} type="video/mp4" />
-            </video>
+            />
           ))}
         </DitherReveal>
 
