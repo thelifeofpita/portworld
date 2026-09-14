@@ -65,13 +65,22 @@ function stepAndSample(page, label) {
     document.querySelector(`button[aria-label="${label}"]`).click()
     await wait(60)
     const canvas = sweep()
-    const heading = document.querySelector('[role=dialog] h1')
+    const heading = document.querySelector('[role=dialog]:not([data-nextjs-dialog]) h1')
     const moving = heading.closest('[style*="overflow"]') ?? scrollerOf(heading)
     const early = { canvas: !!canvas, translateX: translateX(moving.closest('[style]')), heading: heading.textContent }
-    await wait(140)
-    const mid = canvas && canvas.isConnected ? sides(canvas) : null
-    await wait(800)
-    const scroller = scrollerOf(document.querySelector('[role=dialog] h1'))
+    // Sample every frame until the sweep unmounts — a fixed timer can land after
+    // it has finished, since mounting the next page blocks the main thread. On
+    // any frame where one side is clearly further along, it must be the side the
+    // new page arrives from.
+    const series = []
+    await new Promise(resolve => {
+      const tick = () => { const c = sweep(); if (!c) return resolve(); series.push(sides(c)); requestAnimationFrame(tick) }
+      requestAnimationFrame(tick)
+    })
+    const lead = series.map(s => s.left - s.right).filter(d => Math.abs(d) > 0.15)
+    const mid = { frames: series.length, leading: lead.length, rightFirst: lead.length > 0 && lead.every(d => d > 0), leftFirst: lead.length > 0 && lead.every(d => d < 0) }
+    await wait(300)
+    const scroller = scrollerOf(document.querySelector('[role=dialog]:not([data-nextjs-dialog]) h1'))
     return { early, mid, sweepGone: !sweep(), scrollTop: scroller?.scrollTop ?? null }
   }, label)
 }
@@ -88,9 +97,10 @@ try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
     const errors = []
     page.on('pageerror', e => errors.push(e.stack || e.message))
+    page.on('console', m => { if (m.type() === 'error') console.log('CONSOLE ERROR', m.text().slice(0, 600)) })
     await load(page)
     await openDesktopProject(page, 0, 'Surf the spike.')
-    const dialog = page.locator('[role=dialog]')
+    const dialog = page.locator('[role=dialog]:not([data-nextjs-dialog])')
     const wordmark = dialog.getByRole('button', { name: 'Return to home' })
     assert.equal(await wordmark.count(), 1, 'One wordmark on a case page')
     assert.equal(await wordmark.evaluate(el => getComputedStyle(el).color), WHITE, 'Wordmark takes Surf\'s white ink')
@@ -119,7 +129,7 @@ try {
     assert(next.early.canvas, 'Next plays a DitherSweep')
     assert.equal(next.early.heading, 'Your Coolest Lesson Yet.')
     assert(next.early.translateX > 0, 'Next page drifts in from the right')
-    assert(next.mid && next.mid.right < next.mid.left, `Next clears the right side first (${JSON.stringify(next.mid)})`)
+    assert(next.mid.rightFirst, `Next clears the right side first (${JSON.stringify(next.mid)})`)
     assert(next.sweepGone, 'Sweep unmounts once finished')
     assert.equal(next.scrollTop, 0, 'Next lands at the top of the project')
     assert.equal(await wordmark.evaluate(el => getComputedStyle(el).color), INK_DARK, 'Wordmark switches to Duolingo\'s dark ink')
@@ -130,7 +140,7 @@ try {
     const prev = await stepAndSample(page, 'Previous project')
     console.log('desktop previous', JSON.stringify(prev))
     assert(prev.early.canvas && prev.early.translateX < 0, 'Previous page drifts in from the left')
-    assert(prev.mid && prev.mid.left < prev.mid.right, `Previous clears the left side first (${JSON.stringify(prev.mid)})`)
+    assert(prev.mid.leftFirst, `Previous clears the left side first (${JSON.stringify(prev.mid)})`)
     assert.equal(prev.scrollTop, 0)
     assert.equal(await dialog.evaluate(el => getComputedStyle(el).backgroundColor), SURF)
 
@@ -143,21 +153,37 @@ try {
     await page.getByRole('button', { name: 'Open Woodstock 29', exact: true }).click()
     await page.getByRole('button', { name: 'Close collection' }).waitFor()
     await page.waitForTimeout(1200)
+    // Sampled every frame: a newly opened collection waits for its worker layout
+    // before entering, so any single timed sample can land before it moves.
     const slide = await page.evaluate(async () => {
-      const wait = ms => new Promise(r => setTimeout(r, ms))
-      const visible = () => [...document.querySelectorAll('[role=dialog]')].find(d => !d.inert)
+      const collections = () => [...document.querySelectorAll('[role=dialog]')].filter(d => d.querySelector('button[aria-label="Next collection"]'))
+      const visible = () => collections().find(d => !d.inert)
+      const matrix = el => { const t = getComputedStyle(el).transform; return t === 'none' ? new DOMMatrix() : new DOMMatrix(t) }
       const from = visible()
-      visible().querySelector('button[aria-label="Next collection"]').click()
-      await wait(90)
-      const m = el => new DOMMatrix(getComputedStyle(el).transform === 'none' ? undefined : getComputedStyle(el).transform)
-      const to = visible()
-      return { outgoing: { x: m(from).m41, y: m(from).m42 }, incoming: { x: m(to).m41, y: m(to).m42 }, changed: from !== to }
+      from.querySelector('button[aria-label="Next collection"]').click()
+      const incoming = [], outgoing = [], ys = []
+      let to = null
+      const t0 = performance.now()
+      await new Promise(resolve => {
+        const tick = () => {
+          const current = visible()
+          if (current && current !== from) {
+            to = current
+            const a = matrix(current), b = matrix(from)
+            incoming.push(a.m41); outgoing.push(b.m41); ys.push(a.m42, b.m42)
+          }
+          performance.now() - t0 < 900 ? requestAnimationFrame(tick) : resolve()
+        }
+        requestAnimationFrame(tick)
+      })
+      return { changed: !!to && to !== from, incomingMax: Math.max(...incoming), incomingMin: Math.min(...incoming), outgoingMax: Math.max(...outgoing), outgoingMin: Math.min(...outgoing), maxY: Math.max(...ys.map(Math.abs)), frames: incoming.length }
     })
     console.log('playground next', JSON.stringify(slide))
     assert(slide.changed, 'Next collection opened a different collection')
-    assert(slide.incoming.x > 0 && slide.outgoing.x < 0, 'Incoming from the right, outgoing to the left')
-    assert(slide.incoming.y === 0 && slide.outgoing.y === 0, 'No vertical movement')
-    const collectionNavBtn = page.locator('[role=dialog]:not([inert])').getByRole('button', { name: 'Next collection' })
+    assert(slide.incomingMax > 1 && slide.incomingMin > -1, 'Incoming collection only ever arrives from the right')
+    assert(slide.outgoingMin < -1 && slide.outgoingMax < 1, 'Outgoing collection only ever leaves to the left')
+    assert(slide.maxY < 0.5, 'No vertical movement')
+    const collectionNavBtn = page.locator('[role=dialog]:not([data-nextjs-dialog]):not([inert])').getByRole('button', { name: 'Next collection' })
     await page.waitForTimeout(500)
     assert.equal(await collectionNavBtn.evaluate(el => getComputedStyle(el).color), await page.evaluate(() => { const p = document.createElement('p'); p.style.color = 'var(--fg-color)'; document.body.append(p); const c = getComputedStyle(p).color; p.remove(); return c }), 'Collection nav keeps the page ink')
     assert.deepEqual(errors, [])
@@ -170,21 +196,22 @@ try {
     const page = await browser.newPage({ viewport: { width: 390, height: 844 } })
     const errors = []
     page.on('pageerror', e => errors.push(e.stack || e.message))
+    page.on('console', m => { if (m.type() === 'error') console.log('CONSOLE ERROR', m.text().slice(0, 600)) })
     await load(page)
     await page.getByText('Projects', { exact: true }).dispatchEvent('click')
     await page.waitForTimeout(2500)
     await page.getByRole('button', { name: 'Open Duolingo: Your Coolest Lesson Yet.', exact: true }).click()
     await page.getByRole('heading', { level: 1, name: 'Your Coolest Lesson Yet.', exact: true }).waitFor()
     await page.waitForTimeout(800)
-    await page.evaluate(() => document.querySelector('[role=dialog]').scrollTo(0, 1500))
+    await page.evaluate(() => document.querySelector('[role=dialog]:not([data-nextjs-dialog])').scrollTo(0, 1500))
     await page.waitForTimeout(300)
     const next = await stepAndSample(page, 'Next project')
     console.log('mobile next', JSON.stringify(next))
     assert(next.early.canvas, 'Mobile Next plays a DitherSweep')
     assert.equal(next.early.heading, 'Verified.')
-    assert(next.mid && next.mid.right < next.mid.left, 'Mobile Next clears the right side first')
-    assert.equal(await page.evaluate(() => document.querySelector('[role=dialog]').scrollTop), 0, 'Mobile lands at the top')
-    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[role=dialog]')).backgroundColor), VERIFIED)
+    assert(next.mid.rightFirst, `Mobile Next clears the right side first (${JSON.stringify(next.mid)})`)
+    assert.equal(await page.evaluate(() => document.querySelector('[role=dialog]:not([data-nextjs-dialog])').scrollTop), 0, 'Mobile lands at the top')
+    assert.equal(await page.evaluate(() => getComputedStyle(document.querySelector('[role=dialog]:not([data-nextjs-dialog])')).backgroundColor), VERIFIED)
     await page.screenshot({ path: `${output}/mobile-verified-top.png` })
     assert.deepEqual(errors, [])
     await page.close()

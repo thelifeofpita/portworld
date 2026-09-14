@@ -250,11 +250,18 @@ function Collection({ item, ratios, onRatio, close, navigate, visible = true, di
   const slide = useMotionValue(0) // vw
   const opacity = useMotionValue(0)
   const x = useTransform(slide, v => `${v}vw`)
+  // Whether this collection was on screen at the last change. Only one actually
+  // leaving slides out — a freshly opened one is "not shown" while it waits for
+  // its layout, and sliding it toward the exit side then made it enter from the
+  // wrong side once the layout arrived.
+  const wasShown = useRef(false)
   useEffect(() => {
     const transition = reduceMotion ? { duration: 0 } : { duration: 0.3, ease: EASE_OUT }
-    if (shown) slide.set(dir * 8)
+    if (shown && !wasShown.current) slide.set(dir * 8)
+    const target = shown ? 0 : wasShown.current ? -dir * 8 : slide.get()
+    wasShown.current = shown
     const controls = [
-      animateValue(slide, shown ? 0 : -dir * 8, transition),
+      animateValue(slide, target, transition),
       animateValue(opacity, shown ? 1 : 0, transition),
     ]
     return () => controls.forEach(c => c.stop())

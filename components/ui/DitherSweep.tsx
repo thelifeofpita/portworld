@@ -75,8 +75,14 @@ export default function DitherSweep({ color, dir, zIndex = 10 }: DitherSweepProp
       arrival[x] = along * (1 - BAND)
     }
 
-    const start = performance.now()
+    // The clock starts on the first animation frame, not here: mounting the
+    // incoming case page (iframes, images, videos) can hold the main thread for
+    // longer than the whole sweep, and timing from this effect would then jump
+    // straight to the end — the colour would just cut. The covering frame drawn
+    // above holds until the sweep can actually play.
+    let start = -1
     let frame = requestAnimationFrame(function tick(now) {
+      if (start < 0) start = now
       const t = Math.min(1, (now - start) / DURATION_MS)
       const p = 1 - Math.pow(1 - t, 3) // cubic ease-out
       for (let y = 0; y < h; y++) {
