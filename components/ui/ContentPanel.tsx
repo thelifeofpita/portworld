@@ -5,7 +5,7 @@ import { observeLayout } from '@/lib/layoutMeasurement'
 import { subscribeFrame } from '@/lib/frameScheduler'
 import Image from 'next/image'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, animate, motion, useMotionValue, useSpring, useTransform, type MotionValue } from 'framer-motion'
+import { AnimatePresence, animate, motion, useMotionValue, useSpring, useTransform, useIsPresent, type MotionValue } from 'framer-motion'
 import type { Zone } from '@/types'
 import dynamic from 'next/dynamic'
 const PlaygroundGallery = dynamic(() => import('./PlaygroundGallery'))
@@ -15,6 +15,7 @@ import { cameraStore } from '@/lib/cameraStore'
 import { posStore } from '@/lib/posStore'
 import { silhouetteStore } from '@/lib/silhouetteStore'
 import { zoneStore } from '@/lib/zoneStore'
+import { setSceneCovered } from '@/lib/sceneCoverStore'
 import { zoneTransitionStore } from '@/lib/zoneTransitionStore'
 import { projectCardCorners } from '@/lib/cardGlowStore'
 import { playgroundGlowStore } from '@/lib/playgroundGlowStore'
@@ -543,6 +544,20 @@ function ProjectDetail({
     width:  window.innerWidth,
     height: window.innerHeight,
   }).current
+  // Once fully open, this opaque panel covers the whole canvas, so the 3D
+  // scene can stop rendering (lib/sceneCoverStore.ts). It resumes the moment
+  // closing starts (ProjectsPane.handleClose), before anything behind shows.
+  const isPresent = useIsPresent()
+  const panelRef = useRef<HTMLDivElement>(null)
+  const panelCoversWindow = () => {
+    const r = panelRef.current?.getBoundingClientRect()
+    return !!r && r.left <= 0 && r.top <= 0 && r.right >= window.innerWidth && r.bottom >= window.innerHeight
+  }
+  useEffect(() => {
+    const onResize = () => { if (!panelCoversWindow()) setSceneCovered(false) }
+    window.addEventListener('resize', onResize)
+    return () => { window.removeEventListener('resize', onResize); setSceneCovered(false) }
+  }, [])
 
   const SLIDE_GAP   = 20
   const slideWidth  = final.width * 0.56
@@ -676,6 +691,8 @@ function ProjectDetail({
         className={styles.detailPanel}
         initial={{ ...cardRect, borderRadius: 0 }}
         animate={{ ...final, borderRadius: 0, transition: PANEL_TRANSITION }}
+        ref={panelRef}
+        onAnimationComplete={() => { if (isPresent && panelCoversWindow()) setSceneCovered(true) }}
         exit={{
           ...cardRect,
           borderRadius: 0,
@@ -856,7 +873,7 @@ function ProjectsPane() {
     setExpandedIndex(index)
   }, [])
 
-  const handleClose    = useCallback(() => setExpandedIndex(null), [])
+  const handleClose    = useCallback(() => { setSceneCovered(false); setExpandedIndex(null) }, [])
   const handleNavigate = useCallback((newIndex: number) => setExpandedIndex(newIndex), [])
 
   // Bridge for the "big" in-scene project model's click-to-expand — it lives

@@ -15,6 +15,7 @@ import { modelScrollStore } from '@/lib/modelScrollStore'
 import { MOBILE_CANVAS_VH, mobileOverlayStore } from '@/lib/mobileLayout'
 import { cameraStore } from '@/lib/cameraStore'
 import { MASK_LAYER } from '@/lib/renderLayers'
+import { sceneCoverStore, subscribeSceneCover } from '@/lib/sceneCoverStore'
 import { debugStore } from '@/lib/debugStore'
 import { getThemeColors, subscribePalette } from '@/lib/paletteStore'
 import { activateLoadSignal, reportLoadProgress } from '@/lib/loadProgressStore'
@@ -392,6 +393,9 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
   const [projectCount, setProjectCount] = useState(isMobile ? 0 : Math.min(1, projectModels.length))
   const [navigationReady, setNavigationReady] = useState(false)
   const [tabVisible, setTabVisible] = useState(true)
+  // Paused while an opaque page covers the whole canvas (lib/sceneCoverStore.ts).
+  const [sceneCovered, setSceneCoveredState] = useState(sceneCoverStore.covered)
+  useEffect(() => subscribeSceneCover(() => setSceneCoveredState(sceneCoverStore.covered)), [])
   const [preparedProjects, setPreparedProjects] = useState(0)
   const ready = useCallback(() => { setNavigationReady(true) }, [])
   const projectReady = useCallback(() => setPreparedProjects(n => n + 1), [])
@@ -513,7 +517,7 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
       // PostProcessing's full-screen quad, so multisampling it buys nothing.
       gl={{ antialias: false, alpha: false }}
       dpr={1}
-      frameloop={tabVisible ? 'always' : 'never'}
+      frameloop={tabVisible && !sceneCovered ? 'always' : 'never'}
       style={canvasStyle ?? defaultStyle}
       onCreated={(state) => {
         state.gl.domElement.addEventListener('webglcontextlost', onContextLost)
