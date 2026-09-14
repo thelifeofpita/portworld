@@ -17,6 +17,7 @@
 // natural source now).
 import { applyPaletteColors } from './debugStore'
 import { mixHex, MUTED_RATIO, type Palette } from './paletteVars'
+import { pickPalette } from './paletteSource'
 
 export type { Palette }
 
@@ -94,12 +95,13 @@ export function getModelColor(): string {
   return mixHex(p.white, p.black, MODEL_COLOR_RATIO)
 }
 
-// Longer than the API route's own 4s-per-upstream-call timeout (those run
-// in parallel, but this still needs headroom above the worst case).
+// Picked locally rather than fetched from /api/palette. That route only ever
+// wrapped pickPalette(), and pickPalette reads a versioned local snapshot with
+// no upstream call — so on a static export the round trip bought nothing and
+// there is no server to serve it. Kept promise-returning so every caller
+// (rerollPalette, the byline's prefetched "next palette") is unchanged.
 function fetchPalette(): Promise<Palette | null> {
-  return fetch('/api/palette', { signal: AbortSignal.timeout(6000) })
-    .then(res => (res.ok ? (res.json() as Promise<Palette>) : null))
-    .catch(() => null)
+  return pickPalette().catch(() => null)
 }
 
 // Actually re-themes the site: paletteStore.palette updates, the accent CSS

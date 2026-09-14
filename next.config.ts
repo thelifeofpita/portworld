@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Static export — the site is served by GitHub Pages, which has no Node
+  // runtime. Everything here already suited it: `images.unoptimized` was
+  // switched on long ago, there is no middleware, the only route is `/`, and
+  // the palette is now chosen by a pre-paint script in app/layout.tsx rather
+  // than per-request on a server (see PRE_PAINT_PALETTE there).
+  output: "export",
   distDir: process.env.PERF_DIST_DIR || ".next",
   turbopack: {
     root: __dirname,
@@ -27,6 +33,14 @@ const nextConfig: NextConfig = {
     // that turning the optimizer back on keeps the intended quality.
     qualities: [75, 90],
   },
+  // NOTE: `headers()` does nothing under `output: "export"` — a static export
+  // has no server to send them, and GitHub Pages does not let you configure
+  // response headers at all (it serves assets with max-age=600). Every asset
+  // below is content-hashed, so nothing can go stale incorrectly; the cost is
+  // that repeat visitors revalidate every ten minutes instead of never.
+  // Kept, not deleted, because it is the record of the intended caching and it
+  // applies again immediately on any host that honours it (Cloudflare Pages
+  // via `_headers`, Netlify, a Node server).
   async headers() {
     return [
       { source: '/generated/:path*', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },

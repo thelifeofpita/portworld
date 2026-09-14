@@ -1,8 +1,8 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import LazyDebugMenu from '@/components/ui/LazyDebugMenu'
-import { pickPalette } from '@/lib/paletteSource'
-import { paletteCssVars } from '@/lib/paletteVars'
+import { paletteSnapshot } from '@/lib/paletteSource'
+import { MUTED_RATIO } from '@/lib/paletteVars'
 
 export const metadata: Metadata = {
   title: "Pita's goods",
@@ -19,23 +19,35 @@ export const viewport: Viewport = {
   viewportFit: 'cover',
 }
 
-// The theme is randomized per visit, so the HTML itself can never be cached.
-export const dynamic = 'force-dynamic'
+// Runs before the first paint, from <head>, so the very first painted frame is
+// already in this visit's colours. This used to be `export const dynamic =
+// 'force-dynamic'` plus a server-side pickPalette() inlined into the HTML, but
+// a static export has no per-request server — and picking after hydration is
+// what the inlining existed to avoid: the page painted in the placeholder
+// white/near-black defaults and then snapped into the real theme.
+//
+// All the contrast filtering already happened at build time (see
+// paletteSnapshot), so this only picks and writes. It sets window.__PALETTE__
+// too, which is the exact handoff lib/paletteStore.ts already expects, so the
+// whole client path downstream is unchanged.
+const PRE_PAINT_PALETTE = `(function(){
+  var P=${JSON.stringify(paletteSnapshot)},M=${MUTED_RATIO};
+  var e=P[Math.random()*P.length|0],a=e[2][Math.random()*e[2].length|0];
+  var p={white:'#'+a[0],yellow:'#'+a[1],red:'#'+a[2],black:'#'+a[3],bright:'#'+e[3],title:e[0],slug:e[1]};
+  function mix(f,t,r){var x=parseInt(f.slice(1),16),y=parseInt(t.slice(1),16),o='#';
+    for(var i=16;i>=0;i-=8){var c=Math.round(((x>>i)&255)+(((y>>i)&255)-((x>>i)&255))*r);o+=('0'+c.toString(16)).slice(-2);}return o;}
+  window.__PALETTE__=p;
+  document.documentElement.style.cssText+=';--bg-color:'+p.white+';--fg-color:'+p.black
+    +';--fg-muted:'+mix(p.black,p.white,M)+';--accent-color:'+p.yellow
+    +';--accent-base-color:'+p.red+';--hover-color:'+p.red
+    +';--text-highlight-color:'+p.yellow+';--palette-white:'+p.bright;
+})()`
 
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
-  // Picked on the server and inlined below, rather than fetched from
-  // /api/palette after hydration. Two things used to be visible because of
-  // that round-trip: the page painted in the placeholder white/near-black
-  // defaults and then snapped/faded into the real palette, and the loading
-  // screen was held open the whole time the request was in flight. Inlining
-  // makes the very first painted frame correct, and lets the loader wait on
-  // the 3D model alone.
-  const palette = await pickPalette()
-
   return (
     <html lang="en" suppressHydrationWarning>
       <head>
@@ -66,13 +78,10 @@ export default async function RootLayout({
         <link rel="preload" href="/generated/surfthespike-phone-b4b8dc867e5e.glb" as="fetch" crossOrigin="anonymous" media="(min-width: 769px) and (pointer: fine)" />
         <link rel="preload" href="/draco/draco_wasm_wrapper.js" as="fetch" crossOrigin="anonymous" />
         <link rel="preload" href="/draco/draco_decoder.wasm" as="fetch" crossOrigin="anonymous" />
-        {/* This session's colors, before any JS runs. */}
-        <style>{`:root{${paletteCssVars(palette)}}`}</style>
-        {/* Same palette handed to the client so paletteStore can adopt it
-            synchronously instead of re-fetching what the server already knows. */}
-        <script
-          dangerouslySetInnerHTML={{ __html: `window.__PALETTE__=${JSON.stringify(palette)}` }}
-        />
+        {/* This visit's colors, chosen and applied before the first paint.
+            Must stay in <head> and stay render-blocking (no defer/async): the
+            whole point is that it runs before anything is drawn. */}
+        <script dangerouslySetInnerHTML={{ __html: PRE_PAINT_PALETTE }} />
       </head>
       <body suppressHydrationWarning>
         {children}

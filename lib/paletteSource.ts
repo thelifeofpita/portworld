@@ -134,3 +134,30 @@ const validatedPool = [...cachedPalettes, ...FALLBACK_PALETTES].filter(passesCon
 export async function pickPalette(): Promise<Palette> {
   return toPalette(validatedPool[Math.floor(Math.random() * validatedPool.length)])
 }
+
+/**
+ * The same pool, pre-expanded into every valid role assignment, for the inline
+ * pre-paint script in app/layout.tsx.
+ *
+ * The site is a static export now, so there is no per-request server to pick a
+ * palette and inline it — but the palette still has to be chosen before the
+ * first paint, or the page flashes the placeholder white/near-black defaults
+ * and snaps into the real theme (exactly what inlining was added to stop).
+ * A blocking <script> in <head> does the picking instead, and this is the data
+ * it needs: all the contrast filtering happens HERE, at build time, so that
+ * script never has to reimplement any of the logic above.
+ *
+ * Shape is [title, slug, assignments, bright] where each assignment is a
+ * [white, yellow, red, black] tuple — 19 palettes / 48 assignments / ~2.1KB,
+ * and the two-level structure is what lets the script reproduce toPalette's
+ * exact distribution: uniform over palettes, then uniform over that palette's
+ * assignments (NOT uniform over all 48, which would bias toward palettes that
+ * happen to have more valid arrangements).
+ */
+export type PaletteSnapshotEntry = [string, string, string[][], string]
+export const paletteSnapshot: PaletteSnapshotEntry[] = validatedPool.map(p => [
+  p.title,
+  p.slug,
+  validRoleAssignments(p.colors),
+  [...p.colors].sort((a, b) => luma(b) - luma(a))[0],
+])
