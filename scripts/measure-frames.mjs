@@ -219,10 +219,35 @@ async function run(profileName) {
   return { results, errors }
 }
 
-const out = { label, engine, base: BASE, date: new Date().toISOString(), profiles: {} }
+// FRAMES_RUNS repeats each profile (with FRAMES_COOLDOWN_MS between runs) and
+// reports every scenario by its median run, keeping all runs alongside. The
+// measuring machine is a shared, fanless laptop: single runs swing by tens of
+// fps with background load and heat, so a lone run cannot show a regression.
+const RUNS = Math.max(1, Number(process.env.FRAMES_RUNS || 1))
+const COOLDOWN_MS = Number(process.env.FRAMES_COOLDOWN_MS || 30000)
+const out = { label, engine, base: BASE, runs: RUNS, date: new Date().toISOString(), profiles: {} }
 try {
   for (const name of profiles) {
-    out.profiles[name] = await run(name)
+    const runs = []
+    for (let i = 0; i < RUNS; i++) {
+      runs.push(await run(name))
+      if (i < RUNS - 1) await wait(COOLDOWN_MS)
+    }
+    const byScenario = new Map()
+    for (const { results } of runs) for (const r of results) {
+      if (!byScenario.has(r.name)) byScenario.set(r.name, [])
+      byScenario.get(r.name).push(r)
+    }
+    const results = [...byScenario.values()].map(samples => {
+      // Lower median by fps: with two runs this is the slower one.
+      const sorted = [...samples].sort((a, b) => (a.fps ?? 0) - (b.fps ?? 0))
+      const median = sorted[Math.floor((sorted.length - 1) / 2)]
+      return { ...median, runs: samples.map(r => ({ fps: r.fps, p99: r.p99, droppedPct: r.droppedPct, longestLoaf: r.longestLoaf, pass: r.pass })) }
+    })
+    out.profiles[name] = { results, errors: runs.flatMap(r => r.errors) }
+    if (RUNS > 1) for (const r of results) {
+      console.log(`MEDIAN ${r.pass ? "PASS" : "FAIL"} ${name.padEnd(7)} ${r.name.padEnd(28)} fps=${r.runs.map(x => x.fps).join("/")} p99=${r.runs.map(x => x.p99).join("/")} dropped=${r.runs.map(x => x.droppedPct).join("/")} loaf=${r.runs.map(x => x.longestLoaf).join("/")}`)
+    }
     await fs.writeFile(`reports/performance/frames-${label}-${engine}.json`, JSON.stringify(out, null, 2))
   }
 } finally { await browser.close() }

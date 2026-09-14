@@ -1,40 +1,87 @@
-// Chrome performance trace of settled states and project hover, summarised per
-// thread, to attribute frame time that never shows up as script (raster,
-// compositing, video decode, GPU tasks). Needs a production build served on
-// TEST_BASE_URL (see scripts/measure-frames.mjs).
+// Chrome performance traces of individual interactions, summarised per thread,
+// to attribute frame time that never shows up as script: style, layout, paint,
+// image and video decode, compositing and GPU tasks. Each scenario gets a fresh
+// context so one cannot warm or starve the next. Needs a production build
+// served on TEST_BASE_URL (see scripts/measure-frames.mjs).
 //   node scripts/trace-frames.mjs
+//   TRACE_ONLY='surf|m-landing' node scripts/trace-frames.mjs
 import { chromium } from 'playwright'
 import fs from 'node:fs/promises'
 
 const BASE = process.env.TEST_BASE_URL || 'http://localhost:3002'
 const OUT = process.env.TRACE_DIR || '/tmp'
-const categories = ['devtools.timeline', 'disabled-by-default-devtools.timeline', 'disabled-by-default-devtools.timeline.frame', 'toplevel', 'gpu', 'cc', 'viz', 'media', 'blink']
+const only = process.env.TRACE_ONLY ? new RegExp(process.env.TRACE_ONLY) : null
+// Kept deliberately small: with cc/viz/blink/frame categories a few seconds of
+// project hover produced a trace larger than Node can read as one string.
+const categories = ['devtools.timeline', 'toplevel', 'gpu', 'media']
 const wait = ms => new Promise(r => setTimeout(r, ms))
+
+const desktop = { viewport: { width: 1440, height: 900 } }
+const mobile = { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, isMobile: true, hasTouch: true }
+
+const nav = (page, section) => page.locator('nav[aria-label="Sections"]').getByText(section, { exact: true }).first().dispatchEvent('click')
+const wheel = async (page, ms, dy = 120) => {
+  const end = Date.now() + ms
+  let dir = 1
+  while (Date.now() < end) { for (let i = 0; i < 12 && Date.now() < end; i++) { await page.mouse.wheel(0, dy * dir); await wait(40) } dir = -dir }
+}
+async function openFirstProject(page) {
+  await nav(page, 'Projects')
+  await wait(8000)
+  const b = await page.locator('[class*="bigProjectModelSlot"]').nth(0).boundingBox()
+  await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2)
+  await wait(400)
+  await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2)
+  await wait(4000)
+  await page.mouse.move(720, 450)
+}
+
+// setup runs untraced; trace runs traced. Default trace is 3s of idling.
+const scenarios = [
+  { name: 'projects-idle', context: desktop, setup: async page => { await nav(page, 'Projects'); await wait(12000) } },
+  { name: 'project-hover', context: desktop, setup: async page => { await nav(page, 'Projects'); await wait(12000) }, trace: async page => {
+    const b = await page.locator('[class*="bigProjectModelSlot"]').nth(1).boundingBox()
+    for (let i = 0; i < 60; i++) { await page.mouse.move(b.x + b.width * (0.3 + 0.4 * Math.abs(Math.sin(i / 15))), b.y + b.height / 2); await wait(30) }
+  } },
+  { name: 'surf-scroll', context: desktop, setup: openFirstProject, trace: page => wheel(page, 3500) },
+  { name: 'surf-to-duolingo', context: desktop, setup: openFirstProject, trace: async page => {
+    await page.getByRole('button', { name: 'Next project' }).first().dispatchEvent('click')
+    await wait(3000)
+  } },
+  { name: 'playground-enter', context: desktop, trace: async page => { await nav(page, 'Playground'); await wait(3000) } },
+  { name: 'playground-idle', context: desktop, setup: async page => { await nav(page, 'Playground'); await wait(9000) } },
+  { name: 'collection-close', context: desktop, setup: async page => {
+    await nav(page, 'Playground'); await wait(8000)
+    await page.locator('[aria-label="Playground"]').getByRole('button', { name: /^Open / }).first().click({ timeout: 5000 })
+    await wait(4000)
+  }, trace: async page => {
+    await page.locator('[role="dialog"]:not([inert]) button[aria-label="Close collection"]').first().click({ timeout: 3000 })
+    await wait(2500)
+  } },
+  { name: 'm-landing-idle', context: mobile, trace: () => wait(4000) },
+]
+
+// Leaf-ish main-thread work worth separating from the RunTask wrappers.
+const MAIN_THREAD_WORK = ['FunctionCall', 'EvaluateScript', 'v8.run', 'UpdateLayoutTree', 'RecalculateStyles', 'Layout', 'PrePaint', 'Paint', 'Layerize', 'Commit', 'Decode Image', 'ImageDecodeTask', 'HitTest', 'ParseHTML', 'IntersectionObserverController::computeIntersections', 'MajorGC', 'MinorGC']
 
 const browser = await chromium.launch({ channel: 'chrome', headless: false, args: ['--ignore-gpu-blocklist'] })
 try {
-  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } })
-  await page.addInitScript(() => { let s = 42; Math.random = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296) })
-  await page.goto(`${BASE}/?perfAudit=1`, { waitUntil: 'domcontentloaded' })
-  await page.getByRole('status', { name: 'Loading' }).waitFor({ state: 'hidden', timeout: 120000 })
-  await page.mouse.move(1432, 892)
-  const nav = s => page.locator('nav[aria-label="Sections"]').getByText(s, { exact: true }).first().dispatchEvent('click')
+  for (const scenario of scenarios) {
+    if (only && !only.test(scenario.name)) continue
+    const context = await browser.newContext(scenario.context)
+    const page = await context.newPage()
+    await page.addInitScript(() => { let s = 42; Math.random = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296) })
+    await page.goto(`${BASE}/?perfAudit=1`, { waitUntil: 'domcontentloaded', timeout: 90000 })
+    await page.getByRole('status', { name: 'Loading' }).waitFor({ state: 'hidden', timeout: 120000 })
+    await wait(1500)
+    await page.mouse.move(scenario.context.viewport.width - 8, scenario.context.viewport.height - 8)
+    await scenario.setup?.(page)
 
-  const scenarios = [
-    { name: 'projects-idle', before: async () => { await nav('Projects'); await wait(12000) } },
-    { name: 'project-hover', during: async () => {
-      const b = await page.locator('[class*="bigProjectModelSlot"]').nth(1).boundingBox()
-      for (let i = 0; i < 90; i++) { await page.mouse.move(b.x + b.width * (0.3 + 0.4 * Math.abs(Math.sin(i / 15))), b.y + b.height / 2); await wait(30) }
-    } },
-    { name: 'playground-idle', before: async () => { await page.mouse.move(1432, 892); await nav('Playground'); await wait(9000) } },
-  ]
-
-  for (const { name, before, during } of scenarios) {
-    await before?.()
-    const path = `${OUT}/trace-${name}.json`
+    const path = `${OUT}/trace-${scenario.name}.json`
     await browser.startTracing(page, { path, categories })
-    if (during) await during(); else await wait(3000)
+    await (scenario.trace ? scenario.trace(page) : wait(3000))
     await browser.stopTracing()
+    await context.close()
 
     const { traceEvents } = JSON.parse(await fs.readFile(path, 'utf8'))
     const threadNames = new Map()
@@ -53,15 +100,21 @@ try {
       totals.set(e.name, (totals.get(e.name) ?? 0) + e.dur)
     }
     const seconds = (t1 - t0) / 1e6
-    // Inclusive durations (children are not subtracted), expressed as
-    // milliseconds per second of wall time, so nested events overlap.
-    console.log(`\n=== ${name} (${seconds.toFixed(1)}s traced, inclusive ms per wall second)`)
+    const perSecond = micros => (micros / 1000 / seconds).toFixed(1)
+    // Inclusive durations (children not subtracted), as ms per wall second.
+    console.log(`\n=== ${scenario.name} (${seconds.toFixed(1)}s traced, inclusive ms per wall second)`)
     const rows = [...threads]
-      .map(([key, totals]) => ({ name: threadNames.get(key) ?? key, top: [...totals].sort((a, b) => b[1] - a[1]) }))
+      .map(([key, totals]) => ({ key, name: threadNames.get(key) ?? key, totals, top: [...totals].sort((a, b) => b[1] - a[1]) }))
       .filter(r => r.top.length && r.top[0][1] / 1000 / seconds > 5)
       .sort((a, b) => b.top[0][1] - a.top[0][1])
-      .slice(0, 8)
-    for (const r of rows) console.log(`  [${r.name}] ` + r.top.slice(0, 9).map(([n, d]) => `${n}=${(d / 1000 / seconds).toFixed(1)}`).join('  '))
+      .slice(0, 7)
+    for (const r of rows) {
+      console.log(`  [${r.name}] ` + r.top.slice(0, 8).map(([n, d]) => `${n}=${perSecond(d)}`).join('  '))
+      if (r.name === 'CrRendererMain') {
+        const work = MAIN_THREAD_WORK.filter(n => r.totals.has(n)).map(n => `${n}=${perSecond(r.totals.get(n))}`)
+        console.log(`    main-thread work: ${work.join('  ')}`)
+      }
+    }
   }
 } finally {
   await browser.close()

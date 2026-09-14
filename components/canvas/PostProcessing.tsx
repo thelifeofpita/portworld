@@ -14,6 +14,7 @@ import { bigProjectGlowStore } from '@/lib/bigProjectGlowStore'
 import { bigProjectFootprintStore, type BigProjectFootprint } from '@/lib/bigProjectFootprintStore'
 import { zoneTransitionStore } from '@/lib/zoneTransitionStore'
 import { debugStore, hexToRgb01 } from '@/lib/debugStore'
+import { MASK_LAYER } from '@/lib/renderLayers'
 
 // ─── Performance audit (?perfAudit=1) ─────────────────────────────────────────
 // Read by scripts/measure-frames.mjs: per-frame pass counters, which shadow
@@ -1030,7 +1031,10 @@ export default function PostProcessing({ mode = 0, isMobile = false }: { mode?: 
     // accent mask.
     if (!meshesScanned.current || scannedVersion.current !== accentStore.sceneVersion) {
       sceneMeshes.current = []
-      scene.traverse(obj => { if (obj instanceof THREE.Mesh) sceneMeshes.current.push(obj) })
+      // Every mesh joins MASK_LAYER, which the mask pass renders instead of the
+      // camera's own layers: same meshes, but only the navigation lights, so the
+      // pass keeps three.js's light-state version unchanged (lib/renderLayers.ts).
+      scene.traverse(obj => { if (obj instanceof THREE.Mesh) { obj.layers.enable(MASK_LAYER); sceneMeshes.current.push(obj) } })
       const liveMeshes = new Set(sceneMeshes.current)
       for (const [mesh, entry] of accentMats.current) if (!liveMeshes.has(mesh)) { entry.mat.dispose(); accentMats.current.delete(mesh) }
       origMats.current.length = sceneMeshes.current.length
@@ -1065,7 +1069,10 @@ export default function PostProcessing({ mode = 0, isMobile = false }: { mode?: 
     scene.background = maskBg
     gl.setRenderTarget(maskTarget)
     gl.clear()
+    const maskLayers = camera.layers.mask
+    camera.layers.set(MASK_LAYER)
     gl.render(scene, camera)
+    camera.layers.mask = maskLayers
     gl.setRenderTarget(null)
     scene.background = savedBg
     for (let i = 0; i < meshList.length; i++) { meshList[i].material = matList[i] }

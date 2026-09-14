@@ -421,9 +421,14 @@ function PlaygroundGallery({ mobile = false, active = true, warming = false, onP
   // flex columns are exactly as tall as their own content, same as
   // Projects/About, so the page just scrolls past them.
   const rects = useMemo(() => {
+    // Mobile never reads these rects (it renders the two flex columns below),
+    // and its section is parked/unparked on every zone change, which resizes
+    // the gallery and re-ran this whole search: ~1.5s of a 2.5s freeze at 4x
+    // CPU on entering Projects or returning to the landing view.
+    if (mobile) return []
     const coverRatios = playgroundContent.map(item => item.aspectRatio ?? 1)
     return fitOrbit(coverRatios, width, height, false, seed)
-  }, [width, height, seed])
+  }, [mobile, width, height, seed])
 
   const renderCard = (item: PlaygroundItem, i: number) => {
     // Warming must still bring every card's own preview through its

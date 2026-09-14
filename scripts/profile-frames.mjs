@@ -8,7 +8,12 @@
 //   PROFILE_ONLY=m-reroll PROFILE_CPU=4 node scripts/profile-frames.mjs
 import { chromium } from 'playwright'
 import fs from 'node:fs'
-import { TraceMap, originalPositionFor } from '@jridgewell/trace-mapping'
+import * as traceMapping from '@jridgewell/trace-mapping'
+
+const { originalPositionFor } = traceMapping
+// Turbopack emits sectioned (index) source maps, which TraceMap cannot parse;
+// AnyMap flattens them (FlattenMap in newer releases).
+const SourceMap = traceMapping.AnyMap ?? traceMapping.FlattenMap ?? traceMapping.TraceMap
 
 const BASE = process.env.TEST_BASE_URL || 'http://localhost:3002'
 const CPU = Number(process.env.PROFILE_CPU || 4)
@@ -33,7 +38,8 @@ const scenarios = [
   } },
   { name: 'enter-about', context: desktop, run: async page => { await nav(page, 'About Me'); await wait(3000) } },
   { name: 'm-enter-projects', context: mobile, run: async page => { await nav(page, 'Projects'); await wait(4000) } },
-  { name: 'm-reroll', context: mobile, run: async page => { await byline(page); await wait(4000) } },
+  // The mobile byline lives in the About section, so open About first.
+  { name: 'm-reroll', context: mobile, setup: async page => { await nav(page, 'About Me'); await wait(3000) }, run: async page => { await byline(page); await wait(4000) } },
 ]
 
 const maps = new Map()
@@ -42,7 +48,13 @@ function traceMapFor(url) {
   let map = null
   try {
     const path = new URL(url).pathname
-    if (path.endsWith('.js')) map = new TraceMap(fs.readFileSync(`out${path}.map`, 'utf8'))
+    if (path.endsWith('.js')) {
+      // Turbopack names maps independently of their chunks, so follow the
+      // chunk's own sourceMappingURL comment, the way DevTools does.
+      const code = fs.readFileSync(`out${path}`, 'utf8')
+      const mapName = [...code.matchAll(/\/\/# sourceMappingURL=(\S+)/g)].at(-1)?.[1]
+      if (mapName) map = new SourceMap(fs.readFileSync(`out${path.slice(0, path.lastIndexOf('/') + 1)}${mapName}`, 'utf8'))
+    }
   } catch { /* no map for this script */ }
   maps.set(url, map)
   return map

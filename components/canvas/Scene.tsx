@@ -14,6 +14,7 @@ import { shaderStore } from '@/lib/shaderStore'
 import { modelScrollStore } from '@/lib/modelScrollStore'
 import { MOBILE_CANVAS_VH, mobileOverlayStore } from '@/lib/mobileLayout'
 import { cameraStore } from '@/lib/cameraStore'
+import { MASK_LAYER } from '@/lib/renderLayers'
 import { debugStore } from '@/lib/debugStore'
 import { getThemeColors, subscribePalette } from '@/lib/paletteStore'
 import { activateLoadSignal, reportLoadProgress } from '@/lib/loadProgressStore'
@@ -520,9 +521,13 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
     >
       <BackgroundSync />
 
-      <ambientLight intensity={0.4} />
-      <directionalLight position={[4, 6, 4]} intensity={1.2} castShadow />
-      <directionalLight position={[-4, 2, -4]} intensity={0.4} />
+      {/* Navigation lights also sit on MASK_LAYER, and the zero-intensity light
+          balances this pass to the project rig's 3 directional / 1 shadow, so
+          no pass changes three.js's light-state version (see lib/renderLayers.ts). */}
+      <ambientLight intensity={0.4} onUpdate={light => light.layers.enable(MASK_LAYER)} />
+      <directionalLight position={[4, 6, 4]} intensity={1.2} castShadow onUpdate={light => light.layers.enable(MASK_LAYER)} />
+      <directionalLight position={[-4, 2, -4]} intensity={0.4} onUpdate={light => light.layers.enable(MASK_LAYER)} />
+      <directionalLight name="Nav light-count balance" intensity={0} onUpdate={light => light.layers.enable(MASK_LAYER)} />
 
       {/* Project-only studio rig. A separate layer keeps the navigation's
           lighting unchanged; the compositor renders these models separately.
