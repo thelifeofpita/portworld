@@ -13,7 +13,7 @@ const OUT = process.env.TRACE_DIR || '/tmp'
 const only = process.env.TRACE_ONLY ? new RegExp(process.env.TRACE_ONLY) : null
 // Kept deliberately small: with cc/viz/blink/frame categories a few seconds of
 // project hover produced a trace larger than Node can read as one string.
-const categories = ['devtools.timeline', 'toplevel', 'gpu', 'media']
+const categories = ['devtools.timeline', 'toplevel', 'gpu', 'media', ...(process.env.TRACE_DETAIL ? ['disabled-by-default-devtools.timeline'] : [])]
 const wait = ms => new Promise(r => setTimeout(r, ms))
 
 const desktop = { viewport: { width: 1440, height: 900 } }
@@ -25,10 +25,12 @@ const wheel = async (page, ms, dy = 120) => {
   let dir = 1
   while (Date.now() < end) { for (let i = 0; i < 12 && Date.now() < end; i++) { await page.mouse.wheel(0, dy * dir); await wait(40) } dir = -dir }
 }
-async function openFirstProject(page) {
+const openFirstProject = page => openProject(page, 0)
+// Project slots render in DOM order: left column 0-2, right column 3-5.
+async function openProject(page, index) {
   await nav(page, 'Projects')
   await wait(8000)
-  const b = await page.locator('[class*="bigProjectModelSlot"]').nth(0).boundingBox()
+  const b = await page.locator('[class*="bigProjectModelSlot"]').nth(index).boundingBox()
   await page.mouse.move(b.x + b.width / 2, b.y + b.height / 2)
   await wait(400)
   await page.mouse.click(b.x + b.width / 2, b.y + b.height / 2)
@@ -59,6 +61,9 @@ const scenarios = [
     await wait(2500)
   } },
   { name: 'm-landing-idle', context: mobile, trace: () => wait(4000) },
+  // Whole-page scrolls through a case study, top to bottom.
+  { name: 'verified-scroll', context: desktop, setup: page => openProject(page, 2), trace: async page => { for (let i = 0; i < 60; i++) { await page.mouse.wheel(0, 140); await wait(60) } } },
+  { name: 'bis-scroll', context: desktop, setup: page => openProject(page, 5), trace: async page => { for (let i = 0; i < 60; i++) { await page.mouse.wheel(0, 140); await wait(60) } } },
 ]
 
 // Leaf-ish main-thread work worth separating from the RunTask wrappers.
@@ -108,6 +113,28 @@ try {
       .filter(r => r.top.length && r.top[0][1] / 1000 / seconds > 5)
       .sort((a, b) => b.top[0][1] - a.top[0][1])
       .slice(0, 7)
+    // Worst gaps between animation frames on the page's own main thread, with
+    // what every thread spent inside each gap (events clipped to the window).
+    const pageMain = [...threadNames].filter(([, n]) => n === 'CrRendererMain').map(([k]) => k)
+      .map(key => ({ key, frames: traceEvents.filter(e => `${e.pid}:${e.tid}` === key && e.name === 'FireAnimationFrame' && e.ph === 'X').map(e => e.ts).sort((a, b) => a - b) }))
+      .sort((a, b) => b.frames.length - a.frames.length)[0]
+    if (pageMain && pageMain.frames.length > 2) {
+      const gaps = []
+      for (let i = 1; i < pageMain.frames.length; i++) if (pageMain.frames[i] - pageMain.frames[i - 1] > 50000) gaps.push([pageMain.frames[i - 1], pageMain.frames[i]])
+      gaps.sort((a, b) => (b[1] - b[0]) - (a[1] - a[0]))
+      for (const [g0, g1] of gaps.slice(0, 3)) {
+        const inside = new Map()
+        for (const e of traceEvents) {
+          if (e.ph !== 'X' || typeof e.dur !== 'number') continue
+          const overlap = Math.min(g1, e.ts + e.dur) - Math.max(g0, e.ts)
+          if (overlap <= 0) continue
+          const key = `${threadNames.get(`${e.pid}:${e.tid}`) ?? '?'}:${e.name}`
+          inside.set(key, (inside.get(key) ?? 0) + overlap)
+        }
+        const top = [...inside].filter(([k]) => !/RunTask|ThreadControllerImpl|Scheduler::|Receive mojo|SimpleWatcher|ThreadPool_RunTask/.test(k)).sort((a, b) => b[1] - a[1]).slice(0, 10)
+        console.log(`  gap ${((g1 - g0) / 1000).toFixed(0)}ms: ` + top.map(([k, d]) => `${k}=${(d / 1000).toFixed(0)}`).join('  '))
+      }
+    }
     for (const r of rows) {
       console.log(`  [${r.name}] ` + r.top.slice(0, 8).map(([n, d]) => `${n}=${perSecond(d)}`).join('  '))
       if (r.name === 'CrRendererMain') {
