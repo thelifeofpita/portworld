@@ -24,7 +24,9 @@ function settle(key: string, rects: MasonryRect[], resolve: (rects: MasonryRect[
 function startWorker(): Worker | null {
   if (worker !== undefined) return worker
   try {
-    worker = new Worker(new URL('./collectionLayout.worker.ts', import.meta.url))
+    // Prebuilt plain-JS worker (scripts/build-layout-worker.mjs): Turbopack
+    // copies a new URL('./x.ts') worker target verbatim instead of compiling it.
+    worker = new Worker('/workers/collection-layout.js')
     worker.onmessage = (event: MessageEvent<{ id: number; rects: MasonryRect[] }>) => {
       const job = waiting.get(event.data.id)
       if (!job) return

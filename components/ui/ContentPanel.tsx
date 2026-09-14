@@ -241,12 +241,14 @@ function ProjectCard({ direction, arcInset, onExpand, thumb, thumbModel, accentC
       const f = 1 - Math.pow(1 - HOVER_WIPE_SMOOTH, dt * 60)
       hoverProgress.current += ((hoveredRef.current ? 1 : 0) - hoverProgress.current) * f
 
+      // isOpen: the detail portal has taken over and this card is hidden at
+      // the same rect — glowing an invisible card. Nothing to glow means no
+      // layout reads at all.
+      if (isOpen || hoverProgress.current <= 0.001) { releaseSlot(); return }
       const anchorEl = rootRef.current
       const w = thumbRef.current?.offsetWidth  ?? 0
       const h = thumbRef.current?.offsetHeight ?? 0
-      // isOpen: the detail portal has taken over and this card is hidden at
-      // the same rect — glowing an invisible card.
-      if (anchorEl && w && h && !isOpen && hoverProgress.current > 0.001) {
+      if (anchorEl && w && h) {
         if (glowSlotRef.current === null) {
           glowSlotRef.current = playgroundGlowStore.entries.findIndex(e => e === null)
         }
@@ -904,13 +906,12 @@ function ProjectsPane() {
 
 // ─── About pane ──────────────────────────────────────────────────────────────
 
-function AboutPane() {
+// The About photo's 250ms frame cycle, isolated in its own component so each
+// frame re-renders these two <img>s rather than the whole About pane (bio,
+// contact links and CV) four times a second for as long as it stays mounted.
+function AboutPhotoFrames({ paused }: { paused: boolean }) {
   const [photoIndex, setPhotoIndex] = useState(0)
   const [prevIndex,  setPrevIndex]  = useState<number | null>(null)
-  const [photoHovered, setPhotoHovered] = useState(false)
-  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
-  const photoThumbRef = useRef<HTMLDivElement>(null)
-  const { hoveredRef, springX, springY, onTiltEnter, onTiltLeave, rootRef } = useCardTilt<HTMLDivElement>()
 
   // Preload all photos immediately so subsequent frames are already in cache
   useEffect(() => {
@@ -918,21 +919,50 @@ function AboutPane() {
   }, [])
 
   // Same auto-rotate-pauses-on-hover behavior as before — untouched by the
-  // lift/shine/glow treatment below, which only changes hover FEEDBACK, not
-  // this existing "stop rotating while the user's looking at it" behavior.
+  // lift/shine/glow treatment in AboutPane, which only changes hover FEEDBACK,
+  // not this existing "stop rotating while the user's looking at it" behavior.
   useEffect(() => {
-    if (photoHovered || aboutContent.photos.length <= 1) return
-    intervalRef.current = setInterval(() => {
+    if (paused || aboutContent.photos.length <= 1) return
+    const id = setInterval(() => {
       setPhotoIndex(i => {
         setPrevIndex(i)
         return (i + 1) % aboutContent.photos.length
       })
     }, 250)
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
-  }, [photoHovered])
+    return () => clearInterval(id)
+  }, [paused])
 
   const photo     = aboutContent.photos[photoIndex]
   const prevPhoto = prevIndex !== null ? aboutContent.photos[prevIndex] : null
+
+  return (
+    <>
+      {/* Outgoing photo — stays fully opaque underneath as the base layer */}
+      {prevPhoto && (
+        <img
+          src={prevPhoto}
+          alt=""
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      )}
+      {/* Incoming photo — fades in on top */}
+      {photo && (
+        <img
+          key={photoIndex}
+          src={photo}
+          alt=""
+          className={styles.aboutPhotoImg}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+        />
+      )}
+    </>
+  )
+}
+
+function AboutPane() {
+  const [photoHovered, setPhotoHovered] = useState(false)
+  const photoThumbRef = useRef<HTMLDivElement>(null)
+  const { hoveredRef, springX, springY, onTiltEnter, onTiltLeave, rootRef } = useCardTilt<HTMLDivElement>()
 
   const handleEnter = useCallback(() => { onTiltEnter(); setPhotoHovered(true)  }, [onTiltEnter])
   const handleLeave = useCallback(() => { onTiltLeave(); setPhotoHovered(false) }, [onTiltLeave])
@@ -960,10 +990,13 @@ function AboutPane() {
       const f = 1 - Math.pow(1 - HOVER_WIPE_SMOOTH, dt * 60)
       hoverProgress.current += ((hoveredRef.current ? 1 : 0) - hoverProgress.current) * f
 
+      // Not hovered and fully faded: release and skip the layout reads. This
+      // pane stays mounted in every zone once About has been visited.
+      if (hoverProgress.current <= 0.001) { releaseSlot(); return }
       const el = photoThumbRef.current
       const w  = el?.offsetWidth  ?? 0
       const h  = el?.offsetHeight ?? 0
-      if (el && w && h && hoverProgress.current > 0.001) {
+      if (el && w && h) {
         if (glowSlotRef.current === null) {
           glowSlotRef.current = playgroundGlowStore.entries.findIndex(e => e === null)
         }
@@ -1008,24 +1041,7 @@ function AboutPane() {
               style={{ rotateX: springX, rotateY: springY, transformPerspective: PROJECT_CARD_PERSPECTIVE, pointerEvents: 'none' }}
             >
               <div ref={photoThumbRef} className={styles.aboutPhotoThumb}>
-                {/* Outgoing photo — stays fully opaque underneath as the base layer */}
-                {prevPhoto && (
-                  <img
-                    src={prevPhoto}
-                    alt=""
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  />
-                )}
-                {/* Incoming photo — fades in on top */}
-                {photo && (
-                  <img
-                    key={photoIndex}
-                    src={photo}
-                    alt=""
-                    className={styles.aboutPhotoImg}
-                    style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
-                  />
-                )}
+                <AboutPhotoFrames paused={photoHovered} />
               </div>
             </motion.div>
           </motion.div>

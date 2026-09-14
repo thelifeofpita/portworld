@@ -1,7 +1,8 @@
 'use client'
 
 import { useRef, useEffect, useLayoutEffect, useCallback } from 'react'
-import { useAnimationFrame } from 'framer-motion'
+import { subscribeFrame } from '@/lib/frameScheduler'
+import { setAttr, setStyle, px } from '@/lib/domWrites'
 import { posStore } from '@/lib/posStore'
 import { silhouetteStore } from '@/lib/silhouetteStore'
 import { zoneStore } from '@/lib/zoneStore'
@@ -86,140 +87,174 @@ export default function ZoneNav({ isContentMode = false }: { isContentMode?: boo
     })
   }, [])
 
-  useAnimationFrame((_, delta) => {
-    const dt      = Math.min(delta, 100) / 16.67
-    const angleF  = 1 - Math.pow(1 - ANGLE_SMOOTH,  dt)
-    const followF = 1 - Math.pow(1 - FOLLOW_RATE,   dt)
-    const accentF = 1 - Math.pow(1 - ACCENT_SMOOTH, dt)
-
-    // Fade nav in/out based on content mode — lerp opacity each frame
-    const targetOpacity = isContentModeRef.current ? 0 : 1
-    navOpacity.current += (targetOpacity - navOpacity.current) * accentF
-    const opStr = String(navOpacity.current)
-    if (svgRef.current) svgRef.current.style.opacity = opStr
-    if (navContainerRef.current) navContainerRef.current.style.opacity = opStr
-
-    const { cx, cy, pts, count } = silhouetteStore
-    const active = zoneStore.activeZone
-
-    // Accent colors — sourced from the debug menu (same uniforms PostProcessing uses)
-    const COLOR_BASE  = hexToRgb255(debugStore.accentBaseColor)
-    const COLOR_FOCUS = hexToRgb255(debugStore.accentFocusColor)
-
-    // Shrinks as the camera pulls back for content mode, so label offsets shrink
-    // in step with the model's on-screen size — but only halfway (floored at 0.5)
-    // so labels stay legibly clear of the model instead of crowding it at full scale.
-    const zoomScale = 0.5 + 0.5 * (NAV_Z / Math.max(cameraStore.z, NAV_Z))
-    const padding   = PADDING  * zoomScale
-    const minLine   = MIN_LINE * zoomScale
-
-    // ── 1. Desired angle for each box (direction toward its mesh) ─────────────
-    // When the mesh is far enough from center, record the real direction.
-    // When close to center (len ≤ 8), reuse the last recorded direction so that
-    // clusterBase never depends on s.angle — breaking the feedback loop that
-    // caused the cluster base to drift while boxes were still settling.
-    for (let i = 0; i < N; i++) {
-      const mesh = posStore[i as 0 | 1 | 2]
-      const dx   = mesh.x - cx
-      const dy   = mesh.y - cy
-      const len  = Math.sqrt(dx * dx + dy * dy)
-      if (len > 8) _lastDesired[i] = Math.atan2(dy, dx)
-      _desired[i] = _lastDesired[i]
+  // Label sizes only change when their text or font does (debug menu, font
+  // load), so they come from a ResizeObserver. Reading offsetWidth/Height
+  // inside the frame loop, straight after writing the previous label's
+  // transform, forced a layout per label on every frame.
+  const labelSizes = useRef([{ w: 0, h: 0 }, { w: 0, h: 0 }, { w: 0, h: 0 }])
+  useEffect(() => {
+    const boxes = [box0.current, box1.current, box2.current]
+    const measure = (i: number) => {
+      const box = boxes[i]
+      if (box) labelSizes.current[i] = { w: box.offsetWidth, h: box.offsetHeight }
     }
+    boxes.forEach((_, i) => measure(i))
+    const observer = new ResizeObserver(entries => { for (const entry of entries) measure(boxes.indexOf(entry.target as HTMLDivElement)) })
+    boxes.forEach(box => { if (box) observer.observe(box) })
+    return () => observer.disconnect()
+  }, [])
 
-    // ── 2. Equal spacing — find the cluster base angle that minimises total
-    //       angular deviation with fixed per-box slot assignment (box i → slot i).
-    //       Uses the circular mean of (desired[i] − i×120°), then smoothed over
-    //       time so sudden shifts (e.g. model finishing its snap) don't cause a
-    //       visible secondary jump.
-    let sumX = 0, sumY = 0
-    for (let i = 0; i < N; i++) {
-      const offset = _desired[i] - i * STEP
-      sumX += Math.cos(offset)
-      sumY += Math.sin(offset)
-    }
-    const clusterBase = Math.atan2(sumY, sumX)
+  useEffect(() => {
+    let last = performance.now()
+    let baseHex = '', focusHex = ''
+    let COLOR_BASE = hexToRgb255(debugStore.accentBaseColor)
+    let COLOR_FOCUS = hexToRgb255(debugStore.accentFocusColor)
+    return subscribeFrame(now => {
+      const delta = now - last
+      last = now
+      const dt      = Math.min(delta, 100) / 16.67
+      const angleF  = 1 - Math.pow(1 - ANGLE_SMOOTH,  dt)
+      const followF = 1 - Math.pow(1 - FOLLOW_RATE,   dt)
+      const accentF = 1 - Math.pow(1 - ACCENT_SMOOTH, dt)
 
-    // ── 3. Smooth each box's angle toward its equally-spaced target ───────────
-    for (let i = 0; i < N; i++) {
-      const box  = boxRefs[i].current
-      const line = lineRefs[i].current
-      const dot  = dotRefs[i].current
-      if (!box || !line || !dot) continue
+      // Fade nav in/out based on content mode — lerp opacity each frame, and
+      // land exactly on the target so a settled nav stops writing.
+      const targetOpacity = isContentModeRef.current ? 0 : 1
+      navOpacity.current += (targetOpacity - navOpacity.current) * accentF
+      if (Math.abs(targetOpacity - navOpacity.current) < 0.001) navOpacity.current = targetOpacity
+      const opStr = String(navOpacity.current)
+      if (svgRef.current) setStyle(svgRef.current, 'opacity', opStr)
+      if (navContainerRef.current) setStyle(navContainerRef.current, 'opacity', opStr)
+      // Fully faded out (content mode): keep the motion and colour state
+      // integrating, so the labels return from where they would have been,
+      // but skip every DOM write nobody can see.
+      const hidden = navOpacity.current === 0
 
-      const s    = states.current[i]
-      const mesh = posStore[i as 0 | 1 | 2]
+      const { cx, cy, pts, count } = silhouetteStore
+      const active = zoneStore.activeZone
 
-      const target = clusterBase + i * STEP
-      let dAngle = target - s.angle
-      while (dAngle >  Math.PI) dAngle -= TWO_PI
-      while (dAngle < -Math.PI) dAngle += TWO_PI
-      s.angle += dAngle * angleF
+      // Accent colors — sourced from the debug menu (same uniforms PostProcessing
+      // uses), parsed only when the palette or debug menu changes them.
+      if (debugStore.accentBaseColor !== baseHex) { baseHex = debugStore.accentBaseColor; COLOR_BASE = hexToRgb255(baseHex) }
+      if (debugStore.accentFocusColor !== focusHex) { focusHex = debugStore.accentFocusColor; COLOR_FOCUS = hexToRgb255(focusHex) }
 
-      // Support function: furthest model point in this orbital direction
-      const nx = Math.cos(s.angle)
-      const ny = Math.sin(s.angle)
-      let maxProj = 80 * zoomScale
-      for (let k = 0; k < count; k++) {
-        const d = (pts[k * 2] - cx) * nx + (pts[k * 2 + 1] - cy) * ny
-        if (d > maxProj) maxProj = d
+      // Shrinks as the camera pulls back for content mode, so label offsets shrink
+      // in step with the model's on-screen size — but only halfway (floored at 0.5)
+      // so labels stay legibly clear of the model instead of crowding it at full scale.
+      const zoomScale = 0.5 + 0.5 * (NAV_Z / Math.max(cameraStore.z, NAV_Z))
+      const padding   = PADDING  * zoomScale
+      const minLine   = MIN_LINE * zoomScale
+
+      // ── 1. Desired angle for each box (direction toward its mesh) ─────────────
+      // When the mesh is far enough from center, record the real direction.
+      // When close to center (len ≤ 8), reuse the last recorded direction so that
+      // clusterBase never depends on s.angle — breaking the feedback loop that
+      // caused the cluster base to drift while boxes were still settling.
+      for (let i = 0; i < N; i++) {
+        const mesh = posStore[i as 0 | 1 | 2]
+        const dx   = mesh.x - cx
+        const dy   = mesh.y - cy
+        const len  = Math.sqrt(dx * dx + dy * dy)
+        if (len > 8) _lastDesired[i] = Math.atan2(dy, dx)
+        _desired[i] = _lastDesired[i]
       }
 
-      let targetX = cx + nx * (maxProj + padding)
-      let targetY = cy + ny * (maxProj + padding)
-
-      // Enforce a minimum visible line length from the dot to the label centre.
-      // Without this, labels whose accent part sits at the silhouette boundary
-      // (hand, foot) end up only `padding` px from the dot with no visible line.
-      const dxDot   = targetX - mesh.x
-      const dyDot   = targetY - mesh.y
-      const lineDist = Math.sqrt(dxDot * dxDot + dyDot * dyDot)
-      if (lineDist < minLine) {
-        const extra = minLine - lineDist
-        targetX += nx * extra
-        targetY += ny * extra
+      // ── 2. Equal spacing — find the cluster base angle that minimises total
+      //       angular deviation with fixed per-box slot assignment (box i → slot i).
+      //       Uses the circular mean of (desired[i] − i×120°), then smoothed over
+      //       time so sudden shifts (e.g. model finishing its snap) don't cause a
+      //       visible secondary jump.
+      let sumX = 0, sumY = 0
+      for (let i = 0; i < N; i++) {
+        const offset = _desired[i] - i * STEP
+        sumX += Math.cos(offset)
+        sumY += Math.sin(offset)
       }
+      const clusterBase = Math.atan2(sumY, sumX)
 
-      s.x += (targetX - s.x) * followF
-      s.y += (targetY - s.y) * followF
+      // ── 3. Smooth each box's angle toward its equally-spaced target ───────────
+      for (let i = 0; i < N; i++) {
+        const box  = boxRefs[i].current
+        const line = lineRefs[i].current
+        const dot  = dotRefs[i].current
+        if (!box || !line || !dot) continue
 
-      const w = box.offsetWidth
-      const h = box.offsetHeight
-      box.style.transform = `translate(${s.x - w / 2}px, ${s.y - h / 2}px)`
+        const s    = states.current[i]
+        const mesh = posStore[i as 0 | 1 | 2]
 
-      const lx = mesh.x - s.x
-      const ly = mesh.y - s.y
-      const tx = w > 0 && lx !== 0 ? (w / 2) / Math.abs(lx) : Infinity
-      const ty = h > 0 && ly !== 0 ? (h / 2) / Math.abs(ly) : Infinity
-      const te = Math.min(tx, ty)
-      line.setAttribute('x1', String(s.x + lx * te))
-      line.setAttribute('y1', String(s.y + ly * te))
-      line.setAttribute('x2', String(mesh.x))
-      line.setAttribute('y2', String(mesh.y))
-      dot.setAttribute('cx', String(mesh.x))
-      dot.setAttribute('cy', String(mesh.y))
+        const target = clusterBase + i * STEP
+        let dAngle = target - s.angle
+        while (dAngle >  Math.PI) dAngle -= TWO_PI
+        while (dAngle < -Math.PI) dAngle += TWO_PI
+        s.angle += dAngle * angleF
 
-      // ── Accent color: lerp blend toward 1 if active, 0 if not (or no zone yet) ──
-      blends.current[i] += ((active !== null && i === active ? 1 : 0) - blends.current[i]) * accentF
-      const b = blends.current[i]
-      const r = Math.round(COLOR_BASE[0] + (COLOR_FOCUS[0] - COLOR_BASE[0]) * b)
-      const g = Math.round(COLOR_BASE[1] + (COLOR_FOCUS[1] - COLOR_BASE[1]) * b)
-      const bv= Math.round(COLOR_BASE[2] + (COLOR_FOCUS[2] - COLOR_BASE[2]) * b)
-      const css = `rgb(${r},${g},${bv})`
-      // Underline rect lives in the SVG (outside the difference-blend nav layer)
-      // so it renders with its literal accent color, not the inverted color.
-      const ul = ulRefs[i].current
-      if (ul) {
-        ul.setAttribute('x',      String(s.x - w / 2))
-        ul.setAttribute('y',      String(s.y + h / 2 - 2))
-        ul.setAttribute('width',  String(w))
-        ul.setAttribute('fill',   css)
+        // Support function: furthest model point in this orbital direction
+        const nx = Math.cos(s.angle)
+        const ny = Math.sin(s.angle)
+        let maxProj = 80 * zoomScale
+        for (let k = 0; k < count; k++) {
+          const d = (pts[k * 2] - cx) * nx + (pts[k * 2 + 1] - cy) * ny
+          if (d > maxProj) maxProj = d
+        }
+
+        let targetX = cx + nx * (maxProj + padding)
+        let targetY = cy + ny * (maxProj + padding)
+
+        // Enforce a minimum visible line length from the dot to the label centre.
+        // Without this, labels whose accent part sits at the silhouette boundary
+        // (hand, foot) end up only `padding` px from the dot with no visible line.
+        const dxDot   = targetX - mesh.x
+        const dyDot   = targetY - mesh.y
+        const lineDist = Math.sqrt(dxDot * dxDot + dyDot * dyDot)
+        if (lineDist < minLine) {
+          const extra = minLine - lineDist
+          targetX += nx * extra
+          targetY += ny * extra
+        }
+
+        s.x += (targetX - s.x) * followF
+        s.y += (targetY - s.y) * followF
+
+        // ── Accent color: lerp blend toward 1 if active, 0 if not (or no zone yet) ──
+        blends.current[i] += ((active !== null && i === active ? 1 : 0) - blends.current[i]) * accentF
+        if (hidden) continue
+
+        const { w, h } = labelSizes.current[i]
+        setStyle(box, 'transform', `translate(${px(s.x - w / 2)}px, ${px(s.y - h / 2)}px)`)
+
+        const lx = mesh.x - s.x
+        const ly = mesh.y - s.y
+        const tx = w > 0 && lx !== 0 ? (w / 2) / Math.abs(lx) : Infinity
+        const ty = h > 0 && ly !== 0 ? (h / 2) / Math.abs(ly) : Infinity
+        const te = Math.min(tx, ty)
+        setAttr(line, 'x1', px(s.x + lx * te))
+        setAttr(line, 'y1', px(s.y + ly * te))
+        setAttr(line, 'x2', px(mesh.x))
+        setAttr(line, 'y2', px(mesh.y))
+        setAttr(dot, 'cx', px(mesh.x))
+        setAttr(dot, 'cy', px(mesh.y))
+
+        const b = blends.current[i]
+        const r = Math.round(COLOR_BASE[0] + (COLOR_FOCUS[0] - COLOR_BASE[0]) * b)
+        const g = Math.round(COLOR_BASE[1] + (COLOR_FOCUS[1] - COLOR_BASE[1]) * b)
+        const bv= Math.round(COLOR_BASE[2] + (COLOR_FOCUS[2] - COLOR_BASE[2]) * b)
+        const css = `rgb(${r},${g},${bv})`
+        // Underline rect lives in the SVG (outside the difference-blend nav layer)
+        // so it renders with its literal accent color, not the inverted color.
+        const ul = ulRefs[i].current
+        if (ul) {
+          setAttr(ul, 'x',      px(s.x - w / 2))
+          setAttr(ul, 'y',      px(s.y + h / 2 - 2))
+          setAttr(ul, 'width',  px(w))
+          setAttr(ul, 'fill',   css)
+        }
+        setAttr(line, 'stroke', css)
+        setAttr(dot, 'fill', css)
       }
-      line.setAttribute('stroke', css)
-      dot.setAttribute('fill', css)
-    }
-
-  })
+    })
+  // Everything the loop reads is a ref or a module store.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <>

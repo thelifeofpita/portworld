@@ -4,7 +4,7 @@ import { useState, useRef, useEffect, useLayoutEffect, type CSSProperties } from
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion, useAnimationFrame } from 'framer-motion'
+import { AnimatePresence, motion } from 'framer-motion'
 import { posStore } from '@/lib/posStore'
 import { zoneStore } from '@/lib/zoneStore'
 import { zoneTransitionStore } from '@/lib/zoneTransitionStore'
@@ -13,6 +13,8 @@ import { debugStore, hexToRgb255 } from '@/lib/debugStore'
 import { startMobileWarmup } from '@/lib/mobileWarmup'
 import { mobileOverlayStore } from '@/lib/mobileLayout'
 import { lockScroll } from '@/lib/scrollLock'
+import { subscribeFrame } from '@/lib/frameScheduler'
+import { setAttr, setStyle, px } from '@/lib/domWrites'
 import { EASE_OUT } from '@/lib/motionEasing'
 import { aboutContent } from '@/content/aboutContent'
 import { projectsContent, type ProjectItem } from '@/content/projectsContent'
@@ -62,68 +64,87 @@ function MobileZoneNav({ activeZone }: MobileZoneNavProps) {
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
-  useAnimationFrame((_, delta) => {
-    if (!containerRef.current || !svgRef.current) return
-    const cRect = containerRef.current.getBoundingClientRect()
-    svgRef.current.style.visibility = cRect.bottom < 0 ? 'hidden' : 'visible'
+  const activeZoneRef = useRef(activeZone)
+  useEffect(() => { activeZoneRef.current = activeZone }, [activeZone])
 
-    const dt      = Math.min(delta, 100) / 16.67
-    const accentF = 1 - Math.pow(1 - ACCENT_SMOOTH, dt)
+  // All four rects are read in the shared scheduler's read phase, before any
+  // subscriber writes. Reading them interleaved with this loop's own SVG
+  // writes forced up to four layouts per frame, for the life of the page.
+  useEffect(() => {
+    let last = performance.now()
+    let baseHex = '', focusHex = ''
+    let COLOR_BASE = hexToRgb255(debugStore.accentBaseColor)
+    let COLOR_FOCUS = hexToRgb255(debugStore.accentFocusColor)
+    let cRect: DOMRect | null = null
+    const boxRects: (DOMRect | null)[] = [null, null, null]
+    const read = () => {
+      cRect = containerRef.current?.getBoundingClientRect() ?? null
+      // Scrolled past: the SVG is hidden, so the labels need no measuring.
+      if (!cRect || cRect.bottom < 0) return
+      for (let i = 0; i < 3; i++) boxRects[i] = boxRefs[i].current?.getBoundingClientRect() ?? null
+    }
+    return subscribeFrame(now => {
+      const delta = now - last
+      last = now
+      const svg = svgRef.current
+      if (!cRect || !svg) return
+      const offscreen = cRect.bottom < 0
+      setStyle(svg, 'visibility', offscreen ? 'hidden' : 'visible')
 
-    // Accent colors — sourced from the debug menu (same uniforms PostProcessing
-    // uses), read live each frame since the random palette overwrites these on load.
-    const COLOR_BASE  = hexToRgb255(debugStore.accentBaseColor)
-    const COLOR_FOCUS = hexToRgb255(debugStore.accentFocusColor)
+      const dt      = Math.min(delta, 100) / 16.67
+      const accentF = 1 - Math.pow(1 - ACCENT_SMOOTH, dt)
 
-    boxRefs.forEach((boxRef, i) => {
-      const box  = boxRef.current
-      const line = lineRefs[i].current
-      const dot  = dotRefs[i].current
-      const ul   = ulRefs[i].current
-      if (!box || !line || !dot) return
+      // Accent colors — sourced from the debug menu (same uniforms PostProcessing
+      // uses); the random palette overwrites these on load, so re-parse on change.
+      if (debugStore.accentBaseColor !== baseHex) { baseHex = debugStore.accentBaseColor; COLOR_BASE = hexToRgb255(baseHex) }
+      if (debugStore.accentFocusColor !== focusHex) { focusHex = debugStore.accentFocusColor; COLOR_FOCUS = hexToRgb255(focusHex) }
 
-      const boxRect = box.getBoundingClientRect()
+      for (let i = 0; i < 3; i++) {
+        const target = (activeZoneRef.current !== null && i === activeZoneRef.current) ? 1 : 0
+        blends.current[i] += (target - blends.current[i]) * accentF
+        if (offscreen) continue
 
-      const lx = boxRect.left + boxRect.width / 2 - cRect.left
-      const ly = boxRect.top - cRect.top
+        const line = lineRefs[i].current
+        const dot  = dotRefs[i].current
+        const ul   = ulRefs[i].current
+        const boxRect = boxRects[i]
+        if (!boxRect || !line || !dot) continue
 
-      const mx = posStore[i as 0 | 1 | 2].x - cRect.left
-      const my = posStore[i as 0 | 1 | 2].y - cRect.top
+        const lx = boxRect.left + boxRect.width / 2 - cRect.left
+        const ly = boxRect.top - cRect.top
 
-      line.setAttribute('x1', String(lx))
-      line.setAttribute('y1', String(ly))
-      line.setAttribute('x2', String(mx))
-      line.setAttribute('y2', String(my))
-      dot.setAttribute('cx', String(mx))
-      dot.setAttribute('cy', String(my))
+        const mx = posStore[i as 0 | 1 | 2].x - cRect.left
+        const my = posStore[i as 0 | 1 | 2].y - cRect.top
 
-      if (ul) {
-        ul.setAttribute('x',     String(boxRect.left  - cRect.left))
-        ul.setAttribute('y',     String(boxRect.bottom - cRect.top))
-        ul.setAttribute('width', String(boxRect.width))
+        setAttr(line, 'x1', px(lx))
+        setAttr(line, 'y1', px(ly))
+        setAttr(line, 'x2', px(mx))
+        setAttr(line, 'y2', px(my))
+        setAttr(dot, 'cx', px(mx))
+        setAttr(dot, 'cy', px(my))
+
+        if (ul) {
+          setAttr(ul, 'x',     px(boxRect.left  - cRect.left))
+          setAttr(ul, 'y',     px(boxRect.bottom - cRect.top))
+          setAttr(ul, 'width', px(boxRect.width))
+        }
+
+        const b   = blends.current[i]
+        const r   = Math.round(COLOR_BASE[0] + (COLOR_FOCUS[0] - COLOR_BASE[0]) * b)
+        const g   = Math.round(COLOR_BASE[1] + (COLOR_FOCUS[1] - COLOR_BASE[1]) * b)
+        const bv  = Math.round(COLOR_BASE[2] + (COLOR_FOCUS[2] - COLOR_BASE[2]) * b)
+        const css = `rgb(${r},${g},${bv})`
+
+        setAttr(line, 'stroke', css)
+        setAttr(dot, 'fill',   css)
+        if (ul) setAttr(ul, 'fill', css)
+        // Label color: plain CSS `color: var(--fg-color)` on .mobileZoneNavBox
+        // (same as desktop's ZoneNav .box) — no per-frame JS needed.
       }
-
-      const target = (activeZone !== null && i === activeZone) ? 1 : 0
-      blends.current[i] += (target - blends.current[i]) * accentF
-      const b   = blends.current[i]
-      const r   = Math.round(COLOR_BASE[0] + (COLOR_FOCUS[0] - COLOR_BASE[0]) * b)
-      const g   = Math.round(COLOR_BASE[1] + (COLOR_FOCUS[1] - COLOR_BASE[1]) * b)
-      const bv  = Math.round(COLOR_BASE[2] + (COLOR_FOCUS[2] - COLOR_BASE[2]) * b)
-      const css = `rgb(${r},${g},${bv})`
-
-      line.setAttribute('stroke', css)
-      dot.setAttribute('fill',   css)
-      if (ul) ul.setAttribute('fill', css)
-      // Label color: plain CSS `color: var(--fg-color)` on .mobileZoneNavBox
-      // (same as desktop's ZoneNav .box) — no per-frame JS needed, and no
-      // risk of the mismatch that was here before: fgStore mirrors a
-      // THREE.Color, which Three's color management stores LINEAR, but this
-      // built the rgb() string straight from fgStore.r/g/b as if they were
-      // already sRGB 0-255 — same hex, visibly darker/desaturated than the
-      // CSS var every other piece of fg-colored UI (including desktop's
-      // nav) actually uses.
-    })
-  })
+    }, read)
+  // Everything the loop reads is a ref or a module store.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   return (
     <div ref={containerRef} className={styles.mobileZoneNavContainer}>
@@ -480,7 +501,9 @@ function MobileProjects({ active }: { active: boolean }) {
 
 // ─── About ────────────────────────────────────────────────────────────────────
 
-function MobileAbout() {
+// The About photo's 250ms frame cycle, in its own component so each frame
+// re-renders two <img>s instead of the whole About section and CV.
+function MobilePhotoFrames() {
   const [photoIndex, setPhotoIndex] = useState(0)
   const [prevIndex, setPrevIndex]   = useState<number | null>(null)
 
@@ -503,18 +526,26 @@ function MobileAbout() {
   const prevPhoto = prevIndex !== null ? aboutContent.photos[prevIndex] : null
 
   return (
+    <>
+      {prevPhoto && (
+        <img src={prevPhoto} alt=""
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      )}
+      {photo && (
+        <img key={photoIndex} src={photo} alt="" className={styles.mobilePhotoImg}
+          style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
+      )}
+    </>
+  )
+}
+
+function MobileAbout() {
+  return (
     <div className={styles.mobileAbout}>
       <div className={styles.mobileAboutHeader}>
         <div className={styles.mobilePhotoContainer}>
           <div className={styles.mobilePhotoWrapper}>
-            {prevPhoto && (
-              <img src={prevPhoto} alt=""
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-            )}
-            {photo && (
-              <img key={photoIndex} src={photo} alt="" className={styles.mobilePhotoImg}
-                style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'cover', display: 'block' }} />
-            )}
+            <MobilePhotoFrames />
           </div>
         </div>
         <div
