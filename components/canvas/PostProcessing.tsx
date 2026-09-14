@@ -11,9 +11,67 @@ import { accentStore } from '@/lib/accentStore'
 import { cardGlowStore } from '@/lib/cardGlowStore'
 import { playgroundGlowStore } from '@/lib/playgroundGlowStore'
 import { bigProjectGlowStore } from '@/lib/bigProjectGlowStore'
-import { bigProjectFootprintStore } from '@/lib/bigProjectFootprintStore'
+import { bigProjectFootprintStore, type BigProjectFootprint } from '@/lib/bigProjectFootprintStore'
 import { zoneTransitionStore } from '@/lib/zoneTransitionStore'
 import { debugStore, hexToRgb01 } from '@/lib/debugStore'
+
+// ─── Performance audit (?perfAudit=1) ─────────────────────────────────────────
+// Read by scripts/measure-frames.mjs: per-frame pass counters, which shadow
+// casters invalidated the cached shadow map, and GPU time per composited frame
+// (EXT_disjoint_timer_query_webgl2, when the browser exposes it). Only created
+// when the query flag is present, so normal visits never pay for it.
+type PerfAudit = {
+  frames: number
+  layer1Frames: number
+  shadowRedraws: number
+  dirtyBy: Record<string, number>
+  tierChanges: number
+  gpuMs: number[]
+  reset: () => void
+}
+const perfAudit: PerfAudit | null = typeof window !== 'undefined' && window.location.search.includes('perfAudit')
+  ? {
+      frames: 0, layer1Frames: 0, shadowRedraws: 0, dirtyBy: {}, tierChanges: 0, gpuMs: [],
+      reset() { this.frames = 0; this.layer1Frames = 0; this.shadowRedraws = 0; this.dirtyBy = {}; this.tierChanges = 0; this.gpuMs = [] },
+    }
+  : null
+if (perfAudit) (window as unknown as { __perfAudit: PerfAudit }).__perfAudit = perfAudit
+
+// Per-frame colour uniforms come from a handful of hex strings that change only
+// on a palette/debug change, so parse each once instead of allocating a fresh
+// tuple (and a spread) for every uniform on every frame.
+const rgb01Cache = new Map<string, [number, number, number]>()
+function setRgb01(target: THREE.Vector3, hex: string) {
+  let rgb = rgb01Cache.get(hex)
+  if (!rgb) { rgb = hexToRgb01(hex); if (rgb01Cache.size > 256) rgb01Cache.clear(); rgb01Cache.set(hex, rgb) }
+  target.set(rgb[0], rgb[1], rgb[2])
+}
+const footprintScratch: BigProjectFootprint[] = []
+
+// ─── Project shadow cache ─────────────────────────────────────────────────────
+// Numeric fingerprint of everything that affects the cached project shadow map:
+// world transform and visibility, plus a light's intensity, colour, target and
+// shadow projection. Differences within SHADOW_EPSILON are float noise and keep
+// the cached map; anything larger is written back and redraws it.
+const SHADOW_SNAPSHOT_SIZE = 51
+const SHADOW_EPSILON = 1e-6
+const shadowScratch = new Float64Array(SHADOW_SNAPSHOT_SIZE)
+function updateShadowSnapshot(object: THREE.Object3D, snapshot: Float64Array): boolean {
+  const next = shadowScratch
+  next.fill(0)
+  next.set(object.matrixWorld.elements, 0)
+  next[16] = object.visible ? 1 : 0
+  if (object instanceof THREE.Light) { next[17] = object.intensity; next[18] = object.color.getHex() }
+  if (object instanceof THREE.DirectionalLight) {
+    next.set(object.target.matrixWorld.elements, 19)
+    next.set(object.shadow.camera.projectionMatrix.elements, 35)
+  }
+  let changed = false
+  for (let i = 0; i < SHADOW_SNAPSHOT_SIZE; i++) {
+    if (!(Math.abs(snapshot[i] - next[i]) <= SHADOW_EPSILON)) { snapshot[i] = next[i]; changed = true }
+  }
+  return changed
+}
 
 // Matches cardGlowStore's fixed 6-slot entries array (one per project card).
 const MAX_GLOW_CARDS = 6
@@ -667,7 +725,8 @@ void main() {
 
 export default function PostProcessing({ mode = 0, isMobile = false }: { mode?: 0|1|2; isMobile?: boolean }) {
   const quality = useMemo(() => new RenderQuality(isMobile), [isMobile])
-  const shadowState = useRef(new Map<THREE.Object3D, string>())
+  const shadowState = useRef(new Map<THREE.Object3D, Float64Array>())
+  const shadowCasters = useRef<{ version: number; objects: THREE.Object3D[] }>({ version: -1, objects: [] })
   const { gl, scene, camera, size } = useThree()
   const transition  = useRef(0)
   const transTarget = useRef(0)
@@ -841,14 +900,38 @@ export default function PostProcessing({ mode = 0, isMobile = false }: { mode?: 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target, material])
 
+  const gpuTimer = useMemo(() => {
+    if (!perfAudit) return null
+    const ctx = gl.getContext() as WebGL2RenderingContext
+    const ext = ctx.getExtension('EXT_disjoint_timer_query_webgl2') as { TIME_ELAPSED_EXT: number; GPU_DISJOINT_EXT: number } | null
+    return ext ? { ctx, ext, pending: [] as WebGLQuery[] } : null
+  }, [gl])
+
   useFrame((_, delta) => {
     if (document.hidden) return
+    if (perfAudit) {
+      perfAudit.frames++
+      if (gpuTimer) {
+        const { ctx, ext, pending } = gpuTimer
+        const disjoint = ctx.getParameter(ext.GPU_DISJOINT_EXT)
+        while (pending.length && ctx.getQueryParameter(pending[0], ctx.QUERY_RESULT_AVAILABLE)) {
+          const query = pending.shift()!
+          if (!disjoint) perfAudit.gpuMs.push(ctx.getQueryParameter(query, ctx.QUERY_RESULT) / 1e6)
+          ctx.deleteQuery(query)
+        }
+        if (perfAudit.gpuMs.length > 4000) perfAudit.gpuMs.splice(0, perfAudit.gpuMs.length - 4000)
+        const query = ctx.createQuery()
+        if (query) { ctx.beginQuery(ext.TIME_ELAPSED_EXT, query); pending.push(query) }
+      }
+    }
     if (quality.sample(delta)) {
+      if (perfAudit) perfAudit.tierChanges++
       target.setSize(Math.round(size.width * quality.scale), Math.round(size.height * quality.scale))
       maskTarget.setSize(Math.round(size.width * quality.scale), Math.round(size.height * quality.scale))
       shadowState.current.clear()
     }
-    gl.domElement.dataset.renderScale = String(quality.scale)
+    const renderScale = String(quality.scale)
+    if (gl.domElement.dataset.renderScale !== renderScale) gl.domElement.dataset.renderScale = renderScale
 
     const dt      = Math.min(delta, 0.1)
     const tTrans  = 1 - Math.pow(1 - 0.14, dt * 60)
@@ -867,7 +950,12 @@ export default function PostProcessing({ mode = 0, isMobile = false }: { mode?: 
     const originalLayers = camera.layers.mask
     camera.layers.set(0)
     gl.render(scene, camera)
-    if (startupWarmup.projects.size > 0 || Object.values(bigProjectFootprintStore.entries).some(Boolean)) {
+    let footprintCount = 0
+    for (const key in bigProjectFootprintStore.entries) {
+      const entry = bigProjectFootprintStore.entries[key]
+      if (entry && footprintCount < MAX_BIG_MODELS) footprintScratch[footprintCount++] = entry
+    }
+    if (startupWarmup.projects.size > 0 || footprintCount > 0) {
       // Layer 1 has only the project meshes and their key/fill/rim rig.
       // Preserve the background and depth from the navigation pass.
       const background = scene.background
@@ -883,25 +971,40 @@ export default function PostProcessing({ mode = 0, isMobile = false }: { mode?: 
       gl.shadowMap.type = THREE.PCFShadowMap
       // Reuse the map until a caster or light changes. Moving props still
       // invalidate every frame; static views no longer redraw their shadows.
-      scene.updateMatrixWorld(true)
+      // Only layer-1 objects take part in this pass (the project meshes and
+      // their key/fill/rim rig), so only they can invalidate it: the nav
+      // model's drag rotation must not redraw the project shadow map. The list
+      // is rebuilt only when the scene structure changes (sceneVersion), and
+      // world matrices are already current from the layer-0 render above.
+      if (shadowCasters.current.version !== accentStore.sceneVersion) {
+        const objects: THREE.Object3D[] = []
+        scene.traverse(object => {
+          if (!object.layers.isEnabled(1)) return
+          if ((object instanceof THREE.Mesh && object.castShadow) || object instanceof THREE.Light) objects.push(object)
+        })
+        shadowCasters.current = { version: accentStore.sceneVersion, objects }
+        shadowState.current.clear()
+      }
       let dirty = false
-      const live = new Set<THREE.Object3D>()
-      scene.traverse(object => {
-        if (!(object instanceof THREE.Mesh && object.castShadow) && !(object instanceof THREE.Light)) return
-        live.add(object)
-        const state = object.matrixWorld.elements.join(',') + object.visible +
-          (object instanceof THREE.Light ? `${object.intensity},${object.color.getHex()}` : '') +
-          (object instanceof THREE.DirectionalLight ? object.target.matrixWorld.elements.join(',') + object.shadow.camera.projectionMatrix.elements.join(',') : '')
-        if (shadowState.current.get(object) !== state) { dirty = true; shadowState.current.set(object, state) }
+      for (const object of shadowCasters.current.objects) {
+        let snapshot = shadowState.current.get(object)
+        if (!snapshot) {
+          snapshot = new Float64Array(SHADOW_SNAPSHOT_SIZE).fill(NaN)
+          shadowState.current.set(object, snapshot)
+        }
+        if (updateShadowSnapshot(object, snapshot)) {
+          dirty = true
+          if (perfAudit) { const key = object.name || object.type; perfAudit.dirtyBy[key] = (perfAudit.dirtyBy[key] ?? 0) + 1 }
+        }
         if (object instanceof THREE.DirectionalLight && object.castShadow && object.name === 'Project key' && object.shadow.mapSize.x !== quality.shadowSize) {
           object.shadow.mapSize.setScalar(quality.shadowSize)
           object.shadow.map?.dispose(); object.shadow.map = null
           dirty = true
         }
-      })
-      for (const object of shadowState.current.keys()) if (!live.has(object)) { shadowState.current.delete(object); dirty = true }
+      }
       gl.shadowMap.autoUpdate = false
       gl.shadowMap.needsUpdate = dirty
+      if (perfAudit) { perfAudit.layer1Frames++; if (dirty) perfAudit.shadowRedraws++ }
       gl.render(scene, camera)
       gl.shadowMap.enabled = shadowsEnabled
       gl.autoClear = autoClear
@@ -993,10 +1096,10 @@ export default function PostProcessing({ mode = 0, isMobile = false }: { mode?: 
     // written by Scene.tsx's BackgroundSync) is already guaranteed >=4.5:1
     // WCAG contrast against bg by the palette API's own filter — using it
     // directly sidesteps the luminance-complement assumption entirely.
-    if (debugStore.fgColor) inkVal.set(...hexToRgb01(debugStore.fgColor))
+    if (debugStore.fgColor) setRgb01(inkVal, debugStore.fgColor)
     else inkVal.set(fgStore.r, fgStore.g, fgStore.b)
-    ;(material.uniforms.uAccentBase.value as THREE.Vector3).set(...hexToRgb01(debugStore.accentBaseColor))
-    ;(material.uniforms.uAccentFocus.value as THREE.Vector3).set(...hexToRgb01(debugStore.accentFocusColor))
+    setRgb01(material.uniforms.uAccentBase.value as THREE.Vector3, debugStore.accentBaseColor)
+    setRgb01(material.uniforms.uAccentFocus.value as THREE.Vector3, debugStore.accentFocusColor)
 
     // Outer card glow — see cardGlowStore.ts. Whole layer's opacity follows
     // the same zoneTransitionStore blend the DOM panes themselves fade with
@@ -1018,8 +1121,8 @@ export default function PostProcessing({ mode = 0, isMobile = false }: { mode?: 
         p1Uniforms[i].set(c1.x, c1.y)
         p2Uniforms[i].set(c2.x, c2.y)
         p3Uniforms[i].set(c3.x, c3.y)
-        colorUniforms[i].set(...hexToRgb01(entry.color))
-        hoverColorUniforms[i].set(...hexToRgb01(entry.hoverColor))
+        setRgb01(colorUniforms[i], entry.color)
+        setRgb01(hoverColorUniforms[i], entry.hoverColor)
         hoverProgUniforms[i] = entry.hoverProgress
         activeUniforms[i] = 1
       } else {
@@ -1052,7 +1155,7 @@ export default function PostProcessing({ mode = 0, isMobile = false }: { mode?: 
         pgActiveUniforms[i] = 0
       }
     }
-    ;(material.uniforms.uPgGlowColor.value as THREE.Vector3).set(...hexToRgb01(debugStore.accentFocusColor))
+    setRgb01(material.uniforms.uPgGlowColor.value as THREE.Vector3, debugStore.accentFocusColor)
     const pgZoneActive = zoneTransitionStore.displayedZone === 0
       || zoneTransitionStore.displayedZone === 1
       || zoneTransitionStore.displayedZone === 2
@@ -1083,9 +1186,8 @@ export default function PostProcessing({ mode = 0, isMobile = false }: { mode?: 
     const bigModelCenterUniforms = material.uniforms.uBigModelCenter.value as THREE.Vector2[]
     const bigModelRadiusUniforms = material.uniforms.uBigModelRadius.value as number[]
     const bigModelActiveUniforms = material.uniforms.uBigModelActive.value as number[]
-    const footprintEntries = Object.values(bigProjectFootprintStore.entries).filter((e): e is NonNullable<typeof e> => !!e)
     for (let i = 0; i < MAX_BIG_MODELS; i++) {
-      const entry = footprintEntries[i]
+      const entry = i < footprintCount ? footprintScratch[i] : null
       if (entry) {
         bigModelCenterUniforms[i].set(entry.screenCx, entry.screenCy)
         bigModelRadiusUniforms[i] = entry.radius
@@ -1096,6 +1198,7 @@ export default function PostProcessing({ mode = 0, isMobile = false }: { mode?: 
     }
 
     gl.render(quadScene, quadCamera)
+    if (gpuTimer?.pending.length) gpuTimer.ctx.endQuery(gpuTimer.ext.TIME_ELAPSED_EXT)
   }, 1)
 
   return null

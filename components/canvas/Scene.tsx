@@ -508,7 +508,9 @@ export default function Scene({ onZoneChange, onZoneReset, onModelClick, onLoad,
   return (
     <Canvas
       camera={{ position: [0, 0, 5], fov: initialFov }}
-      gl={{ antialias: true, alpha: false }}
+      // No MSAA on the default framebuffer: the only thing ever drawn to it is
+      // PostProcessing's full-screen quad, so multisampling it buys nothing.
+      gl={{ antialias: false, alpha: false }}
       dpr={1}
       frameloop={tabVisible ? 'always' : 'never'}
       style={canvasStyle ?? defaultStyle}

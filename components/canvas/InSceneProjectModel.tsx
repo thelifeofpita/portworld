@@ -322,6 +322,7 @@ export default function InSceneProjectModel({ index, src, baseRotationYDeg = 0, 
       // but nothing shows — so these warm frames are safe to run after Behold
       // has already lifted, while models 2..N warm in the background. The fit
       // math above is measured independently at scale 1 and is unaffected.
+      outer.visible = true
       outer.scale.setScalar(1e-4 / fitRadius.current!)
       outer.updateMatrixWorld(true)
       if (++warmFrames.current === 3) {
@@ -333,6 +334,10 @@ export default function InSceneProjectModel({ index, src, baseRotationYDeg = 0, 
     const slot = bigProjectSlotStore[index]
     const inProjectsZone = zoneTransitionStore.displayedZone === 0
     if (!slot || !inProjectsZone || zoneTransitionStore.projectsOpacity <= .0001) {
+      // Scale 0 alone still sends every vertex through the layer-1 and mask
+      // passes each frame (a zero-radius bound passes frustum culling); a
+      // hidden object is skipped entirely. Programs and textures stay warm.
+      outer.visible = false
       outer.scale.setScalar(0)
       hovered.current = false
       hoverProgress.current = 0
@@ -365,6 +370,7 @@ export default function InSceneProjectModel({ index, src, baseRotationYDeg = 0, 
       targetSize.height * 1.30 / fitSize.current.y,
     ) * sizeBoost
 
+    outer.visible = true
     outer.position.copy(pos)
     // A zero local tilt is not front-facing away from the viewport centre:
     // the perspective camera sees the model from the side. Aim the neutral
