@@ -3,6 +3,7 @@
 import type { CSSProperties } from 'react'
 
 import DitherReveal from './DitherReveal'
+import ProjectNav, { type ProjectNavProps } from './ProjectNav'
 import styles from './PickASide.module.css'
 import LazyLoopVideo from './LazyLoopVideo'
 
@@ -14,11 +15,7 @@ import LazyLoopVideo from './LazyLoopVideo'
 const YOUTUBE_ID = 'C9xKzRLujqs'
 const PAGE_COLOR = '#FFC72C'
 
-interface PickASideDetailProps {
-  onPrev:  () => void
-  onNext:  () => void
-  onClose: () => void
-}
+type PickASideDetailProps = ProjectNavProps
 
 // Pre-framed device mockups from the case — shown whole in a 2×2 grid, not
 // cropped. The sources carry alpha; mp4 does not, so they are encoded
@@ -38,24 +35,6 @@ const MOCKS = [
   { src: '/projects/proj6/reminder.mp4', w: 560, h: 626, alt: 'A McDonald’s fries carton turning to show an “I PICKED MY SIDE” sticker' },
   { src: '/projects/proj6/app.mp4',      w: 460, h: 990, alt: 'The McDonald’s app: a Pick a Side section running the election live, state by state' },
 ]
-
-// Both the top and bottom instance carry their own [X] — this page has no
-// separate fixed close button (ContentPanel.tsx skips its usual fixed
-// .detailClose for a custom layout), so it scrolls away with the rest of
-// this menu instead of hovering the whole time. Identical to BackInSmoothly.
-function ProjectNav({ onPrev, onNext, onClose }: PickASideDetailProps) {
-  return (
-    <nav className={styles.projectNav} aria-label="Project navigation">
-      <button className={styles.navBtn} onClick={onPrev} aria-label="Previous project">
-        <span className={styles.navArrow}>←</span> Previous
-      </button>
-      <button className={styles.navClose} onClick={onClose} aria-label="Close">[X]</button>
-      <button className={styles.navBtn} onClick={onNext} aria-label="Next project">
-        Next <span className={styles.navArrow}>→</span>
-      </button>
-    </nav>
-  )
-}
 
 export default function PickASideDetail({ onPrev, onNext, onClose }: PickASideDetailProps) {
   return (

@@ -7,7 +7,7 @@ import CampaignLoop from './CampaignLoop'
 const COLOR = '#58CC02'
 
 export default function DuolingoCase(props: CampaignNavigation) {
-  return <CampaignCase {...props} projectIndex={1} title="Your Coolest Lesson Yet." color={COLOR} accent="#174900"
+  return <CampaignCase {...props} projectIndex={1} title="Your Coolest Lesson Yet." color={COLOR}
     introduction="Summer takes us away from our phones, and away from Duo’s reminders. So Duolingo puts the next lesson somewhere we’ll find it: on an ice cream stick.">
     <Section color={COLOR} className={styles.pair}>
       <CampaignLoop id="iceCream" />

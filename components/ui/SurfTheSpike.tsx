@@ -1,6 +1,7 @@
 'use client'
 
 import DitherReveal from './DitherReveal'
+import ProjectNav, { type ProjectNavProps } from './ProjectNav'
 import styles from './SurfTheSpike.module.css'
 import LazyLoopVideo from './LazyLoopVideo'
 
@@ -11,11 +12,7 @@ import LazyLoopVideo from './LazyLoopVideo'
 const YOUTUBE_ID = 'nf5xLDfsp5k'
 const PAGE_COLOR = '#4285F4'
 
-interface SurfTheSpikeDetailProps {
-  onPrev:  () => void
-  onNext:  () => void
-  onClose: () => void
-}
+type SurfTheSpikeDetailProps = ProjectNavProps
 
 // Each environmental photo is a tall crop in a 4-up row; object-position keeps
 // the campaign artwork (the window poster / the machine branding) in frame.
@@ -25,24 +22,6 @@ const PHOTOS = [
   { src: '/projects/proj1/vend1.webp', w: 900, h: 1011, pos: '45% 50%', alt: 'Campus vending machine wrapped with the campaign' },
   { src: '/projects/proj1/vend2.webp', w: 900, h: 1012, pos: '46% 50%', alt: 'A row of campus vending machines carrying the same wrap' },
 ]
-
-// Both the top and bottom instance carry their own [X] — this page has no
-// separate fixed close button (ContentPanel.tsx skips its usual fixed
-// .detailClose for a custom layout), so it scrolls away with the rest of
-// this menu instead of hovering the whole time. Identical to BackInSmoothly.
-function ProjectNav({ onPrev, onNext, onClose }: SurfTheSpikeDetailProps) {
-  return (
-    <nav className={styles.projectNav} aria-label="Project navigation">
-      <button className={styles.navBtn} onClick={onPrev} aria-label="Previous project">
-        <span className={styles.navArrow}>←</span> Previous
-      </button>
-      <button className={styles.navClose} onClick={onClose} aria-label="Close">[X]</button>
-      <button className={styles.navBtn} onClick={onNext} aria-label="Next project">
-        Next <span className={styles.navArrow}>→</span>
-      </button>
-    </nav>
-  )
-}
 
 export default function SurfTheSpikeDetail({ onPrev, onNext, onClose }: SurfTheSpikeDetailProps) {
   return (

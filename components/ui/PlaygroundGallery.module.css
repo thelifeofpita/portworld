@@ -12,8 +12,13 @@
 /* Project name — 80% of the About bio text size (0.875rem). */
 .caption { position: absolute; top: 100%; left: 0; right: 0; padding-top: 5px; font-size: calc(0.7rem * var(--font-primary-scale, 1)); line-height: 1.3; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .dialog { position: fixed; inset: 0; z-index: 100; background: var(--bg-color); color: var(--fg-color); pointer-events: auto; }
-.collectionNav { position: absolute; top: calc(1.5rem + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: calc(min(94vw, 1500px) - 3rem); container-type: inline-size; }
-.collectionNav button { color: var(--fg-color); }
+/* ProjectNav's row. `nav.` outranks ProjectNav's own `.nav { position: relative }`
+   regardless of stylesheet order. Every collection shares the page background,
+   so there's no destination colour for hover to preview — it dims instead. */
+nav.collectionNav {
+  position: absolute; top: calc(1.5rem + env(safe-area-inset-top)); left: 50%; transform: translateX(-50%); width: calc(min(94vw, 1500px) - 3rem); container-type: inline-size;
+  --detail-ink: var(--fg-color); --nav-prev-color: var(--fg-color); --nav-next-color: var(--fg-color); --nav-close-color: var(--fg-color);
+}
 .collectionNav button:hover { opacity: .6; }
 .toolbar { position: absolute; bottom: calc(4px + env(safe-area-inset-bottom)); left: 0; right: 0; height: 40px; display: flex; justify-content: center; align-items: center; gap: 20px; padding: 0 16px; }
 .toolbar button { color: inherit; background: none; border: 0; padding: 10px; cursor: pointer; }

@@ -1,15 +1,15 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useRef, useState, type CSSProperties } from 'react'
 import { observeLayout } from '@/lib/layoutMeasurement'
 import { subscribeFrame } from '@/lib/frameScheduler'
 import Image from 'next/image'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, animate, motion, useMotionValue, useSpring, useTransform, useIsPresent, type MotionValue } from 'framer-motion'
+import { AnimatePresence, animate, motion, useMotionValue, useSpring, useTransform, useIsPresent, useReducedMotion, type MotionValue } from 'framer-motion'
 import type { Zone } from '@/types'
 import dynamic from 'next/dynamic'
 const PlaygroundGallery = dynamic(() => import('./PlaygroundGallery'))
-import { projectsContent, type ProjectItem } from '@/content/projectsContent'
+import { projectsContent, projectPageColor, type ProjectItem } from '@/content/projectsContent'
 import { aboutContent } from '@/content/aboutContent'
 import { cameraStore } from '@/lib/cameraStore'
 import { posStore } from '@/lib/posStore'
@@ -23,6 +23,7 @@ import { bigProjectSlotStore } from '@/lib/bigProjectSlotStore'
 import { bigProjectExpandStore } from '@/lib/bigProjectExpandStore'
 import { cursorStore, ensureCursorTracking } from '@/lib/cursorStore'
 import { CUSTOM_LAYOUTS, prefetchCustomLayouts } from './customLayouts'
+import DitherSweep, { type PageStep } from './DitherSweep'
 import ProjectThumbModel from '@/components/canvas/ProjectThumbModel'
 import { EASE_OUT } from '@/lib/motionEasing'
 import styles from './ContentPanel.module.css'
@@ -32,6 +33,10 @@ import styles from './ContentPanel.module.css'
 // Snappy panel open/close — same feel as the accent color snap
 const PANEL_TRANSITION = { duration: 0.22, ease: [0.2, 0, 0, 1] as const }
 const PANEL_EXIT       = { duration: 0.25, ease: EASE_OUT }
+// Previous/Next: how far the incoming case page drifts in from its side, and
+// for how long — matched to DitherSweep's DURATION_MS so both settle together.
+const PAGE_SLIDE_VW = 8
+const PAGE_SLIDE    = { duration: 0.45, ease: EASE_OUT }
 
 // ─── Hover tilt ───────────────────────────────────────────────────────────────
 // Shared by project/playground/about cards: the whole card leans toward the
@@ -520,14 +525,16 @@ function MediaContent({ slot, item }: { slot: MediaSlot; item: ProjectItem }) {
 }
 
 function ProjectDetail({
-  item, index, cardRect, onClose, onNavigate,
+  item, index, cardRect, navigation, onClose, onNavigate,
 }: {
   item:       ProjectItem
   index:      number
   cardRect:   CardRect
+  navigation: PageStep | null  // the Previous/Next step that led here; null when opened from a card
   onClose:    () => void
-  onNavigate: (newIndex: number) => void
+  onNavigate: (newIndex: number, dir: 1 | -1) => void
 }) {
+  const reduceMotion = useReducedMotion()
   const CustomLayout  = item.customLayout ? CUSTOM_LAYOUTS[item.customLayout] : null
   const isCustomLayout = CustomLayout != null
 
@@ -676,6 +683,8 @@ function ProjectDetail({
   const nextIndex   = (index + 1) % projectsContent.length
   const prevProject = projectsContent[prevIndex]
   const nextProject = projectsContent[nextIndex]
+  const sweepColor  = navigation ? projectPageColor(projectsContent[navigation.from]) : undefined
+  const goHome      = () => { onClose(); setTimeout(() => zoneStore.resetToLanding?.(), 300) }
 
   return createPortal(
     <>
@@ -699,7 +708,16 @@ function ProjectDetail({
           opacity: [1, 1, 0],
           transition: { ...PANEL_EXIT, opacity: { duration: PANEL_EXIT.duration, times: [0, 0.8, 1] } },
         }}
-        style={isCustomLayout ? { backgroundColor: item.detailBackground ?? item.accentColor } : undefined}
+        // The custom properties are read by the wordmark and ProjectNav: the
+        // page's ink, and for each button's hover, the colour it leads to —
+        // the neighbouring project's page colour, or home's background for [X].
+        style={isCustomLayout ? {
+          backgroundColor:     projectPageColor(item),
+          '--detail-ink':      item.detailInk,
+          '--nav-prev-color':  projectPageColor(prevProject),
+          '--nav-next-color':  projectPageColor(nextProject),
+          '--nav-close-color': 'var(--bg-color)',
+        } as CSSProperties : undefined}
         role="dialog"
         aria-modal="true"
       >
@@ -731,38 +749,46 @@ function ProjectDetail({
           exit={{ opacity: 0, transition: { duration: 0.04 } }}
           style={{ position: 'absolute', top: 0, left: 0, width: final.width, height: final.height, display: 'flex', flexDirection: 'column', overflow: 'hidden', zIndex: 2 }}
         >
-          {/* backInSmoothly has its own [X] inside the top/bottom in-page nav
-              rows (BackInSmoothly.tsx's ProjectNav) instead of this fixed
-              corner control, so it scrolls away with that menu rather than
-              hovering over the page the whole time. */}
+          {/* Custom layouts carry their own [X] (ProjectNav) and wordmark
+              inside the page's scroll flow, so both scroll away with it rather
+              than hovering over the page the whole time. */}
           {!isCustomLayout && (
-            <button className={styles.detailClose} onClick={onClose} aria-label="Close">×</button>
+            <>
+              <button className={styles.detailClose} onClick={onClose} aria-label="Close">×</button>
+              <button className={styles.detailHomeLink} onClick={goHome} aria-label="Return to home">
+                THELIFEOF<span className={styles.detailHomePita}>PITA</span>
+              </button>
+            </>
           )}
 
-          <button
-            className={`${styles.detailHomeLink} ${isCustomLayout ? styles.detailHomeLinkCustom : ''}`}
-            onClick={() => { onClose(); setTimeout(() => zoneStore.resetToLanding?.(), 300) }}
-            aria-label="Return to home"
-          >
-            THELIFEOF<span className={styles.detailHomePita}>PITA</span>
-          </button>
-
           {CustomLayout ? (
+            // Keyed by project, so Previous/Next mounts a fresh scroll container
+            // that starts at the top instead of keeping the last page's
+            // scrollTop. It drifts in from the side it was navigated from while
+            // DitherSweep (below) dissolves the outgoing colour.
+            //
             // scrollbarGutter reserves equal space on both edges regardless of
-            // whether the scrollbar is actually showing, so this scrolling
-            // container's own centered content (the custom page's nav/hero/etc.)
-            // stays centered on the true viewport width — otherwise a
-            // right-only scrollbar shifts its visual center a few px left of
-            // the fixed THELIFEOFPITA logo above (which isn't inside this
-            // scroll container), reading as "off-center."
-            <div style={{ position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', paddingTop: '2.4rem', scrollbarGutter: 'stable both-edges' }}>
-              <CustomLayout onPrev={() => onNavigate(prevIndex)} onNext={() => onNavigate(nextIndex)} onClose={onClose} />
-            </div>
+            // whether the scrollbar is actually showing, so this container's
+            // centered content (wordmark, nav, hero) stays centered on the true
+            // viewport width — a right-only scrollbar would shift it a few px
+            // left, reading as "off-center."
+            <motion.div
+              key={index}
+              initial={navigation && !reduceMotion ? { x: `${navigation.dir * PAGE_SLIDE_VW}vw` } : false}
+              animate={{ x: '0vw' }}
+              transition={PAGE_SLIDE}
+              style={{ position: 'absolute', inset: 0, overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', scrollbarGutter: 'stable both-edges' }}
+            >
+              <button className={`${styles.detailHomeLink} ${styles.detailHomeLinkInline}`} onClick={goHome} aria-label="Return to home">
+                THELIFEOF<span className={styles.detailHomePita}>PITA</span>
+              </button>
+              <CustomLayout onPrev={() => onNavigate(prevIndex, -1)} onNext={() => onNavigate(nextIndex, 1)} onClose={onClose} />
+            </motion.div>
           ) : (
             <>
               {/* Header — prev/next project flanking centered title */}
               <div className={styles.detailHeader}>
-                <button className={`${styles.detailNavItem} ${styles.detailNavLeft}`} onClick={() => onNavigate(prevIndex)}>
+                <button className={`${styles.detailNavItem} ${styles.detailNavLeft}`} onClick={() => onNavigate(prevIndex, -1)}>
                   <span className={styles.detailNavArrow}>←</span>
                   <span className={styles.detailNavTitle}>{prevProject.title}</span>
                 </button>
@@ -781,7 +807,7 @@ function ProjectDetail({
                   </motion.div>
                 </AnimatePresence>
 
-                <button className={`${styles.detailNavItem} ${styles.detailNavRight}`} onClick={() => onNavigate(nextIndex)}>
+                <button className={`${styles.detailNavItem} ${styles.detailNavRight}`} onClick={() => onNavigate(nextIndex, 1)}>
                   <span className={styles.detailNavArrow}>→</span>
                   <span className={styles.detailNavTitle}>{nextProject.title}</span>
                 </button>
@@ -829,6 +855,12 @@ function ProjectDetail({
           )}
 
         </motion.div>
+
+        {/* Keyed per step so each Previous/Next plays its own sweep. Custom
+            layouts only: the generic layout has no flat page colour to dissolve. */}
+        {navigation && sweepColor && isCustomLayout && (
+          <DitherSweep key={navigation.seq} color={sweepColor} dir={navigation.dir} />
+        )}
       </motion.div>
     </>,
     document.body
@@ -868,13 +900,22 @@ function ProjectsPane() {
     return () => stop()
   }, [])
 
+  // The last Previous/Next step — cleared on a fresh open, so a card click never
+  // replays a sweep left over from a previous visit.
+  const [navigation, setNavigation] = useState<PageStep | null>(null)
+
   const handleExpand = useCallback((index: number, rect: CardRect) => {
+    setNavigation(null)
     setExpandedRect(rect)
     setExpandedIndex(index)
   }, [])
 
   const handleClose    = useCallback(() => { setSceneCovered(false); setExpandedIndex(null) }, [])
-  const handleNavigate = useCallback((newIndex: number) => setExpandedIndex(newIndex), [])
+  const handleNavigate = useCallback((newIndex: number, dir: 1 | -1) => {
+    if (expandedIndex === null) return
+    setNavigation(last => ({ from: expandedIndex, dir, seq: (last?.seq ?? 0) + 1 }))
+    setExpandedIndex(newIndex)
+  }, [expandedIndex])
 
   // Bridge for the "big" in-scene project model's click-to-expand — it lives
   // inside Scene.tsx's <Canvas>, a separate React reconciler root that can't
@@ -912,6 +953,7 @@ function ProjectsPane() {
             item={projectsContent[expandedIndex]}
             index={expandedIndex}
             cardRect={expandedRect}
+            navigation={navigation}
             onClose={handleClose}
             onNavigate={handleNavigate}
           />

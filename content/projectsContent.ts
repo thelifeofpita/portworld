@@ -74,6 +74,10 @@ export interface ProjectItem {
   // components/ui/CampaignCase.module.css's header before changing one.
   accentColor?:     string
   detailBackground?: string // page background when deliberately different from accentColor
+  // The case page's text colour. ContentPanel/MobilePage publish it as
+  // --detail-ink, which the THELIFEOFPITA wordmark and the Previous/[X]/Next row
+  // read — so it must match the page's own title/subtitle colour.
+  detailInk?:       string
   customLayout?:    'backInSmoothly' | 'surfTheSpike' | 'pickASide' | 'hatTwix' | 'duolingo' | 'verified'
 }
 
@@ -96,6 +100,7 @@ export const projectsContent: ProjectItem[] = [
     icon:        '/icons/oneShowShortlist.png',
     iconLabel:   'One Show Young Ones Merit Winner',
     accentColor: '#4285F4', // matches SurfTheSpike.module.css's page background exactly
+    detailInk:   '#ffffff',
     customLayout: 'surfTheSpike',
   },
   {
@@ -115,6 +120,7 @@ export const projectsContent: ProjectItem[] = [
     icon:        '/icons/MAS.png',
     iconLabel:   'Miami Ad School Scholarship Winner',
     accentColor: '#58CC02',
+    detailInk:   '#0d0d0d',
     customLayout: 'duolingo',
   },
   {
@@ -137,6 +143,7 @@ export const projectsContent: ProjectItem[] = [
     // The campaign is giffgaff x Big Issue, and Big Issue red sat 2 degrees
     // from Twix red. It is a light rose, so this page takes DARK ink.
     accentColor: '#DA688D',
+    detailInk:   '#0d0d0d',
     customLayout: 'verified',
   },
   {
@@ -154,8 +161,8 @@ export const projectsContent: ProjectItem[] = [
     youtubeId:   'VykD83mmSTo',
     images:      ['/projects/proj4/image1.webp', '/projects/proj4/image2.webp'],
     accentColor: '#ED1C24', // Twix red — now the page too; the gold it replaced sat
-                            // 1 degree from McDonald's yellow. Gold survives as the
-                            // page's hover accent (see HatTwix.tsx).
+                            // 1 degree from McDonald's yellow.
+    detailInk:   '#ffffff',
     customLayout: 'hatTwix',
   },
   {
@@ -177,6 +184,7 @@ export const projectsContent: ProjectItem[] = [
     // animation downloaded on warm-up for something nothing displays.
     images:      ['/projects/proj6/order-poster.jpg', '/projects/proj6/checkout-poster.jpg'],
     accentColor: '#FFC72C', // matches PickASide.module.css's page background exactly
+    detailInk:   '#0d0d0d',
     customLayout: 'pickASide',
   },
   {
@@ -198,6 +206,14 @@ export const projectsContent: ProjectItem[] = [
                                 // McDonald's yellow, which cannot move (its mockup mp4s
                                 // are baked over #FFC72C). Sits beside the magenta the
                                 // page already uses as its accent.
+    detailInk:       '#ffffff',
     customLayout:    'backInSmoothly',
   },
 ]
+
+// The one colour each project is identified by: the flat background its case
+// page is painted in. It fills the expanding card, drives the Previous/Next
+// hover preview, and is the colour DitherSweep dissolves away on navigation.
+export function projectPageColor(item: ProjectItem): string | undefined {
+  return item.detailBackground ?? item.accentColor
+}

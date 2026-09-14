@@ -2,40 +2,19 @@
 
 import media from '@/content/back-in-smoothly-media.json'
 import DitherReveal from './DitherReveal'
+import ProjectNav, { type ProjectNavProps } from './ProjectNav'
 import styles from './BackInSmoothly.module.css'
 import LazyLoopVideo from './LazyLoopVideo'
 
 const YOUTUBE_ID = 'ZOVg5GCUxqs'
 // Violet, not the old #FFE500: that yellow sat 10 degrees from McDonald's yellow,
 // which cannot move (its mockup mp4s are baked over #FFC72C). The page's own
-// magenta stays as the CTA field, and the outgoing yellow survives as the accent.
+// magenta stays as the CTA field, and the outgoing yellow survives in its lettering.
 const PAGE_COLOR = '#6A2FD9'
 
 const PLAY_URL = 'https://thelifeofpita.github.io/backingame/'
 
-interface BackInSmoothlyDetailProps {
-  onPrev:  () => void
-  onNext:  () => void
-  onClose: () => void
-}
-
-// Both the top and bottom instance carry their own [X] — this page has no
-// separate fixed close button, so it scrolls away with the rest of this menu
-// instead of hovering over the page the whole time (see ContentPanel.tsx,
-// which skips its usual fixed .detailClose for this custom layout).
-function ProjectNav({ onPrev, onNext, onClose }: BackInSmoothlyDetailProps) {
-  return (
-    <nav className={styles.projectNav} aria-label="Project navigation">
-      <button className={styles.navBtn} onClick={onPrev} aria-label="Previous project">
-        <span className={styles.navArrow}>←</span> Previous
-      </button>
-      <button className={styles.navClose} onClick={onClose} aria-label="Close">[X]</button>
-      <button className={styles.navBtn} onClick={onNext} aria-label="Next project">
-        Next <span className={styles.navArrow}>→</span>
-      </button>
-    </nav>
-  )
-}
+type BackInSmoothlyDetailProps = ProjectNavProps
 
 export default function BackInSmoothlyDetail({ onPrev, onNext, onClose }: BackInSmoothlyDetailProps) {
   return (

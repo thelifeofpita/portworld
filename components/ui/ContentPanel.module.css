@@ -494,7 +494,8 @@
   top: 1.5rem;
   left: 50%;
   transform: translateX(-50%);
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-primary);
+  font-weight: var(--font-primary-weight);
   font-size: calc(0.68rem * var(--font-primary-scale, 1));
   letter-spacing: calc(0.1em + var(--tracking));
   color: var(--fg-color);
@@ -515,17 +516,30 @@
   color: var(--hover-color);
 }
 
-/* backInSmoothly forces its own brand yellow/black independent of the site
-   theme (see BackInSmoothly.module.css), so the logo must match that fixed
-   body-text color instead of the site's --fg-color / --hover-color. */
-.detailHomeLinkCustom,
-.detailHomeLinkCustom .detailHomePita {
-  color: #0d0d0d;
+/* Custom case pages: the wordmark sits in the page's own scroll flow, above the
+   top Previous/[X]/Next row, so it scrolls away with it instead of pinning.
+   The whole word takes the page's ink (--detail-ink, set per project on the
+   panel from projectsContent's detailInk) — each page forces its own brand
+   colours independent of the site theme, so --fg-color/--hover-color would be
+   the wrong pair. Hover goes to home's background, same as [X]: both lead home.
+   The 1.5rem top margin plus the page's own 1.5rem top padding lands the nav
+   where it sat when this logo was pinned above a padded scroll container. */
+.detailHomeLinkInline {
+  position: relative;
+  top: auto;
+  left: auto;
+  transform: none;
+  display: block;
+  margin: 1.5rem auto 0;
+  color: var(--detail-ink, var(--fg-color));
 }
 
-.detailHomeLinkCustom:hover,
-.detailHomeLinkCustom:hover .detailHomePita {
-  color: var(--bg-color);
+.detailHomeLinkInline .detailHomePita {
+  color: inherit;
+}
+
+.detailHomeLinkInline:hover {
+  color: var(--nav-close-color, var(--bg-color));
 }
 
 .detailClose {

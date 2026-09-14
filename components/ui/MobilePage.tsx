@@ -4,7 +4,7 @@ import { memo, useState, useRef, useEffect, useLayoutEffect, type CSSProperties 
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { createPortal } from 'react-dom'
-import { AnimatePresence, motion } from 'framer-motion'
+import { AnimatePresence, motion, useReducedMotion } from 'framer-motion'
 import { posStore } from '@/lib/posStore'
 import { zoneStore } from '@/lib/zoneStore'
 import { zoneTransitionStore } from '@/lib/zoneTransitionStore'
@@ -17,9 +17,10 @@ import { subscribeFrame } from '@/lib/frameScheduler'
 import { setAttr, setStyle, px } from '@/lib/domWrites'
 import { EASE_OUT } from '@/lib/motionEasing'
 import { aboutContent } from '@/content/aboutContent'
-import { projectsContent, type ProjectItem } from '@/content/projectsContent'
+import { projectsContent, projectPageColor, type ProjectItem } from '@/content/projectsContent'
 const PlaygroundGallery = dynamic(() => import('./PlaygroundGallery'))
 import { CUSTOM_LAYOUTS, prefetchCustomLayouts } from './customLayouts'
+import DitherSweep, { type PageStep } from './DitherSweep'
 import type { Zone } from '@/types'
 import styles from './MobilePage.module.css'
 
@@ -300,11 +301,14 @@ function MobileProjectSlot({
 }
 
 function MobileProjectDetail({
-  item, index, onClose, onPrev, onNext,
-}: { item: ProjectItem; index: number; onClose: () => void; onPrev: () => void; onNext: () => void }) {
+  item, index, navigation, onClose, onPrev, onNext,
+}: { item: ProjectItem; index: number; navigation: PageStep | null; onClose: () => void; onPrev: () => void; onNext: () => void }) {
   const CustomLayout  = item.customLayout ? CUSTOM_LAYOUTS[item.customLayout] : null
   const closeRef   = useRef<HTMLButtonElement>(null)
   const overlayRef = useRef<HTMLDivElement>(null)
+  const reduceMotion = useReducedMotion()
+  const n          = projectsContent.length
+  const sweepColor = navigation ? projectPageColor(projectsContent[navigation.from]) : undefined
 
   // Freeze the grid behind this overlay (see lib/scrollLock.ts for why
   // `body { overflow: hidden }` is not enough), and hide the 3D model while
@@ -333,7 +337,14 @@ function MobileProjectDetail({
     <motion.div
       ref={overlayRef}
       className={styles.mobileProjectDetailOverlay}
-      style={CustomLayout ? { backgroundColor: item.detailBackground ?? item.accentColor } : undefined}
+      // Same colour contract as ContentPanel's detail panel — see ProjectNav.tsx.
+      style={CustomLayout ? {
+        backgroundColor:     projectPageColor(item),
+        '--detail-ink':      item.detailInk,
+        '--nav-prev-color':  projectPageColor(projectsContent[(index - 1 + n) % n]),
+        '--nav-next-color':  projectPageColor(projectsContent[(index + 1) % n]),
+        '--nav-close-color': 'var(--bg-color)',
+      } as CSSProperties : undefined}
       // Opacity only — deliberately no `y` here. A transform on the element
       // that owns the scroll breaks iOS momentum scrolling for as long as it
       // is applied, which left the first flick after opening dead. The
@@ -342,9 +353,15 @@ function MobileProjectDetail({
       transition={{ duration: 0.3, ease: EASE_OUT }}
       role="dialog" aria-modal="true" aria-label={item.title}
     >
+      {/* Keyed by project: Previous/Next remounts the page, drifting in from
+          the side it was navigated from (under DitherSweep) rather than the
+          open animation's rise. The transform stays on this wrapper, never on
+          the scrolling overlay — see above. */}
       <motion.div
-        initial={{ y: 24 }} animate={{ y: 0 }} exit={{ y: 24 }}
-        transition={{ duration: 0.3, ease: EASE_OUT }}
+        key={index}
+        initial={navigation ? { x: reduceMotion ? '0vw' : `${navigation.dir * 8}vw`, y: 0 } : { x: '0vw', y: 24 }}
+        animate={{ x: '0vw', y: 0 }} exit={{ y: 24 }}
+        transition={{ duration: navigation ? 0.45 : 0.3, ease: EASE_OUT }}
       >
       {CustomLayout ? (
         // Every CustomLayout renders its own prev/next/close nav internally
@@ -385,6 +402,9 @@ function MobileProjectDetail({
         </>
       )}
       </motion.div>
+      {navigation && sweepColor && CustomLayout && (
+        <DitherSweep key={navigation.seq} color={sweepColor} dir={navigation.dir} />
+      )}
     </motion.div>,
     document.body
   )
@@ -394,6 +414,8 @@ function MobileProjects({ active }: { active: boolean }) {
   const itemRefs = useRef<(HTMLDivElement | null)[]>([])
   const imgRefs  = useRef<(HTMLImageElement | null)[]>([])
   const [openIndex, setOpenIndex] = useState<number | null>(null)
+  // The last Previous/Next step; cleared whenever a project is opened from the grid.
+  const [navigation, setNavigation] = useState<PageStep | null>(null)
 
   // Only tracks scroll while Projects is the actual active zone — this
   // component stays mounted (hidden) in the other zones (Scene.tsx keeps
@@ -465,13 +487,18 @@ function MobileProjects({ active }: { active: boolean }) {
   }, [active])
 
   const n = projectsContent.length
+  const step = (dir: 1 | -1) => {
+    if (openIndex === null) return
+    setNavigation(last => ({ from: openIndex, dir, seq: (last?.seq ?? 0) + 1 }))
+    setOpenIndex((openIndex + dir + n) % n)
+  }
   const leftIndices  = projectsContent.map((_, i) => i).filter(i => i % 2 === 0)
   const rightIndices = projectsContent.map((_, i) => i).filter(i => i % 2 === 1)
 
   const renderSlot = (i: number) => (
     <MobileProjectSlot
       key={i} index={i} item={projectsContent[i]}
-      onOpen={() => setOpenIndex(i)}
+      onOpen={() => { setNavigation(null); setOpenIndex(i) }}
       onRef={el => { itemRefs.current[i] = el }}
       onImgRef={el => { imgRefs.current[i] = el }}
     />
@@ -489,9 +516,10 @@ function MobileProjects({ active }: { active: boolean }) {
             key="detail"
             item={projectsContent[openIndex]}
             index={openIndex}
+            navigation={navigation}
             onClose={() => setOpenIndex(null)}
-            onPrev={() => setOpenIndex((openIndex - 1 + n) % n)}
-            onNext={() => setOpenIndex((openIndex + 1) % n)}
+            onPrev={() => step(-1)}
+            onNext={() => step(1)}
           />
         )}
       </AnimatePresence>

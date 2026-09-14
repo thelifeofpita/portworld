@@ -4,21 +4,10 @@ import type { CSSProperties, ReactNode } from 'react'
 import media from '@/content/campaign-page-media.json'
 import { projectsContent } from '@/content/projectsContent'
 import DitherReveal from './DitherReveal'
+import ProjectNav, { type ProjectNavProps } from './ProjectNav'
 import styles from './CampaignCase.module.css'
 
-export interface CampaignNavigation {
-  onPrev: () => void
-  onNext: () => void
-  onClose: () => void
-}
-
-function Navigation({ onPrev, onNext, onClose }: CampaignNavigation) {
-  return <nav className={styles.navigation} aria-label="Project navigation">
-    <button className={styles.navBtn} onClick={onPrev} aria-label="Previous project"><span className={styles.navArrow}>←</span> Previous</button>
-    <button className={styles.close} onClick={onClose} aria-label="Close">[X]</button>
-    <button className={styles.navBtn} onClick={onNext} aria-label="Next project">Next <span className={styles.navArrow}>→</span></button>
-  </nav>
-}
+export type CampaignNavigation = ProjectNavProps
 
 export function CampaignImage({ id, sizes = '(min-width: 1600px) 1404px, 90vw', className }: {
   id: keyof typeof media
@@ -41,20 +30,19 @@ export function CampaignSection({ color, className, children }: {
   return <DitherReveal overlayColor={color} className={className}>{children}</DitherReveal>
 }
 
-export default function CampaignCase({ title, introduction, projectIndex, color, ink = '#0d0d0d', accent, children, ...navigation }: CampaignNavigation & {
+export default function CampaignCase({ title, introduction, projectIndex, color, ink = '#0d0d0d', children, ...navigation }: CampaignNavigation & {
   title: string
   introduction: string
   projectIndex: number
   color: string
   ink?: string
-  accent: string
   children: ReactNode
 }) {
   const project = projectsContent[projectIndex]
-  const theme = { '--case-color': color, '--case-ink': ink, '--case-accent': accent } as CSSProperties
+  const theme = { '--case-color': color, '--case-ink': ink } as CSSProperties
   return <div className={styles.page} style={theme} data-campaign={project.customLayout}>
     <div className={styles.inner}>
-      <Navigation {...navigation} />
+      <ProjectNav {...navigation} />
       <header className={styles.hero}>
         <h1 className={styles.title}>{title}</h1>
         <p className={styles.subtitle}>{introduction}</p>
@@ -65,7 +53,7 @@ export default function CampaignCase({ title, introduction, projectIndex, color,
           allowFullScreen />
       </CampaignSection>
       {children}
-      <Navigation {...navigation} />
+      <ProjectNav {...navigation} />
     </div>
   </div>
 }

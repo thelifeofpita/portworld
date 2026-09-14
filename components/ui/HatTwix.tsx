@@ -5,12 +5,11 @@ import styles from './CampaignCase.module.css'
 import { projectsContent } from '@/content/projectsContent'
 
 // Twix red, straight off the project (detailBackground is gone — the gold it held
-// collided with McDonald's yellow). Red needs white ink, matching VerifiedCase,
-// and the gold returns as the hover accent so it still reads as Twix.
+// collided with McDonald's yellow). Red needs white ink.
 const COLOR = projectsContent[3].accentColor!
 
 export default function HatTwix(props: CampaignNavigation) {
-  return <CampaignCase {...props} projectIndex={3} title="Hat Twix." color={COLOR} ink="#ffffff" accent="#F4C145"
+  return <CampaignCase {...props} projectIndex={3} title="Hat Twix." color={COLOR} ink="#ffffff"
     introduction="One goal is good. Two is better. Twix gives football’s two-goal performance a name worth celebrating, starting with the commentators.">
     <Section color={COLOR}>
       <Artwork id="twixLogo" className={styles.logo} sizes="(min-width: 700px) 40vw, 90vw" />

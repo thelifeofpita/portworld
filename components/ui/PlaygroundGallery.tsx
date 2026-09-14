@@ -8,8 +8,8 @@ import { createPortal } from 'react-dom'
 import { playgroundContent, type PlaygroundItem, type PlaygroundMediaItem } from '@/content/playgroundContent'
 import { pieces } from '@/lib/playgroundMedia'
 import styles from './PlaygroundGallery.module.css'
-import projectNavStyles from './SurfTheSpike.module.css'
-import { motion, useMotionValue, useSpring } from 'framer-motion'
+import ProjectNav from './ProjectNav'
+import { animate as animateValue, motion, useMotionValue, useReducedMotion, useSpring, useTransform } from 'framer-motion'
 import { EASE_OUT } from '@/lib/motionEasing'
 import { fitOrbit } from '@/lib/fitOrbit'
 import { cachedCollectionLayout, requestCollectionLayout } from '@/lib/collectionLayout'
@@ -180,8 +180,10 @@ function collectionRatios(item: PlaygroundItem, ratios: Record<string, number>):
   return pieces(item).map(p => p.crop?.aspectRatio ?? (p.width && p.height ? p.width / p.height : ratios[p.src]) ?? 1)
 }
 
-function Collection({ item, ratios, onRatio, close, navigate, visible = true }: {
-  visible?: boolean; item: PlaygroundItem; ratios: Record<string, number>; onRatio: (src: string, ratio: number) => void; close: () => void; navigate: (dir: number) => void
+function Collection({ item, ratios, onRatio, close, navigate, visible = true, dir = 0 }: {
+  // dir: the step that last changed which collection is open — ±1 for
+  // Previous/Next, 0 for opening or closing from the grid.
+  visible?: boolean; dir?: -1 | 0 | 1; item: PlaygroundItem; ratios: Record<string, number>; onRatio: (src: string, ratio: number) => void; close: () => void; navigate: (dir: number) => void
 }) {
   const { ref, width, height } = useSize()
   const all = pieces(item)
@@ -229,28 +231,39 @@ function Collection({ item, ratios, onRatio, close, navigate, visible = true }: 
     document.addEventListener('keydown', key)
     return () => { document.removeEventListener('keydown', key); unlock(); previous?.focus() }
   }, [close, navigate, visible])
-  // Animated the same way MobileProjectDetail (MobilePage.tsx) opens/closes
-  // — opacity+y, 0.3s, shared EASE_OUT — instead of the instant display:none
-  // snap this used to be. Driven by `visible` (not mount/unmount) because a
-  // game item (gameUrl set) stays permanently mounted once opened so its
-  // iframe never reloads — `inert` keeps it out of the tab order/a11y tree
+  // Animated open/close (0.3s, shared EASE_OUT) instead of the instant
+  // display:none snap this used to be. Driven by `visible` (not mount/unmount)
+  // because a game item (gameUrl set) stays permanently mounted once opened so
+  // its iframe never reloads — `inert` keeps it out of the tab order/a11y tree
   // and pointerEvents:none keeps it non-interactive while hidden, without
   // needing to actually remove it from the DOM.
+  //
+  // Movement follows where the buttons sit: Previous/Next slides the incoming
+  // collection in from that side and the outgoing one out the other, where it
+  // used to rise and sink vertically. Opening or closing from the grid (dir 0)
+  // only fades. The incoming one is re-seated on its entry side before each
+  // entrance because a kept-mounted collection still sits wherever its last exit
+  // left it. The entrance also waits for the first layout, which arrives from a
+  // worker while the rest of the page keeps animating.
+  const shown = visible && layoutReady
+  const reduceMotion = useReducedMotion()
+  const slide = useMotionValue(0) // vw
+  const opacity = useMotionValue(0)
+  const x = useTransform(slide, v => `${v}vw`)
+  useEffect(() => {
+    const transition = reduceMotion ? { duration: 0 } : { duration: 0.3, ease: EASE_OUT }
+    if (shown) slide.set(dir * 8)
+    const controls = [
+      animateValue(slide, shown ? 0 : -dir * 8, transition),
+      animateValue(opacity, shown ? 1 : 0, transition),
+    ]
+    return () => controls.forEach(c => c.stop())
+  }, [shown, dir, reduceMotion, slide, opacity])
   return createPortal(<motion.div className={styles.dialog}
-    initial={{ opacity: 0, y: 24 }}
-    // The entrance waits for the first layout. It used to be computed
-    // synchronously before this could paint at all; now it arrives from a
-    // worker while the rest of the page keeps animating.
-    animate={{ opacity: visible && layoutReady ? 1 : 0, y: visible && layoutReady ? 0 : 24 }}
-    transition={{ duration: 0.3, ease: EASE_OUT }}
-    style={{ pointerEvents: visible ? 'auto' : 'none' }}
+    style={{ x, opacity, pointerEvents: visible ? 'auto' : 'none' }}
     inert={!visible}
     role="dialog" aria-modal="true" aria-label={item.title}>
-    <nav className={`${projectNavStyles.projectNav} ${styles.collectionNav}`} aria-label="Collection navigation">
-      <button className={projectNavStyles.navBtn} onClick={() => navigate(-1)} aria-label="Previous collection">← Previous</button>
-      <button className={projectNavStyles.navClose} ref={closeRef} onClick={close} aria-label="Close collection">[X]</button>
-      <button className={projectNavStyles.navBtn} onClick={() => navigate(1)} aria-label="Next collection">Next →</button>
-    </nav>
+    <ProjectNav noun="collection" className={styles.collectionNav} closeRef={closeRef} onPrev={() => navigate(-1)} onNext={() => navigate(1)} onClose={close} />
     {item.gameUrl && <div className={styles.toolbar}>
       {item.gameUrl && <button onClick={() => setShowScreenshots(value => !value)}>{playing ? 'Screenshots' : 'Play game'}</button>}
       {playing && <button onClick={() => { void gameRef.current?.requestFullscreen().catch(() => {}) }} aria-label="Fullscreen game">⛶</button>}
@@ -323,6 +336,9 @@ function PlaygroundGallery({ mobile = false, active = true, warming = false, onP
 
   const [ratios, setRatios] = useState<Record<string, number>>({})
   const [open, setOpen] = useState<number | null>(null)
+  // Which way the last change of `open` went, for Collection's slide: ±1 via
+  // Previous/Next, 0 when opened or closed from the grid.
+  const [navDir, setNavDir] = useState<-1 | 0 | 1>(0)
   // Every item ever opened stays mounted afterward (like the old game-only
   // `games` Set this replaces) — Collection now animates its own open/close
   // via the `visible` prop (see Collection above), and that only produces a
@@ -336,7 +352,7 @@ function PlaygroundGallery({ mobile = false, active = true, warming = false, onP
     if (!(ratio > 0)) return
     setRatios(previous => previous[src] === ratio ? previous : { ...previous, [src]: ratio })
   }, [])
-  const close = useCallback(() => setOpen(null), [])
+  const close = useCallback(() => { setNavDir(0); setOpen(null) }, [])
   // Desktop: lay out every collection in idle time once the gallery is being
   // viewed, so opening one finds its layout already cached. The stage size
   // mirrors .collection in PlaygroundGallery.module.css (inside the fixed
@@ -378,11 +394,14 @@ function PlaygroundGallery({ mobile = false, active = true, warming = false, onP
   })
   // Steps through `order` (the on-screen sequence), not raw content index —
   // otherwise Next/Previous would jump around relative to what's displayed.
-  const navigate = useCallback((dir: number) => setOpen(i => {
-    if (i === null) return null
-    const pos = order.indexOf(i)
-    return order[(pos + dir + order.length) % order.length]
-  }), [order])
+  const navigate = useCallback((dir: number) => {
+    setNavDir(dir > 0 ? 1 : -1)
+    setOpen(i => {
+      if (i === null) return null
+      const pos = order.indexOf(i)
+      return order[(pos + dir + order.length) % order.length]
+    })
+  }, [order])
   // Mobile's two columns share one width, so each card's rendered height is
   // proportional to 1/aspectRatio (+ a rough constant for the caption line
   // and .card's own margin-bottom, which don't scale with aspect ratio).
@@ -442,7 +461,7 @@ function PlaygroundGallery({ mobile = false, active = true, warming = false, onP
         ref={el => { if (mobile) itemRefs.current[i] = el }}
         className={styles.card}
         style={mobile ? { aspectRatio: String(item.aspectRatio ?? 1) } : rects[i]}
-        onClick={() => setOpen(i)}
+        onClick={() => { setNavDir(0); setOpen(i) }}
         aria-label={`Open ${item.title}`}
       >
         <Cover mobile={mobile} disabled={!active || open !== null} isFocused={isFocused}><Preview item={item} covered={covered} warming={warming} mobile={mobile} onPrepared={() => prepareCard(i)} onRatio={onRatio} /></Cover>
@@ -462,7 +481,7 @@ function PlaygroundGallery({ mobile = false, active = true, warming = false, onP
         {order.map(i => renderCard(playgroundContent[i], i))}
       </div>
     )}
-    {[...opened].map(index => <Collection key={index} visible={active && open === index} item={playgroundContent[index]} ratios={ratios} onRatio={onRatio} close={close} navigate={navigate} />)}
+    {[...opened].map(index => <Collection key={index} dir={navDir} visible={active && open === index} item={playgroundContent[index]} ratios={ratios} onRatio={onRatio} close={close} navigate={navigate} />)}
   </>
 }
 

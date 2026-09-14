@@ -23,15 +23,17 @@ import styles from './DitherReveal.module.css'
 // dithering regardless of the 3D model's currently-active shader — the
 // ascii/halftone variants read as visually broken on real page content and
 // were dropped entirely rather than picked per shader mode.
-const GRID = 4
-const BAYER = [
+// GRID/BAYER/CELL_PX are shared with DitherSweep, so the page-to-page colour
+// change dissolves in exactly the same pattern and grain as the content does.
+export const GRID = 4
+export const BAYER = [
    0,  8,  2, 10,
   12,  4, 14,  6,
    3, 11,  1,  9,
   15,  7, 13,  5,
 ]
 const STEP_MS = 22 // delay between adjacent bayer steps
-const CELL_PX = 2 // fine dithering-grain cell size
+export const CELL_PX = 2 // fine dithering-grain cell size
 const CELL_DURATION_MS = 160
 const EASE = 'cubic-bezier(0.23, 1, 0.32, 1)' // quintic ease-out
 

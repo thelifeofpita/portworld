@@ -1,0 +1,71 @@
+/* ─── Previous / [X] / Next row — see ProjectNav.tsx for the colour contract ─ */
+
+.nav {
+  position: relative;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.btn {
+  display: flex;
+  align-items: center;
+  gap: 0.4em;
+  font-family: var(--font-primary);
+  font-weight: var(--font-primary-weight);
+  letter-spacing: calc(-0.01em + var(--tracking));
+  font-size: max(0.7rem, 1.5cqw);
+  text-transform: uppercase;
+  color: var(--detail-ink, var(--fg-color));
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.btn:focus-visible { outline: 2px solid currentColor; outline-offset: 4px; }
+
+/* Each direction previews where it goes: the destination project's own page
+   colour, i.e. what the screen is about to turn into. */
+.btn[data-dir="prev"]:hover { color: var(--nav-prev-color, var(--hover-color)); }
+.btn[data-dir="next"]:hover { color: var(--nav-next-color, var(--hover-color)); }
+.close:hover { color: var(--nav-close-color, var(--bg-color)); }
+
+.close {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.arrow {
+  font-size: 1.1em;
+  line-height: 1;
+}
+
+/* Breathing room before the closing nav. The nav is the last child of each
+   page's .inner, which lays its children out on the shared --case-gap rhythm —
+   at that gap the row sat as tight to the final image as two images sit to each
+   other, reading as one more item in the sequence instead of the end of the
+   page. Kept as a multiple of the token so it tracks the rhythm rather than
+   becoming a second, independent spacing value. */
+.nav:last-child { margin-top: calc(var(--case-gap) * 3); }
+
+/* Comfortable tap targets on phones — the zero-padding desktop row reads fine
+   with a cursor but is too small to reliably tap. Geometry only. */
+@media (max-width: 699px) {
+  .btn {
+    padding: 0.75rem 0.5rem;
+    min-height: 44px;
+    display: inline-flex;
+    font-size: max(0.85rem, 3.6cqw);
+  }
+  .close {
+    padding: 0.75rem;
+    min-width: 44px;
+    justify-content: center;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) { .btn { transition: none; } }

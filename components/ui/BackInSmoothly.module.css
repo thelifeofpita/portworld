@@ -6,8 +6,8 @@
    mockup mp4s are encoded composited over #FFC72C). Violet sits beside the
    magenta this page already used as its accent, so it still reads as
    PlatanoMelón. It is dark, so the ink flips to white — and the outgoing
-   yellow is kept as the hover accent and the CTA lettering, which is the one
-   place the campaign's yellow survives. Must stay in sync with PAGE_COLOR in
+   yellow is kept as the CTA lettering, the one place the campaign's yellow
+   survives. Must stay in sync with PAGE_COLOR in
    BackInSmoothly.tsx and accentColor in content/projectsContent.ts. */
 
 .page {
@@ -26,70 +26,7 @@
   gap: var(--case-gap);
 }
 
-/* ─── Prev / next project nav (top + bottom) ──────────────────────────── */
-
-.projectNav {
-  position: relative;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.navClose {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  font-family: var(--font-primary);
-  font-weight: var(--font-primary-weight);
-  letter-spacing: calc(-0.01em + var(--tracking));
-  font-size: max(0.7rem, 1.5cqw);
-  text-transform: uppercase;
-  color: #ffffff;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  transition: color 0.15s ease;
-}
-
-.navClose:hover {
-  color: #FFE500;
-}
-
-.navBtn {
-  display: flex;
-  align-items: center;
-  gap: 0.4em;
-  font-family: var(--font-primary);
-  font-weight: var(--font-primary-weight);
-  letter-spacing: calc(-0.01em + var(--tracking));
-  font-size: max(0.7rem, 1.5cqw);
-  text-transform: uppercase;
-  color: #ffffff;
-  background: none;
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  transition: color 0.15s ease;
-}
-
-.navBtn:hover {
-  color: #FFE500;
-}
-
-.navArrow {
-  font-size: 1.1em;
-  line-height: 1;
-}
-
-/* Breathing room before the closing nav. The nav is the last child of .inner,
-   which lays its children out on the shared --case-gap rhythm — at that gap the
-   Previous/[X]/Next row sat as tight to the final image as two images sit to
-   each other, reading as one more item in the sequence instead of the end of
-   the page. Kept as a multiple of the token so it tracks the rhythm rather than
-   becoming a second, independent spacing value. */
-.projectNav:last-child { margin-top: calc(var(--case-gap) * 3); }
+/* The Previous/[X]/Next row is ProjectNav (ProjectNav.module.css). */
 
 /* ─── Hero ─────────────────────────────────────────────────────────────── */
 
@@ -268,9 +205,7 @@
   .ctaCenter { order: 0; flex: 1.1 1 0; }
 }
 
-/* ─── Comfortable tap targets on phones ──────────────────────────────────
-   Desktop's zero-padding/max(0.7rem,1.5cqw) nav reads fine with a cursor,
-   but is too small to reliably tap. Geometry only; color/hover untouched. */
+/* ─── Phones ─────────────────────────────────────────────────────────────── */
 @media (max-width: 699px) {
   /* .stickerRow is flex 3-up at every width, which on a 350px column renders
      each sticker 99px wide — "Back in smoothly." set at 7.7% of the artwork's
@@ -288,21 +223,4 @@
   }
   .sticker { width: 100%; }
   .sticker:last-child { grid-column: 1 / -1; justify-self: center; width: calc(50% - 0.25rem); }
-
-  .navClose {
-    padding: 0.75rem;
-    min-width: 44px;
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    font-size: max(0.85rem, 3.6cqw);
-  }
-  .navBtn {
-    padding: 0.75rem 0.5rem;
-    min-height: 44px;
-    display: inline-flex;
-    align-items: center;
-    font-size: max(0.85rem, 3.6cqw);
-  }
 }
