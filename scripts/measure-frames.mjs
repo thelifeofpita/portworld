@@ -27,6 +27,10 @@ const headless = process.env.FRAMES_HEADLESS === '1'
 // every other vsync (~30fps) under measurement while a plain trace of the
 // same interaction presented at 60. Off by default; gpu95 is then empty.
 const GPU_TIMER = process.env.FRAMES_GPU === '1'
+// Headed windows otherwise open on whichever display macOS picks, and runs on a
+// 60Hz and a 165Hz panel are not comparable. FRAMES_WINDOW=x,y pins the window
+// (default 0,0: the primary display).
+const WINDOW_POSITION = process.env.FRAMES_WINDOW || '0,0'
 
 const PROFILES = {
   desktop: { viewport: { width: 1440, height: 900 }, mobile: false, cpu: 1 },
@@ -39,7 +43,7 @@ const PROFILES = {
 
 const browser = await (engine === 'webkit'
   ? webkit.launch({ headless })
-  : chromium.launch({ channel: 'chrome', headless, args: ['--ignore-gpu-blocklist', ...(GPU_TIMER ? ['--enable-privileged-webgl-extensions'] : [])] }))
+  : chromium.launch({ channel: 'chrome', headless, args: ['--ignore-gpu-blocklist', `--window-position=${WINDOW_POSITION}`, ...(GPU_TIMER ? ['--enable-privileged-webgl-extensions'] : [])] }))
 
 const wait = ms => new Promise(r => setTimeout(r, ms))
 const BUDGET_MS = 1000 / 60
