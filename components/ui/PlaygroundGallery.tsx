@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { registerMedia, initializeMediaClock } from '@/lib/mediaPlayback'
 import { subscribeFrame } from '@/lib/frameScheduler'
 import { observeLayout } from '@/lib/layoutMeasurement'
@@ -265,7 +265,7 @@ function Collection({ item, ratios, onRatio, close, navigate, visible = true }: 
   </motion.div>, document.body)
 }
 
-export default function PlaygroundGallery({ mobile = false, active = true, warming = false, onPrepared }: { mobile?: boolean; active?: boolean; warming?: boolean; onPrepared?: () => void }) {
+function PlaygroundGallery({ mobile = false, active = true, warming = false, onPrepared }: { mobile?: boolean; active?: boolean; warming?: boolean; onPrepared?: () => void }) {
   const { ref, width, height } = useSize()
   const preparedCards = useRef(new Set<number>())
   const [preparedCount, setPreparedCount] = useState(0)
@@ -460,3 +460,8 @@ export default function PlaygroundGallery({ mobile = false, active = true, warmi
     {[...opened].map(index => <Collection key={index} visible={active && open === index} item={playgroundContent[index]} ratios={ratios} onRatio={onRatio} close={close} navigate={navigate} />)}
   </>
 }
+
+// Memoized: MobilePage and ContentPanel re-render on every zone change, and a
+// re-render of all 17 cards (cover, preview and media subtrees) cost ~600ms on
+// a phone even when none of these props had changed (a 2.5s freeze at 4x CPU).
+export default memo(PlaygroundGallery)

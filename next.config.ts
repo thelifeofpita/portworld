@@ -7,6 +7,9 @@ const nextConfig: NextConfig = {
   // the palette is now chosen by a pre-paint script in app/layout.tsx rather
   // than per-request on a server (see PRE_PAINT_PALETTE there).
   output: "export",
+  // Source maps only for local CPU profiling (scripts/profile-frames.mjs maps
+  // minified positions back to files); never shipped by the deploy build.
+  productionBrowserSourceMaps: process.env.PERF_SOURCEMAPS === "1",
   distDir: process.env.PERF_DIST_DIR || ".next",
   turbopack: {
     root: __dirname,

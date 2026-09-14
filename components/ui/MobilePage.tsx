@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect, useLayoutEffect, type CSSProperties } from 'react'
+import { memo, useState, useRef, useEffect, useLayoutEffect, type CSSProperties } from 'react'
 import dynamic from 'next/dynamic'
 import Image from 'next/image'
 import { createPortal } from 'react-dom'
@@ -499,6 +499,10 @@ function MobileProjects({ active }: { active: boolean }) {
   )
 }
 
+// Memoized for the same reason as PlaygroundGallery: MobilePage re-renders on
+// every zone change, and this grid depends only on `active`.
+const MemoMobileProjects = memo(MobileProjects)
+
 // ─── About ────────────────────────────────────────────────────────────────────
 
 // The About photo's 250ms frame cycle, in its own component so each frame
@@ -704,7 +708,7 @@ export default function MobilePage({ activeZone, onZoneChange, onZoneReset, onLo
             transition={{ duration: 0.2 }}
             className={`${styles.mobileSection} ${styles.mobileProjectsSection}`}
           >
-            <MobileProjects active={activeZone === 0} />
+            <MemoMobileProjects active={activeZone === 0} />
           </motion.section>
         )}
         {activeZone === 1 && (
