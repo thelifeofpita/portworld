@@ -24,3 +24,16 @@ export const CUSTOM_LAYOUTS = {
 } as const
 
 export type CustomLayoutKey = keyof typeof CUSTOM_LAYOUTS
+
+// Downloads and evaluates every case-study chunk ahead of time, so the first
+// open of a project does not fetch, parse and mount its page in one go. The
+// imports mirror the dynamic() calls above (kept inline there for Next's
+// transform); the bundler resolves both to the same chunks.
+export function prefetchCustomLayouts() {
+  void import('./BackInSmoothly')
+  void import('./SurfTheSpike')
+  void import('./PickASide')
+  void import('./HatTwix')
+  void import('./DuolingoCase')
+  void import('./VerifiedCase')
+}

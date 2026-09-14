@@ -83,6 +83,9 @@ export default function Model({ onZoneChange, onZoneReset, onAsciiToggle, onMode
 
   // Quaternion rotation — no gimbal lock, POV-aware
   const currentQuat = useRef(new THREE.Quaternion())
+  // Inputs the silhouette was last projected with: projection matrix (0-15),
+  // view matrix (16-31), viewport (32-33) and model rotation (34-37).
+  const silhouetteKey = useRef(new Float64Array(38).fill(NaN))
   const targetQuat = useRef(new THREE.Quaternion())
 
   // Maps zone → accent mesh (for material swap) and rest-frame world position
@@ -329,6 +332,10 @@ export default function Model({ onZoneChange, onZoneReset, onAsciiToggle, onMode
     const snapFactor = 1 - Math.pow(1 - SLERP_SNAP * 2, dt * 60)
     const dragFactor = 1 - Math.pow(1 - SLERP_DRAG * 2, dt * 60)
     currentQuat.current.slerp(targetQuat.current, isSnapping.current ? snapFactor : dragFactor)
+    // Land exactly on the target once within float noise: a slerp only ever
+    // approaches it, which kept the pose (and everything projected from it)
+    // changing by invisible amounts on every frame forever.
+    if (currentQuat.current.angleTo(targetQuat.current) < 1e-6) currentQuat.current.copy(targetQuat.current)
     groupRef.current.quaternion.copy(currentQuat.current)
 
     // Update rotation HUD
@@ -400,7 +407,21 @@ export default function Model({ onZoneChange, onZoneReset, onAsciiToggle, onMode
     // _v3a and _v3b are both free here (zone loop has finished using them).
     // Use vertex normals to cull back-facing samples: a vertex whose normal points
     // away from the camera contributes nothing to the visible outline.
-    {
+    // Only re-project when something it depends on moved: the model pose, the
+    // camera (zoom/FOV/offset) or the viewport. A settled view reuses the
+    // previous silhouette instead of re-projecting every sampled vertex.
+    const cam = camera as THREE.PerspectiveCamera
+    const key = silhouetteKey.current
+    let silhouetteChanged = key[32] !== window.innerWidth || key[33] !== window.innerHeight ||
+      key[34] !== currentQuat.current.x || key[35] !== currentQuat.current.y || key[36] !== currentQuat.current.z || key[37] !== currentQuat.current.w
+    for (let i = 0; i < 16 && !silhouetteChanged; i++) {
+      if (key[i] !== cam.projectionMatrix.elements[i] || key[16 + i] !== cam.matrixWorldInverse.elements[i]) silhouetteChanged = true
+    }
+    if (silhouetteChanged) {
+      key.set(cam.projectionMatrix.elements, 0)
+      key.set(cam.matrixWorldInverse.elements, 16)
+      key[32] = window.innerWidth; key[33] = window.innerHeight
+      key[34] = currentQuat.current.x; key[35] = currentQuat.current.y; key[36] = currentQuat.current.z; key[37] = currentQuat.current.w
       silhouetteStore.cx = window.innerWidth  / 2
       silhouetteStore.cy = window.innerHeight / 2
       const pts = silhouetteStore.pts

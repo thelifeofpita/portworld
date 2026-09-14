@@ -19,7 +19,7 @@ import { EASE_OUT } from '@/lib/motionEasing'
 import { aboutContent } from '@/content/aboutContent'
 import { projectsContent, type ProjectItem } from '@/content/projectsContent'
 const PlaygroundGallery = dynamic(() => import('./PlaygroundGallery'))
-import { CUSTOM_LAYOUTS } from './customLayouts'
+import { CUSTOM_LAYOUTS, prefetchCustomLayouts } from './customLayouts'
 import type { Zone } from '@/types'
 import styles from './MobilePage.module.css'
 
@@ -661,6 +661,10 @@ export default function MobilePage({ activeZone, onZoneChange, onZoneReset, onLo
   useEffect(() => {
     if (warming) return
     startMobileWarmup()
+    // Case-study page code, alongside the media warm-up above, so the first
+    // open of a project does not also download and parse its page.
+    const id = typeof requestIdleCallback === 'function' ? requestIdleCallback(prefetchCustomLayouts, { timeout: 5000 }) : window.setTimeout(prefetchCustomLayouts, 2000)
+    return () => { if (typeof cancelIdleCallback === 'function') cancelIdleCallback(id); else clearTimeout(id) }
   }, [warming])
 
   // PostProcessing.tsx's outer-glow passes (Projects' always-on glow, and

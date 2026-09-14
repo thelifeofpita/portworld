@@ -21,7 +21,7 @@ import { playgroundGlowStore } from '@/lib/playgroundGlowStore'
 import { bigProjectSlotStore } from '@/lib/bigProjectSlotStore'
 import { bigProjectExpandStore } from '@/lib/bigProjectExpandStore'
 import { cursorStore, ensureCursorTracking } from '@/lib/cursorStore'
-import { CUSTOM_LAYOUTS } from './customLayouts'
+import { CUSTOM_LAYOUTS, prefetchCustomLayouts } from './customLayouts'
 import ProjectThumbModel from '@/components/canvas/ProjectThumbModel'
 import { EASE_OUT } from '@/lib/motionEasing'
 import styles from './ContentPanel.module.css'
@@ -1155,6 +1155,14 @@ const ZONE_FADE_DURATION = 0.2
 const ZONE_PARALLAX = 2.2
 
 export default function ContentPanel({ activeZone, isContentMode, warming = false, onPrepared }: ContentPanelProps) {
+  // Case-study pages are fetched once the site is revealed and idle, rather
+  // than on the first click into a project.
+  useEffect(() => {
+    if (warming) return
+    const id = typeof requestIdleCallback === 'function' ? requestIdleCallback(prefetchCustomLayouts, { timeout: 5000 }) : window.setTimeout(prefetchCustomLayouts, 2000)
+    return () => { if (typeof cancelIdleCallback === 'function') cancelIdleCallback(id); else clearTimeout(id) }
+  }, [warming])
+
   const [visited, setVisited] = useState<Set<Zone>>(new Set([0, 2]))
   useEffect(() => { if (activeZone !== null) setVisited(old => old.has(activeZone) ? old : new Set([...old, activeZone])) }, [activeZone])
   const overlayRef        = useRef<HTMLDivElement>(null)
