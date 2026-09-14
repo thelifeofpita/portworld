@@ -1,0 +1,67 @@
+name: Deploy to GitHub Pages
+
+# Replaces the Netlify build hook. This repo is public, so Actions minutes are
+# free and unlimited — which is the actual reason for the move: Netlify silently
+# stopped creating deploys once the account ran out of build credits, so pushes
+# landed on main and never reached production.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: # lets you re-run a deploy from the Actions tab without an empty commit
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Never let two deploys race. `cancel-in-progress: false` so a queued deploy
+# finishes rather than being dropped — publishing is cheap, losing one isn't.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      # `npm ci` (not install) so the lockfile is authoritative and the build is
+      # reproducible.
+      - run: npm ci
+
+      # next.config.ts sets `output: "export"`, so this writes a fully static
+      # site to ./out — no Node runtime needed at serve time.
+      - run: npm run build
+
+      # GitHub Pages runs Jekyll over uploaded content by default, and Jekyll
+      # ignores every path beginning with an underscore — which would silently
+      # drop the whole ./_next directory (all JS, CSS and chunks). Without this
+      # the site deploys "successfully" and renders unstyled and broken.
+      - run: touch out/.nojekyll
+
+      # Custom domain. public/CNAME is copied into out/ by the build, but assert
+      # it rather than trust it: a missing CNAME makes Pages fall back to
+      # <user>.github.io and quietly drops thelifeofpita.com.
+      - name: Verify CNAME survived the build
+        run: test -f out/CNAME && cat out/CNAME
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: ./out
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
